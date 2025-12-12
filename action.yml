@@ -84,6 +84,7 @@ runs:
         set -euo pipefail
 
         RESPONSE_FILE="baseline-response.json"
+        BANTUU_BASE_URL="https://bantuu.io"
 
         echo "Consultando Bantuu em ${BANTUU_BASE_URL} para o repositório ${REPOSITORY_FULL_NAME}..."
 
@@ -164,6 +165,8 @@ runs:
           exit 1
         fi
 
+        BANTUU_BASE_URL="https://bantuu.io"
+
         echo "Montando payload para upload do baseline para o Bantuu..."
         payload=$(jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
           '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
@@ -199,3 +202,4 @@ runs:
         set -euo pipefail
 
         echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+

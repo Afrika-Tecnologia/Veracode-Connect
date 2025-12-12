@@ -17,7 +17,6 @@ Action para rodar o **Veracode Pipeline Scan** integrado com baseline vindo do *
 
 - Repositório usando GitHub Actions;
 - Secrets configurados no repositório:
-  - `BANTUU_BASE_URL`
   - `BANTUU_API_KEY`
   - `VERACODE_API_ID`
   - `VERACODE_API_KEY`
@@ -51,8 +50,6 @@ jobs:
 
       - name: Bantuu Veracode Baseline
         uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
-        env:
-          BANTUU_BASE_URL: ${{ secrets.BANTUU_BASE_URL }}
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
@@ -99,4 +96,3 @@ jobs:
 
 - `repository_full_name`  
   `org/repo` usado para consultar e enviar baseline ao Bantuu.
-

@@ -10,9 +10,9 @@ inputs:
     description: 'API Key usada no header X-API-Key do Bantuu (GET baseline e POST upload).'
     required: true
   bantuu_base_url:
-    description: 'Base URL do Bantuu (ex.: https://bantuu.io).'
+    description: 'Base URL do Bantuu (ex.: https://www.bantuu.io).'
     required: false
-    default: 'https://bantuu.io'
+    default: 'https://www.bantuu.io'
   veracode_api_id:
     description: 'ID da API do Veracode.'
     required: true
@@ -59,8 +59,6 @@ runs:
           exit 1
         fi
 
-        echo "Usando repositório: ${REPO}"
-
         echo "REPOSITORY_FULL_NAME=${REPO}" >> "$GITHUB_ENV"
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
 
@@ -71,11 +69,8 @@ runs:
         set -euo pipefail
 
         if ! command -v jq >/dev/null 2>&1; then
-          echo "jq não encontrado, instalando..."
           sudo apt-get update -y
           sudo apt-get install -y jq
-        else
-          echo "jq já está instalado."
         fi
 
     - name: Check baseline from Bantuu
@@ -89,23 +84,17 @@ runs:
         set -euo pipefail
 
         RESPONSE_FILE="baseline-response.json"
-        BANTUU_BASE_URL="${BANTUU_BASE_URL:-https://bantuu.io}"
-
-        echo "Consultando Bantuu em ${BANTUU_BASE_URL} para o repositório ${REPOSITORY_FULL_NAME}..."
+        BANTUU_BASE_URL="${BANTUU_BASE_URL:-https://www.bantuu.io}"
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPOSITORY_FULL_NAME}")
 
-        echo "Status HTTP da consulta Bantuu: ${HTTP_STATUS}"
-
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "Aviso: falha ao consultar baseline no Bantuu (status ${HTTP_STATUS}). Assumindo que não há baseline."
           echo '{}' > "${RESPONSE_FILE}"
         fi
 
         if [ ! -s "${RESPONSE_FILE}" ]; then
-          echo "Resposta vazia do Bantuu, assumindo que não há baseline."
           echo '{}' > "${RESPONSE_FILE}"
         fi
 
@@ -127,7 +116,6 @@ runs:
         set -euo pipefail
 
         jq '.results' baseline-response.json > baseline.json
-        echo "Arquivo baseline.json criado a partir do baseline retornado pelo Bantuu."
 
     - name: Run Veracode Pipeline Scan with baseline
       id: pipeline_with_baseline
@@ -171,22 +159,19 @@ runs:
           exit 1
         fi
 
-        BANTUU_BASE_URL="${BANTUU_BASE_URL:-https://bantuu.io}"
+        BANTUU_BASE_URL="${BANTUU_BASE_URL:-https://www.bantuu.io}"
 
-        echo "Montando payload para upload do baseline para o Bantuu..."
         payload=$(jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
           '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
 
-        echo "Enviando baseline para Bantuu em ${BANTUU_BASE_URL}..."
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
           -X POST "${BANTUU_BASE_URL}/api/veracode/stock-issues/upload" \
           -H "Content-Type: application/json" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           -d "${payload}")
 
-        echo "Status HTTP do upload para Bantuu: ${HTTP_STATUS}"
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "Erro ao enviar baseline para Bantuu. Verifique as credenciais e o payload." >&2
+          echo "Erro ao enviar baseline para Bantuu. Verifique as credenciais." >&2
           cat /tmp/bantuu-upload-response.txt || true
           exit 1
         fi

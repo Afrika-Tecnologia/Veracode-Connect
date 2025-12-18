@@ -23,4 +23,3 @@ Inclua, se possível:
 - Qualquer contexto adicional (tipo de repositório, linguagem, etc.).
 
 Os mantenedores avaliarão o relato, responderão assim que possível e, se necessário, publicarão uma correção e um release com as devidas notas.
-

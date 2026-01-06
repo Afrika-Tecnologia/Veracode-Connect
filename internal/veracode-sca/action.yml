@@ -22,8 +22,6 @@ runs:
           exit 1
         fi
 
-        echo "Disparando Veracode SCA em background..." >&2
-
         (
           curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan
         ) > veracode_sca.log 2>&1 &

@@ -29,23 +29,17 @@ runs:
 
         if [ "${ENABLE}" = "true" ]; then
           if ! command -v veracode >/dev/null 2>&1; then
-            echo "Instalando Veracode CLI..." >&2
             curl -fsS https://tools.veracode.com/veracode-cli/install | sh
           fi
 
-          echo "Veracode CLI instalada. Versao:" >&2
           veracode --version || true
 
-          echo "Rodando 'veracode package discover' (melhor para .NET/Maven; ignorado se nao suportado)..." >&2
           veracode package discover || true
-
-          echo "Executando Auto Packager padrao: veracode package" >&2
           PACKAGE_OUTPUT="$(bash -lc "veracode package" 2>&1 | tee veracode_package.log)"
 
           ZIP_FILE="$(printf '%s\n' "${PACKAGE_OUTPUT}" | sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' | tail -n 1 || true)"
 
           if [ -z "${ZIP_FILE:-}" ]; then
-            echo "Aviso: nao foi possivel extrair o nome do pacote do output da CLI. Tentando localizar arquivos ZIP..." >&2
             shopt -s nullglob
             zips=( veracode-artifact-*.zip )
             if [ ${#zips[@]} -eq 0 ]; then
@@ -84,4 +78,3 @@ runs:
 
           echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
         fi
-

@@ -27,11 +27,8 @@ runs:
         fi
 
         if ! command -v veracode >/dev/null 2>&1; then
-          echo "Instalando Veracode CLI para IaC Scan..." >&2
           curl -fsS https://tools.veracode.com/veracode-cli/install | sh
         fi
-
-        echo "Disparando Veracode IaC Scan em background..." >&2
 
         (
           veracode iac scan --vid "${VERACODE_API_ID}" --vkey "${VERACODE_API_KEY}" --source .

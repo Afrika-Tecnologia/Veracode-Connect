@@ -33,9 +33,7 @@ jobs:
           # Opcional: aplicado apenas quando houver baseline
           # fail_on_severity: 'Very High, High'
 
-      - name: Exibir outputs do Bantuu Veracode Baseline
-        run: |
-          echo "Has baseline? ${{ steps.bantuu_veracode_baseline.outputs.has_baseline }}"
-          echo "Pipeline status: ${{ steps.bantuu_veracode_baseline.outputs.pipeline_status }}"
-          echo "Repo Bantuu: ${{ steps.bantuu_veracode_baseline.outputs.repository_full_name }}"
-
+      # Outputs disponíveis no step `bantuu_veracode_baseline`:
+      # - steps.bantuu_veracode_baseline.outputs.has_baseline
+      # - steps.bantuu_veracode_baseline.outputs.pipeline_status
+      # - steps.bantuu_veracode_baseline.outputs.repository_full_name

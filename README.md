@@ -42,7 +42,7 @@ Este repositório é orientado por exemplos. Use o guia abaixo para escolher o w
 - `enable_auto_packager` – Ativa/desativa o uso do Veracode Auto Packager (comando padrão `veracode package`).
 - `veracode_api_id` – ID da API do Veracode.
 - `veracode_api_key` – Key da API do Veracode.
-- `veracode_appname` – Nome do aplicativo no Veracode (default: org/repo do GitHub).
+- `veracode_appname` – Nome do aplicativo no Veracode (default: org/repo do GitHub resolvido em `repository_full_name` pelo step de resolve-repo).
 - `veracode_sandbox` – Define se o Upload & Scan usa sandbox (`'true'`) ou o app principal (`'false'`).
 - `scan_file` – Caminho do artefato `.zip` já empacotado (usado quando o auto packager está desativado).
 - `policy_fail` – Define se o scan deve quebrar o build por policy (`'true'`/`'false'`).
@@ -63,4 +63,3 @@ Os parâmetros e comportamentos completos da Action estão documentados em:
 ## Créditos
 
 Esta Action foi criada e é mantida por [@JuanCunhaa](https://github.com/JuanCunhaa).
-

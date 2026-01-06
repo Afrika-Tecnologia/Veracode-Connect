@@ -140,7 +140,6 @@ runs:
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
-        veracode_appname: ${{ inputs.veracode_appname }}
+        veracode_appname: ${{ inputs.veracode_appname || steps.resolve_repo.outputs.repository_full_name }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
-

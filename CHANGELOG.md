@@ -6,6 +6,16 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ## [Unreleased]
 
+- Nenhuma mudança registrada ainda.
+
+## [1.0.6] - 2026-01-06
+
+- Atualizar o endpoint do Veracode SCA para `https://sca-downloads.veracode.com/ci.sh` (em vez do endpoint legado).
+- Adicionar input `scantimeout` ao Upload & Scan com default `0`, permitindo disparar o scan sem aguardar a conclusão para não prolongar a pipeline.
+- Alinhar o `veracode_appname` do Upload & Scan com o `repository_full_name` resolvido por `internal/resolve-repo` quando o input não é informado explicitamente.
+
+## [1.0.5] - 2026-01-06
+
 - Adicionado input `enable_baseline` para ativar/desativar o uso do baseline do Bantuu.
 - Modularização da Action em sub-actions internas (`internal/resolve-repo`, `internal/bantuu-baseline-flow`, `internal/pipeline-only`, `internal/auto-packager`).
 - Suporte ao **Veracode Auto Packager** via `enable_auto_packager`, usando a CLI padrão (`veracode package discover` + `veracode package`) para gerar o artefato `.zip` do Pipeline Scan.
@@ -38,4 +48,3 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 - Versão inicial da Action **Bantuu Veracode Baseline**.
 - Integração com Veracode Pipeline Scan.
 - Consulta e criação de baseline no Bantuu a partir do `results.json`.
-

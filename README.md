@@ -4,6 +4,12 @@ Uma GitHub Action **facilitadora para implementar o Veracode no seu repositório
 
 Ela combina (no mesmo fluxo) Pipeline Scan, Upload & Scan (static), e opcionalmente SCA e IaC/Secrets.
 
+Uso (exemplo rapido):
+
+```yml
+- uses: JuanCunhaa/Veracode-Integration-Helper@v1
+```
+
 ## Fluxo (ordem dos steps)
 
 1) (Opcional) Veracode SCA (`enable_sca: 'true'`)
@@ -68,7 +74,7 @@ Para vincular o app (nome `org/repo`) a uma BU após o Upload & Scan:
 - não espera o scan finalizar (`scantimeout: 0`)
 - sempre ativa: `scanallnonfataltoplevelmodules`, `includenewmodules`, `deleteincompletescan: 2`
 - `sandboxname` (quando `veracode_sandbox: 'true'`): `{branch}-{org-repo}`
-- `version`: `Scan from Bantuu Actions: <repo_url> - <run_id>-<run_number>-<run_attempt>`
+- `version`: `Scan from Veracode Integration Helper: <repo_url> - <run_id>-<run_number>-<run_attempt>`
 
 ## Exemplos
 
@@ -130,3 +136,4 @@ Escolha um exemplo e copie para `.github/workflows/`.
 - Pipeline Scan + SCA (auto packager) → [abrir](examples/pipeline-only-with-sca.yml)
 - Pipeline Scan + IaC (auto packager) → [abrir](examples/pipeline-only-with-iac.yml)
 - Pipeline Scan + SCA + IaC (auto packager) → [abrir](examples/pipeline-only-with-sca-iac.yml)
+

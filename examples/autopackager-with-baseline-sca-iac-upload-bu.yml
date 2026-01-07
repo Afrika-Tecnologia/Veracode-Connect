@@ -15,8 +15,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Bantuu Veracode Baseline (full + BU)
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+      - name: Veracode Integration Helper (full + BU)
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
@@ -31,3 +31,4 @@ jobs:
           enable_iac: 'true'
           enable_Business_unit: 'true'
           veracode_business_unit: 'BU TI'
+

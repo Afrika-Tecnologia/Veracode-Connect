@@ -43,7 +43,7 @@ jobs:
           path: veracode-artifact
 
       - name: Pipeline Scan (scan_file)
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -51,4 +51,5 @@ jobs:
           scan_file: veracode-artifact/app.zip
           enable_baseline: 'false'
           policy_fail: 'false'
+
 

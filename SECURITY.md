@@ -10,7 +10,7 @@ Versões suportadas:
 
 ## Reportando vulnerabilidades
 
-Se você encontrar uma vulnerabilidade ou comportamento de segurança inesperado relacionado à Action **Bantuu Veracode Baseline**:
+Se você encontrar uma vulnerabilidade ou comportamento de segurança inesperado relacionado à Action **Veracode Integration Helper**:
 
 - Não abra uma issue pública com detalhes sensíveis.
 - Use o fluxo de **GitHub Security Advisories** no repositório ou entre em contato de forma privada com os mantenedores do projeto.

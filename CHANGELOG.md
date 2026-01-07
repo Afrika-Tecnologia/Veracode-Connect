@@ -8,6 +8,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.24] - 2026-01-07
+
+### Changed
+
+- Renomeia a action para **Veracode Integration Helper** e atualiza a documentacao/exemplos para usar `JuanCunhaa/Veracode-Integration-Helper@v1`.
+- Atualiza a string de `version` usada no Upload & Scan.
+
 ## [1.0.23] - 2026-01-07
 
 ### Changed
@@ -117,6 +124,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Added
 
-- Versao inicial da Action Bantuu Veracode Baseline.
+- Versao inicial da Action Veracode Integration Helper.
 - Integracao com Veracode Pipeline Scan.
 - Consulta e criacao de baseline no Bantuu a partir do `results.json`.
+

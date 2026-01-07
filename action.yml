@@ -1,6 +1,6 @@
-name: 'Bantuu Veracode Baseline'
-description: 'Executa o Veracode Pipeline Scan opcionalmente integrado ao baseline do Bantuu.'
-author: 'Afrika Tecnologia / JuanCunhaa'
+name: 'Veracode Integration Helper'
+description: 'Orquestra integracoes do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu.'
+author: 'JuanCunhaa'
 branding:
   icon: 'shield'
   color: 'purple'
@@ -582,7 +582,7 @@ runs:
         appname: ${{ steps.resolve_repo.outputs.repository_full_name }}
         createprofile: true
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
-        version: 'Scan from Bantuu Actions: ${{ github.server_url }}/${{ steps.resolve_repo.outputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        version: 'Scan from Veracode Integration Helper: ${{ github.server_url }}/${{ steps.resolve_repo.outputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         createsandbox: ${{ inputs.veracode_sandbox }}

@@ -48,7 +48,7 @@ Todos os booleans devem ser passados como string: `'true'` / `'false'`.
 - Auto Packager: `app.zip` (quando ativo) e `veracode_package.log`
 - Pipeline Scan: `results.json`
 - Baseline Bantuu: `baseline-response.json` e (se existir baseline) `baseline.json`
-- Background: `veracode_sca.log` e `veracode_iac.log`
+- Background: `veracode_sca.log` e `veracode_iac.log` (os tails desses logs tambem aparecem no console no fim do job)
 
 ## Upload & Scan (static) - comportamento fixo
 

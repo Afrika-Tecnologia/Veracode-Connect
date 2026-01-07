@@ -88,6 +88,7 @@ runs:
         (
           curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan
         ) > veracode_sca.log 2>&1 &
+        echo "$!" > veracode_sca.pid
 
     - name: Run Veracode IaC Scan (background)
       id: veracode_iac
@@ -125,6 +126,7 @@ runs:
         (
           "${VERACODE_CMD}" iac scan --vid "${VERACODE_API_ID}" --vkey "${VERACODE_API_KEY}" --source .
         ) > veracode_iac.log 2>&1 &
+        echo "$!" > veracode_iac.pid
 
     - name: Prepare scan file (auto packager)
       id: prepare_scan_file
@@ -464,6 +466,59 @@ runs:
         fi
 
         echo "sandbox_name=${sandbox_name}" >> "$GITHUB_OUTPUT"
+
+    - name: Show SCA/IaC logs
+      id: show_background_logs
+      if: ${{ always() }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        wait_for_pid() {
+          local pid_file="$1"
+          local timeout_seconds="${2:-20}"
+
+          if [ ! -f "${pid_file}" ]; then
+            return 0
+          fi
+
+          local pid
+          pid="$(cat "${pid_file}" 2>/dev/null || true)"
+          if [ -z "${pid}" ]; then
+            return 0
+          fi
+
+          if kill -0 "${pid}" 2>/dev/null; then
+            echo "Background process ${pid} ainda em execucao; aguardando ate ${timeout_seconds}s para finalizar..."
+            timeout "${timeout_seconds}" bash -lc "while kill -0 '${pid}' 2>/dev/null; do sleep 1; done" || true
+          fi
+        }
+
+        show_tail() {
+          local title="$1"
+          local log_file="$2"
+          local pid_file="$3"
+
+          echo ""
+          echo "==================== ${title} ===================="
+          if [ ! -f "${log_file}" ]; then
+            echo "Log nao encontrado: ${log_file}"
+            return 0
+          fi
+
+          wait_for_pid "${pid_file}" 20
+
+          echo "---- tail (${log_file}) ----"
+          tail -n 200 "${log_file}" || true
+        }
+
+        if [ "${{ inputs.enable_sca }}" = "true" ]; then
+          show_tail "Veracode SCA (background)" "veracode_sca.log" "veracode_sca.pid"
+        fi
+
+        if [ "${{ inputs.enable_iac }}" = "true" ]; then
+          show_tail "Veracode IaC (background)" "veracode_iac.log" "veracode_iac.pid"
+        fi
 
     - name: Veracode Upload & Scan (static)
       id: upload_and_scan

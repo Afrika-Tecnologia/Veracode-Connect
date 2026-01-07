@@ -8,6 +8,11 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.13] - 2026-01-07
+
+### Changed
+- SCA/IaC: imprime no console (no fim do job) o tail de `veracode_sca.log` e `veracode_iac.log` para facilitar debug.
+
 ## [1.0.12] - 2026-01-07
 
 ### Fixed

@@ -8,6 +8,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.25] - 2026-01-07
+
+### Changed
+
+- Atualiza `README.md`, `SECURITY.md` e `LICENSE` para o novo nome do projeto e informacoes do mantenedor.
+- Workflow de release: atualiza o nome do release para **Veracode Integration Helper**.
+
 ## [1.0.24] - 2026-01-07
 
 ### Changed
@@ -19,20 +26,20 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Changed
 
-- Auto Packager: corrige chamada da Veracode CLI adicionando `--source .` (e `--type directory`) no `veracode package`, evitando falha imediata por flag obrigatória ausente.
+- Auto Packager: corrige chamada da Veracode CLI adicionando `--source .` (e `--type directory`) no `veracode package`, evitando falha imediata por flag obrigatoria ausente.
 
 ## [1.0.22] - 2026-01-07
 
 ### Changed
 
-- Input de BU renomeado para `enable_Business_unit` (mantém compatibilidade com `enable_set_business_unit`).
+- Input de BU renomeado para `enable_Business_unit` (mantem compatibilidade com `enable_set_business_unit`).
 
 ## [1.0.20] - 2026-01-07
 
 ### Added
 
-- Link opcional do application profile a uma Business Unit (BU) via REST (HMAC), executado após o Upload & Scan.
-- Nota: a Veracode suporta apenas 1 BU por aplicação (se for informado mais de um valor, a action falha).
+- Link opcional do application profile a uma Business Unit (BU) via REST (HMAC), executado apos o Upload & Scan.
+- Nota: a Veracode suporta apenas 1 BU por aplicacao (se for informado mais de um valor, a action falha).
 
 ## [1.0.19] - 2026-01-07
 

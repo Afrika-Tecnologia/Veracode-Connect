@@ -54,5 +54,3 @@ jobs:
           enable_upload_scan: 'true'
           veracode_sandbox: 'false'
           policy_fail: 'false'
-
-

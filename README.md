@@ -14,8 +14,6 @@ Ela combina (no mesmo fluxo) Pipeline Scan, Upload & Scan (static), e opcionalme
 4) (Opcional) Pipeline Scan (`enable_pipelinescan: 'true'`) com ou sem baseline Bantuu (`enable_baseline`)
 5) (Opcional) Upload & Scan (static) por último (`enable_upload_scan: 'true'`)
 
-Os logs ficam agrupados no console (`::group::/::endgroup::`) para facilitar navegação.
-
 ## Inputs
 
 Todos os booleanos devem ser passados como string: `'true'` / `'false'`.

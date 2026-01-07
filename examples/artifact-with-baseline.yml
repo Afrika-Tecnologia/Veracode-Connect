@@ -52,7 +52,4 @@ jobs:
           scan_file: veracode-artifact/app.zip
           enable_baseline: 'true'
           policy_fail: 'false'
-          # Opcional (aplicado apenas quando houver baseline):
-          # fail_on_severity: 'Very High, High'
-
 

@@ -57,14 +57,6 @@ inputs:
     description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
 
-  enable_set_business_units:
-    description: 'Ativa/desativa o vinculo automatico do app a uma Business Unit via REST (true/false).'
-    required: false
-    default: 'false'
-  veracode_business_units:
-    description: 'Lista de Business Units (separadas por virgula), ex.: "BU TI, BU MKT, ENEL".'
-    required: false
-    default: ''
   enable_set_business_unit:
     description: 'Ativa/desativa o vinculo automatico do app a UMA Business Unit via REST (true/false).'
     required: false
@@ -89,18 +81,6 @@ outputs:
     description: 'Repositório org/repo usado para consultar e enviar baseline ao Bantuu.'
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
 
-  set_bu_primary_name:
-    description: 'Nome da BU primaria aplicada ao app.'
-    value: ${{ steps.set_business_unit.outputs.set_bu_primary_name || '' }}
-  set_bu_primary_guid:
-    description: 'GUID da BU primaria aplicada ao app.'
-    value: ${{ steps.set_business_unit.outputs.set_bu_primary_guid || '' }}
-  set_bu_status:
-    description: 'Status do passo de vinculo de BU (skipped | success | failed).'
-    value: ${{ steps.set_business_unit.outputs.set_bu_status || 'skipped' }}
-  set_bu_extras:
-    description: 'BUs extras normalizadas (JSON array em string).'
-    value: ${{ steps.set_business_unit.outputs.set_bu_extras || '[]' }}
   business_unit_name:
     description: 'Nome da Business Unit aplicada (alias).'
     value: ${{ steps.set_business_unit.outputs.business_unit_name || '' }}
@@ -594,14 +574,12 @@ runs:
 
     - name: Set Veracode Business Unit (REST)
       id: set_business_unit
-      if: inputs.enable_Business_unit == 'true' || inputs.enable_set_business_unit == 'true' || inputs.enable_set_business_units == 'true'
+      if: inputs.enable_Business_unit == 'true' || inputs.enable_set_business_unit == 'true'
       shell: bash
       env:
         ENABLE_BUSINESS_UNIT: ${{ inputs.enable_Business_unit }}
         ENABLE_SET_BUSINESS_UNIT: ${{ inputs.enable_set_business_unit }}
         VERACODE_BUSINESS_UNIT: ${{ inputs.veracode_business_unit }}
-        ENABLE_SET_BUSINESS_UNITS: ${{ inputs.enable_set_business_units }}
-        VERACODE_BUSINESS_UNITS: ${{ inputs.veracode_business_units }}
         VERACODE_API_ID: ${{ inputs.veracode_api_id }}
         VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
         VERACODE_API_HOST: api.veracode.com

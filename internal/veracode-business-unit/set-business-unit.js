@@ -34,7 +34,7 @@ function hmacSha256(data, key) {
 function buildVeracodeAuthHeader({ apiId, apiKeyHex, host, urlPathWithQuery, method }) {
   const requestVersion = "vcode_request_version_1";
 
-  const nonceBytes = crypto.randomBytes(16); // 128 bits
+  const nonceBytes = crypto.randomBytes(16);
   const nonceHex = nonceBytes.toString("hex").toUpperCase();
   const ts = Date.now().toString();
 
@@ -218,13 +218,9 @@ async function findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName }) {
 async function main() {
   const enable =
     (process.env.ENABLE_BUSINESS_UNIT || "false").toLowerCase() === "true" ||
-    (process.env.ENABLE_SET_BUSINESS_UNIT || "false").toLowerCase() === "true" ||
-    (process.env.ENABLE_SET_BUSINESS_UNITS || "false").toLowerCase() === "true";
+    (process.env.ENABLE_SET_BUSINESS_UNIT || "false").toLowerCase() === "true";
 
-  const rawBusinessUnit =
-    process.env.VERACODE_BUSINESS_UNIT ||
-    process.env.VERACODE_BUSINESS_UNITS ||
-    "";
+  const rawBusinessUnit = process.env.VERACODE_BUSINESS_UNIT || "";
 
   const apiId = process.env.VERACODE_API_ID || "";
   const apiKeyHex = process.env.VERACODE_API_KEY || "";
@@ -238,11 +234,6 @@ async function main() {
   setOutput("business_unit_name", "");
   setOutput("business_unit_guid", "");
 
-  setOutput("set_bu_status", "skipped");
-  setOutput("set_bu_primary_name", "");
-  setOutput("set_bu_primary_guid", "");
-  setOutput("set_bu_extras", "[]");
-
   if (!enable) {
     return;
   }
@@ -252,7 +243,7 @@ async function main() {
   const businessUnit = normalizeSpaces(rawBusinessUnit || "");
 
   if (!businessUnit) {
-    warning("enable_set_business_unit=true, mas veracode_business_unit esta vazio. Pulando.");
+    warning("enable_Business_unit=true, mas veracode_business_unit esta vazio. Pulando.");
     logGroupEnd();
     return;
   }
@@ -274,7 +265,7 @@ async function main() {
   if (!uploadEnabled) {
     logGroupEnd();
     throw new Error(
-      "enable_set_business_unit=true exige enable_upload_scan=true, pois o vinculo deve rodar somente apos o Upload & Scan (createprofile=true).",
+      "enable_Business_unit=true exige enable_upload_scan=true, pois o vinculo deve rodar somente apos o Upload & Scan (createprofile=true).",
     );
   }
 
@@ -287,7 +278,6 @@ async function main() {
 
   if (businessUnit.includes(",")) {
     setOutput("set_business_unit_status", "failed");
-    setOutput("set_bu_status", "failed");
     logGroupEnd();
     throw new Error("Veracode permite apenas uma Business Unit por aplicacao. Informe apenas uma BU.");
   }
@@ -299,8 +289,6 @@ async function main() {
   }
 
   setOutput("business_unit_name", businessUnit);
-  setOutput("set_bu_primary_name", businessUnit);
-  setOutput("set_bu_extras", "[]");
 
   process.stdout.write(`Setting Business Unit '${businessUnit}' for application '${appName}'\n`);
   process.stdout.write(`Host: ${host}\n`);
@@ -308,18 +296,15 @@ async function main() {
   const buGuid = await findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName: businessUnit });
   if (!buGuid) {
     setOutput("set_business_unit_status", "failed");
-    setOutput("set_bu_status", "failed");
     logGroupEnd();
     throw new Error(`BU '${businessUnit}' nao existe ou nao foi localizada via Identity API.`);
   }
   setOutput("business_unit_guid", buGuid);
-  setOutput("set_bu_primary_guid", buGuid);
   process.stdout.write(`Business Unit GUID resolved: ${buGuid}\n`);
 
   const appGuid = await findAppGuidByName({ apiId, apiKeyHex, host, appName });
   if (!appGuid) {
     setOutput("set_business_unit_status", "failed");
-    setOutput("set_bu_status", "failed");
     logGroupEnd();
     throw new Error(
       `Aplicacao '${appName}' nao foi localizada via Applications API. Verifique se o Upload & Scan criou o profile (createprofile=true) e se o nome confere.`,
@@ -336,7 +321,7 @@ async function main() {
   });
 
   if (!app || typeof app !== "object") {
-    setOutput("set_bu_status", "failed");
+    setOutput("set_business_unit_status", "failed");
     logGroupEnd();
     throw new Error("Falha ao obter o application profile completo (GET).");
   }
@@ -370,7 +355,6 @@ async function main() {
   });
 
   setOutput("set_business_unit_status", "success");
-  setOutput("set_bu_status", "success");
   process.stdout.write("Application profile updated successfully\n");
   logGroupEnd();
 }
@@ -378,7 +362,6 @@ async function main() {
 main().catch((err) => {
   if (process.env.GITHUB_OUTPUT) {
     setOutput("set_business_unit_status", "failed");
-    setOutput("set_bu_status", "failed");
   }
   process.stderr.write(`${err?.message || String(err)}\n`);
   process.exit(1);

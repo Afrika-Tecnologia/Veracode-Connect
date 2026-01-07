@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.26] - 2026-01-07
+
+### Changed
+
+- Remove comentarios nos exemplos e simplifica o modulo de Business Unit para suportar apenas BU unica (remove inputs/outputs legados de lista).
+
 ## [1.0.25] - 2026-01-07
 
 ### Changed

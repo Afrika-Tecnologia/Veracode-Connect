@@ -25,11 +25,3 @@ jobs:
           enable_auto_packager: 'true'
           enable_baseline: 'true'
           policy_fail: 'false'
-          # Opcional: aplicado apenas quando houver baseline
-          # fail_on_severity: 'Very High, High'
-
-      # Outputs disponíveis no step `bantuu_veracode_baseline`:
-      # - steps.bantuu_veracode_baseline.outputs.has_baseline
-      # - steps.bantuu_veracode_baseline.outputs.pipeline_status
-      # - steps.bantuu_veracode_baseline.outputs.repository_full_name
-

@@ -60,10 +60,10 @@ inputs:
 outputs:
   has_baseline:
     description: 'true/false indicando se o Bantuu possui baseline para o repositório.'
-    value: ${{ steps.bantuu_baseline_flow.outputs.has_baseline || 'false' }}
+    value: ${{ steps.check_baseline.outputs.has_baseline || 'false' }}
   pipeline_status:
     description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload), apenas scan ou pipeline desativado.'
-    value: ${{ steps.bantuu_baseline_flow.outputs.pipeline_status || steps.pipeline_without_bantuu.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
+    value: ${{ steps.pipeline_status_with_baseline.outputs.pipeline_status || steps.pipeline_status_without_baseline.outputs.pipeline_status || steps.pipeline_status_without_bantuu.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
   repository_full_name:
     description: 'Repositório org/repo usado para consultar e enviar baseline ao Bantuu.'
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
@@ -74,51 +74,271 @@ runs:
     - name: Run Veracode SCA (background)
       id: veracode_sca
       if: inputs.enable_sca == 'true'
-      uses: ./internal/veracode-sca
-      with:
-        veracode_sca_token: ${{ inputs.veracode_sca_token }}
+      shell: bash
+      env:
+        SRCCLR_API_TOKEN: ${{ inputs.veracode_sca_token }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${SRCCLR_API_TOKEN:-}" ]; then
+          echo "Erro: veracode_sca_token nao foi fornecido." >&2
+          exit 1
+        fi
+
+        (
+          curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan
+        ) > veracode_sca.log 2>&1 &
 
     - name: Run Veracode IaC Scan (background)
       id: veracode_iac
       if: inputs.enable_iac == 'true'
-      uses: ./internal/veracode-iac
-      with:
-        veracode_api_id: ${{ inputs.veracode_api_id }}
-        veracode_api_key: ${{ inputs.veracode_api_key }}
+      shell: bash
+      env:
+        VERACODE_API_ID: ${{ inputs.veracode_api_id }}
+        VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${VERACODE_API_ID:-}" ] || [ -z "${VERACODE_API_KEY:-}" ]; then
+          echo "Erro: veracode_api_id ou veracode_api_key nao foram fornecidos para o IaC Scan." >&2
+          exit 1
+        fi
+
+        if ! command -v veracode >/dev/null 2>&1; then
+          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+        fi
+
+        (
+          veracode iac scan --vid "${VERACODE_API_ID}" --vkey "${VERACODE_API_KEY}" --source .
+        ) > veracode_iac.log 2>&1 &
 
     - name: Prepare scan file (auto packager)
       id: prepare_scan_file
-      uses: ./internal/auto-packager
-      with:
-        enable_auto_packager: ${{ inputs.enable_auto_packager }}
-        scan_file: ${{ inputs.scan_file }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        ENABLE="${{ inputs.enable_auto_packager }}"
+        INPUT_SCAN_FILE="${{ inputs.scan_file }}"
+
+        if [ "${ENABLE}" = "true" ]; then
+          if ! command -v veracode >/dev/null 2>&1; then
+            curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+          fi
+
+          veracode --version || true
+
+          veracode package discover || true
+          PACKAGE_OUTPUT="$(bash -lc "veracode package" 2>&1 | tee veracode_package.log)"
+
+          ZIP_FILE="$(printf '%s\n' "${PACKAGE_OUTPUT}" | sed -n 's/.*Package created: \\([^[:space:]]\\+\\).*/\\1/p' | tail -n 1 || true)"
+
+          if [ -z "${ZIP_FILE:-}" ]; then
+            shopt -s nullglob
+            zips=( veracode-artifact-*.zip )
+            if [ ${#zips[@]} -eq 0 ]; then
+              zips=( *.zip )
+            fi
+            shopt -u nullglob
+            if [ ${#zips[@]} -eq 0 ]; then
+              echo "Erro: nenhum arquivo .zip gerado pela Veracode CLI (Auto Packager)." >&2
+              exit 1
+            fi
+            ZIP_FILE="${zips[0]}"
+          fi
+
+          if [ ! -f "${ZIP_FILE}" ]; then
+            echo "Erro: arquivo '${ZIP_FILE}' nao encontrado apos o Auto Packager." >&2
+            exit 1
+          fi
+
+          TARGET="app.zip"
+
+          if [ "${TARGET}" != "${ZIP_FILE}" ]; then
+            cp "${ZIP_FILE}" "${TARGET}"
+          fi
+
+          echo "scan_file=${TARGET}" >> "$GITHUB_OUTPUT"
+        else
+          if [ -z "${INPUT_SCAN_FILE}" ]; then
+            echo "Erro: scan_file nao foi fornecido e enable_auto_packager esta 'false'." >&2
+            exit 1
+          fi
+
+          if [ ! -f "${INPUT_SCAN_FILE}" ]; then
+            echo "Erro: arquivo '${INPUT_SCAN_FILE}' nao encontrado." >&2
+            exit 1
+          fi
+
+          echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Resolve repository full name
       id: resolve_repo
-      uses: ./internal/resolve-repo
+      shell: bash
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
 
-    - name: Run Veracode Pipeline Scan with Bantuu baseline
-      id: bantuu_baseline_flow
+        REPO="${GITHUB_REPOSITORY:-}"
+        if [ -z "${REPO}" ]; then
+          echo "Erro: github.repository nao esta definido no contexto." >&2
+          exit 1
+        fi
+
+        echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
+
+    - name: Ensure jq is installed (baseline flow)
+      id: ensure_jq
       if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true'
-      uses: ./internal/bantuu-baseline-flow
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if ! command -v jq >/dev/null 2>&1; then
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+        fi
+
+    - name: Check baseline from Bantuu
+      id: check_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true'
+      shell: bash
+      env:
+        BANTUU_API_KEY: ${{ inputs.bantuu_api_key }}
+        REPOSITORY_FULL_NAME: ${{ steps.resolve_repo.outputs.repository_full_name }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${BANTUU_API_KEY:-}" ]; then
+          echo "Erro: bantuu_api_key nao foi fornecida." >&2
+          exit 1
+        fi
+
+        RESPONSE_FILE="baseline-response.json"
+        BANTUU_BASE_URL="https://www.bantuu.io"
+
+        HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
+          -H "X-API-Key: ${BANTUU_API_KEY}" \
+          "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPOSITORY_FULL_NAME}")
+
+        if [ "${HTTP_STATUS}" -ge 400 ]; then
+          echo '{}' > "${RESPONSE_FILE}"
+        fi
+
+        if [ ! -s "${RESPONSE_FILE}" ]; then
+          echo '{}' > "${RESPONSE_FILE}"
+        fi
+
+        HAS_BASELINE=$(jq -r '.hasBaseline // false' "${RESPONSE_FILE}")
+        if [ "${HAS_BASELINE}" != "true" ]; then
+          HAS_BASELINE="false"
+        fi
+
+        echo "has_baseline=${HAS_BASELINE}" >> "$GITHUB_OUTPUT"
+
+    - name: Create local baseline file from Bantuu
+      id: create_local_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        jq '.results' baseline-response.json > baseline.json
+
+    - name: Run Veracode Pipeline Scan with baseline
+      id: pipeline_with_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'true'
+      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
       with:
-        bantuu_api_key: ${{ inputs.bantuu_api_key }}
-        repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
-        veracode_api_id: ${{ inputs.veracode_api_id }}
-        veracode_api_key: ${{ inputs.veracode_api_key }}
-        scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
-        policy_fail: ${{ inputs.policy_fail }}
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        baseline_file: 'baseline.json'
+        fail_build: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
+        json_output: 'true'
+        json_output_file: 'results.json'
+
+    - name: Run Veracode Pipeline Scan without baseline (Bantuu enabled)
+      id: pipeline_without_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'false'
+      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        fail_build: ${{ inputs.policy_fail }}
+        json_output: 'true'
+        json_output_file: 'results.json'
+
+    - name: Upload new baseline results to Bantuu
+      id: upload_results
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'false'
+      shell: bash
+      env:
+        BANTUU_API_KEY: ${{ inputs.bantuu_api_key }}
+        REPOSITORY_FULL_NAME: ${{ steps.resolve_repo.outputs.repository_full_name }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "results.json" ]; then
+          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          exit 1
+        fi
+
+        BANTUU_BASE_URL="https://www.bantuu.io"
+
+        payload=$(jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
+          '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
+
+        HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
+          -X POST "${BANTUU_BASE_URL}/api/veracode/stock-issues/upload" \
+          -H "Content-Type: application/json" \
+          -H "X-API-Key: ${BANTUU_API_KEY}" \
+          -d "${payload}")
+
+        if [ "${HTTP_STATUS}" -ge 400 ]; then
+          echo "Erro ao enviar baseline para Bantuu. Verifique as credenciais." >&2
+          cat /tmp/bantuu-upload-response.txt || true
+          exit 1
+        fi
+
+    - name: Set pipeline status output (with baseline)
+      id: pipeline_status_with_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
+
+    - name: Set pipeline status output (without baseline and uploaded)
+      id: pipeline_status_without_baseline
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true' && steps.check_baseline.outputs.has_baseline == 'false'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
 
     - name: Run Veracode Pipeline Scan without Bantuu
       id: pipeline_without_bantuu
       if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline != 'true'
-      uses: ./internal/pipeline-only
+      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
       with:
-        veracode_api_id: ${{ inputs.veracode_api_id }}
-        veracode_api_key: ${{ inputs.veracode_api_key }}
-        scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
-        policy_fail: ${{ inputs.policy_fail }}
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        fail_build: ${{ inputs.policy_fail }}
+        json_output: 'true'
+        json_output_file: 'results.json'
+
+    - name: Set pipeline status output (without Bantuu)
+      id: pipeline_status_without_bantuu
+      if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "pipeline_status=scan_completed_without_bantuu" >> "$GITHUB_OUTPUT"
 
     - name: Set pipeline status (pipeline scan disabled)
       id: pipeline_disabled_status
@@ -129,13 +349,53 @@ runs:
 
         echo "pipeline_status=pipeline_scan_disabled" >> "$GITHUB_OUTPUT"
 
+    - name: Compute sandbox name (upload & scan)
+      id: compute_upload_sandbox
+      if: inputs.enable_upload_scan == 'true'
+      shell: bash
+      env:
+        ENABLE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        REPOSITORY_FULL_NAME: ${{ steps.resolve_repo.outputs.repository_full_name }}
+        HEAD_REF: ${{ github.head_ref }}
+        REF_NAME: ${{ github.ref_name }}
+      run: |
+        set -euo pipefail
+
+        branch="${HEAD_REF:-$REF_NAME}"
+        if [ -z "${branch}" ]; then
+          branch="unknown"
+        fi
+
+        sanitize() {
+          printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g; s/-+/-/g'
+        }
+
+        branch_s="$(sanitize "${branch}")"
+        repo_s="$(sanitize "${REPOSITORY_FULL_NAME}")"
+
+        sandbox_name="${branch_s}-${repo_s}"
+        sandbox_name="$(printf '%s' "${sandbox_name}" | cut -c1-80)"
+
+        if [ "${ENABLE_SANDBOX}" != "true" ]; then
+          sandbox_name=""
+        fi
+
+        echo "sandbox_name=${sandbox_name}" >> "$GITHUB_OUTPUT"
+
     - name: Veracode Upload & Scan (static)
       id: upload_and_scan
       if: inputs.enable_upload_scan == 'true'
-      uses: ./internal/veracode-upload-scan
+      uses: veracode/veracode-uploadandscan-action@master
       with:
-        veracode_api_id: ${{ inputs.veracode_api_id }}
-        veracode_api_key: ${{ inputs.veracode_api_key }}
-        repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
-        veracode_sandbox: ${{ inputs.veracode_sandbox }}
+        appname: ${{ steps.resolve_repo.outputs.repository_full_name }}
+        createprofile: true
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        version: 'Scan from Bantuu Actions: ${{ github.server_url }}/${{ steps.resolve_repo.outputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        createsandbox: ${{ inputs.veracode_sandbox }}
+        sandboxname: ${{ steps.compute_upload_sandbox.outputs.sandbox_name }}
+        scanallnonfataltoplevelmodules: true
+        includenewmodules: true
+        deleteincompletescan: true
+        scantimeout: 0

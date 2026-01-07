@@ -8,6 +8,11 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.8] - 2026-01-07
+
+### Fixed
+- Corrige uso em repos externos: remove dependencias de sub-actions locais via `uses: ./internal/*` (que causava erro de "Can't find action.yml" no workspace do usuario).
+
 ## [1.0.7] - 2026-01-07
 
 ### Changed

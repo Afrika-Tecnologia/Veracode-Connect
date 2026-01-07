@@ -43,7 +43,7 @@ jobs:
           path: veracode-artifact
 
       - name: Baseline (scan_file) + fail_on_severity
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
@@ -54,4 +54,5 @@ jobs:
           enable_upload_scan: 'false'
           policy_fail: 'false'
           fail_on_severity: 'Very High, High'
+
 

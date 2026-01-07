@@ -43,7 +43,7 @@ jobs:
           path: veracode-artifact
 
       - name: Upload & Scan + IaC (scan_file)
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -54,4 +54,5 @@ jobs:
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'
           enable_iac: 'true'
+
 

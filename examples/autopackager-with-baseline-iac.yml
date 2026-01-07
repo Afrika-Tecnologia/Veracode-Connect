@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Auto Packager + Baseline + IaC
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
@@ -26,4 +26,5 @@ jobs:
           enable_upload_scan: 'false'
           policy_fail: 'false'
           enable_iac: 'true'
+
 

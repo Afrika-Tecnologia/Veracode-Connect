@@ -15,8 +15,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Bantuu Veracode Baseline (auto packager + pipeline only + upload)
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+      - name: Veracode Integration Helper (auto packager + pipeline only + upload)
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -25,4 +25,5 @@ jobs:
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'
           policy_fail: 'false'
+
 

@@ -17,10 +17,11 @@ jobs:
 
       - name: Veracode Pipeline Scan (auto packager sem Bantuu)
         id: veracode_pipeline_only
-        uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
+        uses: JuanCunhaa/Veracode-Integration-Helper@v1
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
           enable_auto_packager: 'true'
           enable_baseline: 'false'
           policy_fail: 'false'
+

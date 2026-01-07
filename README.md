@@ -27,7 +27,7 @@ Todos os booleans devem ser passados como string: `'true'` / `'false'`.
 | `enable_pipelinescan` | nao | `'true'` | Pipeline Scan | Se `'false'`, nao roda pipeline scan e seta `pipeline_status=pipeline_scan_disabled`. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan | Se `'true'`, roda Upload & Scan por ultimo usando o mesmo `.zip` preparado. |
 | `enable_baseline` | nao | `'true'` | Baseline Bantuu | Se `'true'` e pipeline scan ativo, consulta/usa baseline do Bantuu (e faz upload quando necessario). |
-| `enable_auto_packager` | nao | `'false'` | Empacotamento | Se `'true'`, instala Veracode CLI e executa `veracode package` para gerar um zip (normaliza para `app.zip`). |
+| `enable_auto_packager` | nao | `'false'` | Empacotamento | Se `'true'`, tenta gerar zip via Veracode CLI (`veracode package`). Se a CLI nao suportar o stack (ex.: Node), faz fallback criando `app.zip` com `zip` (exclui `node_modules` e `.git`). |
 | `veracode_api_id` | sim | - | Sempre | VID do Veracode. |
 | `veracode_api_key` | sim | - | Sempre | VKEY do Veracode. |
 | `veracode_sandbox` | nao | `'true'` | Upload & Scan | Se `'true'`, cria/usa sandbox. Se `'false'`, usa o app principal. |
@@ -64,6 +64,7 @@ O Upload & Scan sempre:
 
 - Recomendado: `ubuntu-latest` (usa `bash`).
 - O fluxo com baseline instala `jq` via `sudo apt-get` se necessario.
+- Quando o Auto Packager precisar fazer fallback para zip, instala `zip` via `sudo apt-get` se necessario.
 
 ## Exemplos (workflows)
 

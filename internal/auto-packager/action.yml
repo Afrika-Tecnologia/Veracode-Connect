@@ -28,6 +28,11 @@ runs:
         INPUT_SCAN_FILE="${{ inputs.scan_file }}"
 
         if [ "${ENABLE}" = "true" ]; then
+          if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
+            echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if ! command -v veracode >/dev/null 2>&1; then
             curl -fsS https://tools.veracode.com/veracode-cli/install | sh
           fi
@@ -49,9 +54,16 @@ runs:
           "${VERACODE_CMD}" version || true
 
           "${VERACODE_CMD}" package discover . || true
-          PACKAGE_OUTPUT="$("${VERACODE_CMD}" package 2>&1 | tee veracode_package.log)"
+          set +e
+          "${VERACODE_CMD}" package 2>&1 | tee veracode_package.log
+          PACKAGE_EXIT=${PIPESTATUS[0]}
+          set -e
 
-          ZIP_FILE="$(printf '%s\n' "${PACKAGE_OUTPUT}" | sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' | tail -n 1 || true)"
+          if [ "${PACKAGE_EXIT}" -ne 0 ]; then
+            echo "Aviso: 'veracode package' retornou exit code ${PACKAGE_EXIT}; tentando fallback." >&2
+          fi
+
+          ZIP_FILE="$(sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' veracode_package.log | tail -n 1 || true)"
 
           if [ -z "${ZIP_FILE:-}" ]; then
             shopt -s nullglob
@@ -61,8 +73,20 @@ runs:
             fi
             shopt -u nullglob
             if [ ${#zips[@]} -eq 0 ]; then
-              echo "Erro: nenhum arquivo .zip gerado pela Veracode CLI (Auto Packager)." >&2
-              exit 1
+              echo "Aviso: nenhum arquivo .zip gerado pela Veracode CLI (Auto Packager). Gerando app.zip via 'zip' (fallback)." >&2
+
+              if ! command -v zip >/dev/null 2>&1; then
+                sudo apt-get update -y
+                sudo apt-get install -y zip
+              fi
+
+              rm -f app.zip
+              zip -r app.zip . \
+                -x ".git/*" ".github/*" \
+                -x "node_modules/*" "*/node_modules/*" "*/*/node_modules/*" "*/*/*/node_modules/*"
+
+              echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
             ZIP_FILE="${zips[0]}"
           fi

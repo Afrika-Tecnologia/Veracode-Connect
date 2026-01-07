@@ -8,6 +8,11 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.11] - 2026-01-07
+
+### Fixed
+- Auto Packager: quando `veracode package` nao gerar zip (ex.: stack nao suportado), faz fallback criando `app.zip` via `zip` (exclui `node_modules` e `.git`).
+
 ## [1.0.10] - 2026-01-07
 
 ### Fixed

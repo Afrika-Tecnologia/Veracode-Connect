@@ -1,4 +1,4 @@
-name: Security Scan (Artifact + Baseline + Upload & Scan - No Sandbox)
+name: Security Scan (Artefato/scan_file + Baseline + Upload & Scan - No Sandbox)
 
 on:
   workflow_dispatch:
@@ -8,28 +8,48 @@ on:
     branches: [ main ]
 
 jobs:
-  security:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install zip
-        run: sudo apt-get update -y && sudo apt-get install -y zip
-
-      - name: Build and package application
+      - name: Build / package scan file (app.zip)
         run: |
-          zip -r app.zip .
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y zip
+          rm -f app.zip
+          zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
 
-      - name: Bantuu Veracode Baseline (artifact + baseline + upload, app principal)
+      - name: Upload scan file
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: app.zip
+          if-no-files-found: error
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download scan file
+        uses: actions/download-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: veracode-artifact
+
+      - name: Baseline + Upload & Scan (app principal)
         uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
-          scan_file: app.zip
           enable_auto_packager: 'false'
+          scan_file: veracode-artifact/app.zip
           enable_baseline: 'true'
           enable_upload_scan: 'true'
           veracode_sandbox: 'false'

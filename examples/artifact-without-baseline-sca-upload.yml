@@ -1,4 +1,4 @@
-name: Security Scan (Artefato/scan_file + Baseline + fail_on_severity)
+name: Security Scan (Artefato/scan_file + Pipeline Scan + SCA + Upload & Scan)
 
 on:
   workflow_dispatch:
@@ -42,16 +42,17 @@ jobs:
           name: veracode-scan-file
           path: veracode-artifact
 
-      - name: Baseline (scan_file) + fail_on_severity
+      - name: Pipeline Scan + SCA + Upload & Scan (scan_file)
         uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
         with:
-          bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
           enable_auto_packager: 'false'
           scan_file: veracode-artifact/app.zip
-          enable_baseline: 'true'
-          enable_upload_scan: 'false'
+          enable_baseline: 'false'
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'true'
           policy_fail: 'false'
-          fail_on_severity: 'Very High, High'
+          enable_sca: 'true'
+          veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
 

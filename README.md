@@ -1,88 +1,115 @@
 # Bantuu Veracode Baseline
 
-GitHub Action para rodar o Veracode Pipeline Scan com suporte opcional a baseline do Bantuu, alem de opcoes de Auto Packager, SCA e IaC.
+Uma GitHub Action **facilitadora para implementar o Veracode no seu repositório**, com suporte opcional ao **baseline via Bantuu**.
 
-## Como funciona (resumo)
+Ela combina (no mesmo fluxo) Pipeline Scan, Upload & Scan (static), e opcionalmente SCA e IaC/Secrets.
 
-Ordem (sempre):
-1) (Opcional) Veracode SCA (`enable_sca='true'`)
-2) (Opcional) Veracode IaC/Secrets (directory scan) (`enable_iac='true'`)
-3) Prepara o artefato `.zip` (Auto Packager ou `scan_file`)
-4) Resolve `repository_full_name` (org/repo)
-5) (Opcional) Pipeline Scan (`enable_pipelinescan='true'`) com ou sem Bantuu (`enable_baseline`)
-6) (Opcional) Upload & Scan (static) como ultimo step (`enable_upload_scan='true'`)
+## Fluxo (ordem dos steps)
 
-Observacao: os logs sao organizados em grupos no console (`::group::/::endgroup::`) para ficar mais facil de navegar.
+1) (Opcional) Veracode SCA (`enable_sca: 'true'`)
+2) (Opcional) Veracode IaC/Secrets (`enable_iac: 'true'`)
+3) Define o `.zip` do scan:
+   - `enable_auto_packager: 'true'` → tenta Auto Packager (com fallback para `app.zip`)
+   - `enable_auto_packager: 'false'` → usa o `scan_file` que você fornecer
+4) (Opcional) Pipeline Scan (`enable_pipelinescan: 'true'`) com ou sem baseline Bantuu (`enable_baseline`)
+5) (Opcional) Upload & Scan (static) por último (`enable_upload_scan: 'true'`)
 
-Observacao: hoje o step de preparar o artefato sempre roda. Entao, se `enable_auto_packager!='true'`, voce precisa fornecer `scan_file` mesmo que o Pipeline Scan esteja desativado.
+Os logs ficam agrupados no console (`::group::/::endgroup::`) para facilitar navegação.
 
-## Inputs (todos os parametros)
+## Inputs
 
-Todos os booleans devem ser passados como string: `'true'` / `'false'`.
+Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 
-| Input | Required | Default | Quando usar | Observacoes |
-|---|---:|---:|---|---|
-| `bantuu_api_key` | nao* | - | Baseline Bantuu | Obrigatorio na pratica quando `enable_pipelinescan='true'` e `enable_baseline='true'`. |
-| `enable_sca` | nao | `'false'` | SCA | Dispara SCA em background. |
-| `veracode_sca_token` | nao* | - | SCA | Obrigatorio na pratica quando `enable_sca='true'`. |
-| `enable_iac` | nao | `'false'` | IaC | Dispara IaC em background. |
-| `enable_pipelinescan` | nao | `'true'` | Pipeline Scan | Se `'false'`, nao roda pipeline scan e seta `pipeline_status=pipeline_scan_disabled`. |
-| `enable_upload_scan` | nao | `'false'` | Upload & Scan | Se `'true'`, roda Upload & Scan por ultimo usando o mesmo `.zip` preparado. |
-| `enable_baseline` | nao | `'true'` | Baseline Bantuu | Se `'true'` e pipeline scan ativo, consulta/usa baseline do Bantuu (e faz upload quando necessario). |
-| `enable_auto_packager` | nao | `'false'` | Empacotamento | Se `'true'`, tenta gerar zip via Veracode CLI (`veracode package`). Se a CLI nao suportar o stack (ex.: Node), faz fallback criando `app.zip` com `zip` (exclui `node_modules` e `.git`). |
-| `veracode_api_id` | sim | - | Sempre | VID do Veracode. |
-| `veracode_api_key` | sim | - | Sempre | VKEY do Veracode. |
-| `veracode_sandbox` | nao | `'true'` | Upload & Scan | Se `'true'`, cria/usa sandbox. Se `'false'`, usa o app principal. |
-| `scan_file` | nao* | - | Empacotamento | Obrigatorio na pratica quando `enable_auto_packager!='true'` (o arquivo precisa existir). |
-| `policy_fail` | nao | `'false'` | Pipeline Scan | Mapeia para `fail_build` do pipeline scan. |
-| `fail_on_severity` | nao | - | Pipeline Scan com baseline | Aplicado apenas quando existe baseline (no scan com `baseline_file`). Ex.: `Very High, High`. |
+| Input | Obrigatório | Default | Notas |
+|---|---:|---:|---|
+| `veracode_api_id` | sim | - | VID do Veracode. |
+| `veracode_api_key` | sim | - | VKEY do Veracode. |
+| `enable_auto_packager` | não | `'false'` | Se `'true'`, tenta gerar `app.zip` automaticamente; senão usa `scan_file`. |
+| `scan_file` | não* | - | Obrigatório na prática quando `enable_auto_packager: 'false'`. |
+| `enable_pipelinescan` | não | `'true'` | Desative para rodar só Upload & Scan. |
+| `enable_baseline` | não | `'true'` | Usa baseline Bantuu (somente com Pipeline Scan ativo). |
+| `bantuu_api_key` | não* | - | Obrigatório na prática quando `enable_baseline: 'true'`. |
+| `policy_fail` | não | `'false'` | Controla `fail_build` do Pipeline Scan. |
+| `fail_on_severity` | não | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
+| `enable_upload_scan` | não | `'false'` | Upload & Scan (static) roda por último. |
+| `veracode_sandbox` | não | `'true'` | Se `'true'`, cria/usa sandbox; senão usa o app principal. |
+| `enable_sca` | não | `'false'` | Ativa SCA. |
+| `veracode_sca_token` | não* | - | Obrigatório na prática quando `enable_sca: 'true'`. |
+| `enable_iac` | não | `'false'` | Ativa IaC/Secrets (directory scan). |
 
 ## Outputs
 
-| Output | Descricao |
+| Output | Descrição |
 |---|---|
-| `has_baseline` | `'true'/'false'` indicando se o Bantuu retornou baseline para o repo. |
+| `has_baseline` | `'true'/'false'` indicando se existe baseline para o repo. |
 | `pipeline_status` | Um de: `scan_completed_with_baseline`, `scan_completed_without_baseline_and_uploaded`, `scan_completed_without_bantuu`, `pipeline_scan_disabled`. |
-| `repository_full_name` | `org/repo` resolvido de `github.repository`. |
-
-## Arquivos gerados (para debug)
-
-- Auto Packager: `app.zip` (quando ativo) e `veracode_package.log`
-- Pipeline Scan: `results.json`
-- Baseline Bantuu: `baseline-response.json` e (se existir baseline) `baseline.json`
-- SCA: imprime no console e salva `veracode_sca.log`
+| `repository_full_name` | `org/repo` (a partir de `github.repository`). |
 
 ## Upload & Scan (static) - comportamento fixo
 
-O Upload & Scan sempre:
-- usa `appname = repository_full_name` (org/repo)
+- `appname = org/repo`
 - `createprofile: true`
-- nao espera a conclusao do scan na plataforma (`scantimeout: 0`)
-- flags fixas: `scanallnonfataltoplevelmodules: true`, `includenewmodules: true`, `deleteincompletescan: 2`
+- não espera o scan finalizar (`scantimeout: 0`)
+- sempre ativa: `scanallnonfataltoplevelmodules`, `includenewmodules`, `deleteincompletescan: 2`
+- `sandboxname` (quando `veracode_sandbox: 'true'`): `{branch}-{org-repo}`
 - `version`: `Scan from Bantuu Actions: <repo_url> - <run_id>-<run_number>-<run_attempt>`
-- `sandboxname` (quando `veracode_sandbox='true'`): `{branch}-{org-repo}` (sanitizado e truncado)
 
-## Runner / dependencias
+## Exemplos
 
-- Recomendado: `ubuntu-latest` (usa `bash`).
-- O fluxo com baseline instala `jq` via `sudo apt-get` se necessario.
-- Quando o Auto Packager precisar fazer fallback para zip, instala `zip` via `sudo apt-get` se necessario.
+Escolha um exemplo e copie para `.github/workflows/`.
 
-## Exemplos (workflows)
+### Mais completo (para testar tudo)
 
-- [`examples/artifact-with-baseline.yml`](examples/artifact-with-baseline.yml)
-- [`examples/artifact-without-baseline.yml`](examples/artifact-without-baseline.yml)
-- [`examples/autopackager-with-baseline.yml`](examples/autopackager-with-baseline.yml)
-- [`examples/autopackager-without-baseline.yml`](examples/autopackager-without-baseline.yml)
-- [`examples/artifact-with-baseline-and-upload-scan.yml`](examples/artifact-with-baseline-and-upload-scan.yml)
-- [`examples/artifact-with-baseline-and-upload-scan-no-sandbox.yml`](examples/artifact-with-baseline-and-upload-scan-no-sandbox.yml)
-- [`examples/artifact-with-baseline-fail-on-severity.yml`](examples/artifact-with-baseline-fail-on-severity.yml)
-- [`examples/artifact-without-baseline-and-upload-scan.yml`](examples/artifact-without-baseline-and-upload-scan.yml)
-- [`examples/autopackager-with-baseline-and-upload-scan.yml`](examples/autopackager-with-baseline-and-upload-scan.yml)
-- [`examples/autopackager-without-baseline-and-upload-scan.yml`](examples/autopackager-without-baseline-and-upload-scan.yml)
-- [`examples/autopackager-with-baseline-sca-iac-upload.yml`](examples/autopackager-with-baseline-sca-iac-upload.yml)
-- [`examples/pipeline-disabled-upload-scan-only-artifact.yml`](examples/pipeline-disabled-upload-scan-only-artifact.yml)
-- [`examples/pipeline-disabled-upload-scan-only-autopackager.yml`](examples/pipeline-disabled-upload-scan-only-autopackager.yml)
-- [`examples/pipeline-only-with-sca.yml`](examples/pipeline-only-with-sca.yml)
-- [`examples/pipeline-only-with-iac.yml`](examples/pipeline-only-with-iac.yml)
-- [`examples/pipeline-only-with-sca-iac.yml`](examples/pipeline-only-with-sca-iac.yml)
+- SCA + IaC + Auto Packager + Baseline + Upload & Scan → [abrir](examples/autopackager-with-baseline-sca-iac-upload.yml)
+
+### Autopackager (gera o `.zip` automaticamente)
+
+- Auto Packager + Baseline → [abrir](examples/autopackager-with-baseline.yml)
+- Auto Packager + Pipeline Scan → [abrir](examples/autopackager-without-baseline.yml)
+- Auto Packager + Baseline + Upload & Scan → [abrir](examples/autopackager-with-baseline-and-upload-scan.yml)
+- Auto Packager + Pipeline Scan + Upload & Scan → [abrir](examples/autopackager-without-baseline-and-upload-scan.yml)
+- Auto Packager + Baseline + SCA → [abrir](examples/autopackager-with-baseline-sca.yml)
+- Auto Packager + Baseline + IaC → [abrir](examples/autopackager-with-baseline-iac.yml)
+- Auto Packager + Baseline + SCA + IaC → [abrir](examples/autopackager-with-baseline-sca-iac.yml)
+- Auto Packager + Baseline + SCA + Upload & Scan → [abrir](examples/autopackager-with-baseline-sca-upload.yml)
+- Auto Packager + Baseline + IaC + Upload & Scan → [abrir](examples/autopackager-with-baseline-iac-upload.yml)
+- Auto Packager + Pipeline Scan + SCA → [abrir](examples/autopackager-without-baseline-sca.yml)
+- Auto Packager + Pipeline Scan + SCA + Upload & Scan → [abrir](examples/autopackager-without-baseline-sca-upload.yml)
+- Auto Packager + Pipeline Scan + IaC + Upload & Scan → [abrir](examples/autopackager-without-baseline-iac-upload.yml)
+- Auto Packager + Pipeline Scan + SCA + IaC + Upload & Scan → [abrir](examples/autopackager-without-baseline-sca-iac-upload.yml)
+
+### scan_file (consome o artefato do seu build)
+
+- scan_file + Baseline → [abrir](examples/artifact-with-baseline.yml)
+- scan_file + Pipeline Scan → [abrir](examples/artifact-without-baseline.yml)
+- scan_file + Baseline + Upload & Scan → [abrir](examples/artifact-with-baseline-and-upload-scan.yml)
+- scan_file + Baseline + Upload & Scan (app principal) → [abrir](examples/artifact-with-baseline-and-upload-scan-no-sandbox.yml)
+- scan_file + Baseline + fail_on_severity → [abrir](examples/artifact-with-baseline-fail-on-severity.yml)
+- scan_file + Pipeline Scan + Upload & Scan → [abrir](examples/artifact-without-baseline-and-upload-scan.yml)
+- scan_file + Baseline + SCA → [abrir](examples/artifact-with-baseline-sca.yml)
+- scan_file + Baseline + IaC → [abrir](examples/artifact-with-baseline-iac.yml)
+- scan_file + Baseline + SCA + IaC → [abrir](examples/artifact-with-baseline-sca-iac.yml)
+- scan_file + Baseline + SCA + Upload & Scan → [abrir](examples/artifact-with-baseline-sca-upload.yml)
+- scan_file + Baseline + IaC + Upload & Scan → [abrir](examples/artifact-with-baseline-iac-upload.yml)
+- scan_file + Baseline + SCA + IaC + Upload & Scan → [abrir](examples/artifact-with-baseline-sca-iac-upload.yml)
+- scan_file + Pipeline Scan + SCA → [abrir](examples/artifact-without-baseline-sca.yml)
+- scan_file + Pipeline Scan + IaC → [abrir](examples/artifact-without-baseline-iac.yml)
+- scan_file + Pipeline Scan + SCA + IaC → [abrir](examples/artifact-without-baseline-sca-iac.yml)
+- scan_file + Pipeline Scan + SCA + Upload & Scan → [abrir](examples/artifact-without-baseline-sca-upload.yml)
+- scan_file + Pipeline Scan + IaC + Upload & Scan → [abrir](examples/artifact-without-baseline-iac-upload.yml)
+- scan_file + Pipeline Scan + SCA + IaC + Upload & Scan → [abrir](examples/artifact-without-baseline-sca-iac-upload.yml)
+
+### Pipeline Scan desativado (só Upload & Scan)
+
+- Upload & Scan only (scan_file) → [abrir](examples/pipeline-disabled-upload-scan-only-artifact.yml)
+- Upload & Scan only (auto packager) → [abrir](examples/pipeline-disabled-upload-scan-only-autopackager.yml)
+- Upload & Scan only + SCA (scan_file) → [abrir](examples/pipeline-disabled-upload-scan-only-artifact-sca.yml)
+- Upload & Scan only + IaC (scan_file) → [abrir](examples/pipeline-disabled-upload-scan-only-artifact-iac.yml)
+- Upload & Scan only + SCA (auto packager) → [abrir](examples/pipeline-disabled-upload-scan-only-autopackager-sca.yml)
+- Upload & Scan only + IaC (auto packager) → [abrir](examples/pipeline-disabled-upload-scan-only-autopackager-iac.yml)
+
+### Pipeline Scan (sem baseline) - enxuto
+
+- Pipeline Scan + SCA (auto packager) → [abrir](examples/pipeline-only-with-sca.yml)
+- Pipeline Scan + IaC (auto packager) → [abrir](examples/pipeline-only-with-iac.yml)
+- Pipeline Scan + SCA + IaC (auto packager) → [abrir](examples/pipeline-only-with-sca-iac.yml)

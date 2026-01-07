@@ -10,14 +10,14 @@ inputs:
     description: 'API Key usada no header X-API-Key do Bantuu (GET baseline e POST upload).'
     required: false
   enable_sca:
-    description: 'Ativa/desativa o Veracode SCA em background (true/false).'
+    description: 'Ativa/desativa o Veracode SCA (true/false).'
     required: false
     default: 'false'
   veracode_sca_token:
     description: 'Token de API do Veracode SCA (usado quando enable_sca = true).'
     required: false
   enable_iac:
-    description: 'Ativa/desativa o Veracode IaC Scan em background (true/false).'
+    description: 'Ativa/desativa o Veracode IaC/Secrets (directory scan) (true/false).'
     required: false
     default: 'false'
   enable_pipelinescan:

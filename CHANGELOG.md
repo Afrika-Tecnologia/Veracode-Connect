@@ -8,6 +8,15 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.18] - 2026-01-07
+
+### Documentation
+- README: reescrito para ficar mais direto e com a lista de exemplos organizada por cenário, com links clicáveis.
+
+### Changed
+- Exemplos: adiciona dezenas de combinações (SCA/IaC/Baseline/Upload & Scan) e padroniza os workflows de `scan_file` para consumir o artefato via `actions/upload-artifact` + `actions/download-artifact` (em vez de gerar o zip no mesmo job do scan).
+- Metadata: ajusta descrições de inputs no `action.yml` para refletir o comportamento atual (SCA/IaC).
+
 ## [1.0.17] - 2026-01-07
 
 ### Changed

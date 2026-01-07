@@ -1,4 +1,4 @@
-name: Security Scan (Artefato + Bantuu baseline)
+name: Security Scan (Artefato/scan_file + Baseline Bantuu)
 
 on:
   workflow_dispatch:
@@ -8,33 +8,50 @@ on:
     branches: [ main ]
 
 jobs:
-  veracode-baseline:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build and package application
+      - name: Build / package scan file (app.zip)
         run: |
-          # Gere o artefato para o Veracode, por exemplo app.zip
-          zip -r app.zip .
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y zip
+          rm -f app.zip
+          zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
 
-      - name: Bantuu Veracode Baseline (artefato + baseline)
-        id: bantuu_veracode_baseline
+      - name: Upload scan file
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: app.zip
+          if-no-files-found: error
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download scan file
+        uses: actions/download-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: veracode-artifact
+
+      - name: Bantuu Veracode Baseline
         uses: Afrikatec-JuanCunhaa/bantuu-baseline@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
-          scan_file: app.zip
-          enable_baseline: 'true'
           enable_auto_packager: 'false'
+          scan_file: veracode-artifact/app.zip
+          enable_baseline: 'true'
           policy_fail: 'false'
-          # Opcional: aplicado apenas quando houver baseline
+          # Opcional (aplicado apenas quando houver baseline):
           # fail_on_severity: 'Very High, High'
 
-      # Outputs disponíveis no step `bantuu_veracode_baseline`:
-      # - steps.bantuu_veracode_baseline.outputs.has_baseline
-      # - steps.bantuu_veracode_baseline.outputs.pipeline_status
-      # - steps.bantuu_veracode_baseline.outputs.repository_full_name

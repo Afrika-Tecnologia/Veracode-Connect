@@ -154,9 +154,9 @@ runs:
             exit 1
           fi
 
-          "${VERACODE_CMD}" --version || true
+          "${VERACODE_CMD}" version || true
 
-          "${VERACODE_CMD}" package discover || true
+          "${VERACODE_CMD}" package discover . || true
           PACKAGE_OUTPUT="$("${VERACODE_CMD}" package 2>&1 | tee veracode_package.log)"
 
           ZIP_FILE="$(printf '%s\n' "${PACKAGE_OUTPUT}" | sed -n 's/.*Package created: \\([^[:space:]]\\+\\).*/\\1/p' | tail -n 1 || true)"

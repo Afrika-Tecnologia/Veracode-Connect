@@ -8,6 +8,11 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.10] - 2026-01-07
+
+### Fixed
+- Auto Packager: ajusta comandos para a Veracode CLI atual (`veracode version` e `veracode package discover .`).
+
 ## [1.0.9] - 2026-01-07
 
 ### Fixed

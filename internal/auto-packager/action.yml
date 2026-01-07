@@ -32,10 +32,24 @@ runs:
             curl -fsS https://tools.veracode.com/veracode-cli/install | sh
           fi
 
-          veracode --version || true
+          WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
+          if command -v veracode >/dev/null 2>&1; then
+            VERACODE_CMD="$(command -v veracode)"
+          elif [ -x "${WORKSPACE}/veracode" ]; then
+            VERACODE_CMD="${WORKSPACE}/veracode"
+            echo "${WORKSPACE}" >> "$GITHUB_PATH"
+          elif [ -x "${PWD}/veracode" ]; then
+            VERACODE_CMD="${PWD}/veracode"
+            echo "${PWD}" >> "$GITHUB_PATH"
+          else
+            echo "Erro: Veracode CLI foi instalada mas o binario 'veracode' nao foi encontrado no PATH/workspace." >&2
+            exit 1
+          fi
 
-          veracode package discover || true
-          PACKAGE_OUTPUT="$(bash -lc "veracode package" 2>&1 | tee veracode_package.log)"
+          "${VERACODE_CMD}" version || true
+
+          "${VERACODE_CMD}" package discover . || true
+          PACKAGE_OUTPUT="$("${VERACODE_CMD}" package 2>&1 | tee veracode_package.log)"
 
           ZIP_FILE="$(printf '%s\n' "${PACKAGE_OUTPUT}" | sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' | tail -n 1 || true)"
 

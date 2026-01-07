@@ -19,5 +19,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Bantuu Veracode Baseline ${{ github.ref_name }}
+          name: Veracode Integration Helper ${{ github.ref_name }}
           generate_release_notes: true

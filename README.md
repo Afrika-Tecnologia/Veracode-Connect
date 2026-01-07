@@ -1,4 +1,4 @@
-# Bantuu Veracode Baseline
+# Veracode Integration Helper
 
 Uma GitHub Action **facilitadora para implementar o Veracode no seu repositório**, com suporte opcional ao **baseline via Bantuu**.
 

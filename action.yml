@@ -71,7 +71,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Run Veracode SCA (background)
+    - name: Run Veracode SCA
       id: veracode_sca
       if: inputs.enable_sca == 'true'
       shell: bash
@@ -85,48 +85,30 @@ runs:
           exit 1
         fi
 
-        (
-          curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan
-        ) > veracode_sca.log 2>&1 &
-        echo "$!" > veracode_sca.pid
+        set +e
+        curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
+        SCA_EXIT=${PIPESTATUS[1]}
+        set -e
 
-    - name: Run Veracode IaC Scan (background)
+        if [ "${SCA_EXIT}" -ne 0 ]; then
+          echo "Aviso: Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)." >&2
+        fi
+
+    - name: Run Veracode IaC / Secrets (directory scan)
       id: veracode_iac
       if: inputs.enable_iac == 'true'
-      shell: bash
-      env:
-        VERACODE_API_ID: ${{ inputs.veracode_api_id }}
-        VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
-      run: |
-        set -euo pipefail
-
-        if [ -z "${VERACODE_API_ID:-}" ] || [ -z "${VERACODE_API_KEY:-}" ]; then
-          echo "Erro: veracode_api_id ou veracode_api_key nao foram fornecidos para o IaC Scan." >&2
-          exit 1
-        fi
-
-        if ! command -v veracode >/dev/null 2>&1; then
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
-        fi
-
-        WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
-        if command -v veracode >/dev/null 2>&1; then
-          VERACODE_CMD="$(command -v veracode)"
-        elif [ -x "${WORKSPACE}/veracode" ]; then
-          VERACODE_CMD="${WORKSPACE}/veracode"
-          echo "${WORKSPACE}" >> "$GITHUB_PATH"
-        elif [ -x "${PWD}/veracode" ]; then
-          VERACODE_CMD="${PWD}/veracode"
-          echo "${PWD}" >> "$GITHUB_PATH"
-        else
-          echo "Erro: Veracode CLI foi instalada mas o binario 'veracode' nao foi encontrado no PATH/workspace." >&2
-          exit 1
-        fi
-
-        (
-          "${VERACODE_CMD}" iac scan --vid "${VERACODE_API_ID}" --vkey "${VERACODE_API_KEY}" --source .
-        ) > veracode_iac.log 2>&1 &
-        echo "$!" > veracode_iac.pid
+      continue-on-error: true
+      uses: veracode/container_iac_secrets_scanning@v1.0.6
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        github-token: ${{ github.token }}
+        command: scan
+        type: directory
+        source: .
+        format: table
+        fail_build: 'false'
+        fail_build_on_error: 'false'
 
     - name: Prepare scan file (auto packager)
       id: prepare_scan_file
@@ -484,72 +466,3 @@ runs:
         includenewmodules: true
         deleteincompletescan: 2
         scantimeout: 0
-
-    - name: Show SCA/IaC logs (console)
-      id: show_background_logs
-      if: ${{ always() }}
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        wait_until_done_or_timeout() {
-          local pid_file="$1"
-          local timeout_seconds="${2:-120}"
-
-          if [ ! -f "${pid_file}" ]; then
-            return 0
-          fi
-
-          local pid
-          pid="$(cat "${pid_file}" 2>/dev/null || true)"
-          if [ -z "${pid}" ]; then
-            return 0
-          fi
-
-          if ! kill -0 "${pid}" 2>/dev/null; then
-            return 0
-          fi
-
-          echo "Background process ${pid} ainda em execucao; aguardando ate ${timeout_seconds}s..."
-          local start
-          start="$(date +%s)"
-          while kill -0 "${pid}" 2>/dev/null; do
-            local now elapsed
-            now="$(date +%s)"
-            elapsed=$((now - start))
-            if [ "${elapsed}" -ge "${timeout_seconds}" ]; then
-              echo "Timeout atingido (${timeout_seconds}s). Continuando sem esperar finalizar."
-              break
-            fi
-            sleep 2
-          done
-        }
-
-        show_log() {
-          local title="$1"
-          local log_file="$2"
-          local pid_file="$3"
-
-          echo ""
-          echo "==================== ${title} ===================="
-
-          if [ -f "${pid_file}" ]; then
-            wait_until_done_or_timeout "${pid_file}" 180
-          fi
-
-          if [ ! -f "${log_file}" ]; then
-            echo "Log nao encontrado: ${log_file}"
-            return 0
-          fi
-
-          echo "---- tail (${log_file}) ----"
-          tail -n 300 "${log_file}" || true
-        }
-
-        if [ -f "veracode_sca.log" ] || [ "${{ inputs.enable_sca }}" = "true" ]; then
-          show_log "Veracode SCA" "veracode_sca.log" "veracode_sca.pid"
-        fi
-
-        if [ -f "veracode_iac.log" ] || [ "${{ inputs.enable_iac }}" = "true" ]; then
-          show_log "Veracode IaC" "veracode_iac.log" "veracode_iac.pid"
-        fi

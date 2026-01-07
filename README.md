@@ -5,8 +5,8 @@ GitHub Action para rodar o Veracode Pipeline Scan com suporte opcional a baselin
 ## Como funciona (resumo)
 
 Ordem (sempre):
-1) (Opcional) Veracode SCA em background (`enable_sca='true'`)
-2) (Opcional) Veracode IaC em background (`enable_iac='true'`)
+1) (Opcional) Veracode SCA (`enable_sca='true'`)
+2) (Opcional) Veracode IaC/Secrets (directory scan) (`enable_iac='true'`)
 3) Prepara o artefato `.zip` (Auto Packager ou `scan_file`)
 4) Resolve `repository_full_name` (org/repo)
 5) (Opcional) Pipeline Scan (`enable_pipelinescan='true'`) com ou sem Bantuu (`enable_baseline`)
@@ -48,7 +48,7 @@ Todos os booleans devem ser passados como string: `'true'` / `'false'`.
 - Auto Packager: `app.zip` (quando ativo) e `veracode_package.log`
 - Pipeline Scan: `results.json`
 - Baseline Bantuu: `baseline-response.json` e (se existir baseline) `baseline.json`
-- Background: `veracode_sca.log` e `veracode_iac.log` (o tail desses logs aparece no console no ultimo step da action)
+- SCA: imprime no console e salva `veracode_sca.log`
 
 ## Upload & Scan (static) - comportamento fixo
 

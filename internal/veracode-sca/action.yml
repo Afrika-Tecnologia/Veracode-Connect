@@ -9,7 +9,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Disparar Veracode SCA em background
+    - name: Rodar Veracode SCA
       id: run_sca
       shell: bash
       env:
@@ -22,6 +22,11 @@ runs:
           exit 1
         fi
 
-        (
-          curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan
-        ) > veracode_sca.log 2>&1 &
+        set +e
+        curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
+        SCA_EXIT=${PIPESTATUS[1]}
+        set -e
+
+        if [ "${SCA_EXIT}" -ne 0 ]; then
+          echo "Aviso: Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)." >&2
+        fi

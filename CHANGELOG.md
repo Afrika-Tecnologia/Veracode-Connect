@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.16] - 2026-01-07
+
+### Fixed
+- SCA: executa em foreground e adiciona `--allow-dirty`, imprimindo output no console.
+- IaC: troca `veracode iac scan` (inexistente na CLI v2) pela action `veracode/container_iac_secrets_scanning` e imprime resultado no console.
+
 ## [1.0.15] - 2026-01-07
 
 ### Fixed

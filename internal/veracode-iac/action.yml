@@ -1,35 +1,28 @@
 name: 'Veracode IaC'
-description: 'Roda o Veracode Infrastructure as Code (IaC) Scan em background usando a Veracode CLI.'
+description: 'Roda o Veracode Container/IaC/Secrets scanning (directory scan) e imprime o resultado no console.'
 
 inputs:
   veracode_api_id:
-    description: 'ID da API do Veracode (VID) para o IaC Scan.'
+    description: 'ID da API do Veracode (VID).'
     required: true
   veracode_api_key:
-    description: 'Key da API do Veracode (VKEY) para o IaC Scan.'
+    description: 'Key da API do Veracode (VKEY).'
     required: true
 
 runs:
   using: 'composite'
   steps:
-    - name: Disparar Veracode IaC Scan em background
-      id: run_iac
-      shell: bash
-      env:
-        VERACODE_API_ID: ${{ inputs.veracode_api_id }}
-        VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
-      run: |
-        set -euo pipefail
-
-        if [ -z "${VERACODE_API_ID:-}" ] || [ -z "${VERACODE_API_KEY:-}" ]; then
-          echo "Erro: veracode_api_id ou veracode_api_key nao foram fornecidos para o IaC Scan." >&2
-          exit 1
-        fi
-
-        if ! command -v veracode >/dev/null 2>&1; then
-          curl -fsS https://tools.veracode.com/veracode-cli/install | sh
-        fi
-
-        (
-          veracode iac scan --vid "${VERACODE_API_ID}" --vkey "${VERACODE_API_KEY}" --source .
-        ) > veracode_iac.log 2>&1 &
+    - name: Veracode Container/IaC/Secrets scan (directory)
+      id: iac_scan
+      continue-on-error: true
+      uses: veracode/container_iac_secrets_scanning@v1.0.6
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        github-token: ${{ github.token }}
+        command: scan
+        type: directory
+        source: .
+        format: table
+        fail_build: 'false'
+        fail_build_on_error: 'false'

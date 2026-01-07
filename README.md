@@ -36,7 +36,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `enable_sca` | não | `'false'` | Ativa SCA. |
 | `veracode_sca_token` | não* | - | Obrigatório na prática quando `enable_sca: 'true'`. |
 | `enable_iac` | não | `'false'` | Ativa IaC/Secrets (directory scan). |
-| `enable_set_business_unit` | não | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (após Upload & Scan). |
+| `enable_Business_unit` | não | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (após Upload & Scan). |
 | `veracode_business_unit` | não | `''` | Nome da BU (ex.: `BU TI`). Se contiver vírgula, a action falha. |
 
 ## Outputs
@@ -60,7 +60,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 
 Para vincular o app (nome `org/repo`) a uma BU após o Upload & Scan:
 
-- Inputs: `enable_set_business_unit`, `veracode_business_unit`
+- Inputs: `enable_Business_unit`, `veracode_business_unit`
 - Nota: a Veracode permite apenas 1 BU por aplicação. Se for informado mais de um valor (ex.: com vírgula), a action falha.
 
 ## Upload & Scan (static) - comportamento fixo

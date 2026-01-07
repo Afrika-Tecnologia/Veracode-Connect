@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.22] - 2026-01-07
+
+### Changed
+
+- Input de BU renomeado para `enable_Business_unit` (mantém compatibilidade com `enable_set_business_unit`).
+
 ## [1.0.20] - 2026-01-07
 
 ### Added

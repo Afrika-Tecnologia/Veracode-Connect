@@ -217,6 +217,7 @@ async function findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName }) {
 
 async function main() {
   const enable =
+    (process.env.ENABLE_BUSINESS_UNIT || "false").toLowerCase() === "true" ||
     (process.env.ENABLE_SET_BUSINESS_UNIT || "false").toLowerCase() === "true" ||
     (process.env.ENABLE_SET_BUSINESS_UNITS || "false").toLowerCase() === "true";
 

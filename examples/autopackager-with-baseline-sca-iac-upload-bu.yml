@@ -29,5 +29,5 @@ jobs:
           enable_sca: 'true'
           veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
           enable_iac: 'true'
-          enable_set_business_unit: 'true'
+          enable_Business_unit: 'true'
           veracode_business_unit: 'BU TI'

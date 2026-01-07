@@ -69,6 +69,10 @@ inputs:
     description: 'Ativa/desativa o vinculo automatico do app a UMA Business Unit via REST (true/false).'
     required: false
     default: 'false'
+  enable_Business_unit:
+    description: 'Ativa/desativa o vinculo automatico do app a UMA Business Unit via REST (true/false).'
+    required: false
+    default: 'false'
   veracode_business_unit:
     description: 'Nome da Business Unit unica a ser atribuida ao app (ex.: "BU TI").'
     required: false
@@ -590,9 +594,10 @@ runs:
 
     - name: Set Veracode Business Unit (REST)
       id: set_business_unit
-      if: inputs.enable_set_business_unit == 'true' || inputs.enable_set_business_units == 'true'
+      if: inputs.enable_Business_unit == 'true' || inputs.enable_set_business_unit == 'true' || inputs.enable_set_business_units == 'true'
       shell: bash
       env:
+        ENABLE_BUSINESS_UNIT: ${{ inputs.enable_Business_unit }}
         ENABLE_SET_BUSINESS_UNIT: ${{ inputs.enable_set_business_unit }}
         VERACODE_BUSINESS_UNIT: ${{ inputs.veracode_business_unit }}
         ENABLE_SET_BUSINESS_UNITS: ${{ inputs.enable_set_business_units }}

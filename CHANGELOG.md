@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.29] - 2026-02-10
+
+### Fixed
+
+- Adicionado header `ngrok-skip-browser-warning: true` nas chamadas ao Bantuu para suportar URLs do `ngrok-free.dev`.
+
 ## [1.0.28] - 2026-02-10
 
 ### Fixed

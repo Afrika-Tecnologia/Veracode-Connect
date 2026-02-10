@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.28] - 2026-02-10
+
+### Fixed
+
+- Corrigido a propagação do input `bantuu_base_url` que estava sendo sobrescrito pelo valor default na sub-action.
+
 ## [1.0.27] - 2026-02-10
 
 ### Changed

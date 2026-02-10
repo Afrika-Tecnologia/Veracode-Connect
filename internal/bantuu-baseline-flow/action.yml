@@ -7,8 +7,7 @@ inputs:
     required: true
   bantuu_base_url:
     description: 'URL base do Bantuu (sem barra final).'
-    required: false
-    default: 'https://www.bantuu.io'
+    required: true
   repository_full_name:
     description: 'Repositorio org/repo usado nas chamadas ao Bantuu.'
     required: true

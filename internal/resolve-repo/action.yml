@@ -1,15 +1,15 @@
-name: 'Resolve Repository Full Name'
-description: 'Resolve o nome completo do repositório (org/repo).'
+name: 'Resolver nome do repositorio'
+description: 'Resolve o nome completo do repositorio (org/repo) a partir do contexto do GitHub.'
 
 outputs:
   repository_full_name:
-    description: 'Repositório org/repo.'
+    description: 'Repositorio no formato org/repo.'
     value: ${{ steps.resolve.outputs.repository_full_name }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Resolve repository full name
+    - name: Resolver nome do repositorio
       id: resolve
       shell: bash
       env:
@@ -25,4 +25,3 @@ runs:
         fi
 
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
-

@@ -1,5 +1,5 @@
 name: 'Veracode SCA'
-description: 'Roda o Veracode Software Composition Analysis (SCA) em background usando o agente oficial.'
+description: 'Roda o Veracode Software Composition Analysis (SCA) e publica os resultados como artefato.'
 
 inputs:
   veracode_sca_token:
@@ -17,16 +17,22 @@ runs:
       run: |
         set -euo pipefail
 
-        if [ -z "${SRCCLR_API_TOKEN:-}" ]; then
-          echo "Erro: veracode_sca_token nao foi fornecido." >&2
-          exit 1
-        fi
-
+        echo "::group::Veracode SCA"
         set +e
         curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
         SCA_EXIT=${PIPESTATUS[1]}
         set -e
+        echo "::endgroup::"
 
         if [ "${SCA_EXIT}" -ne 0 ]; then
-          echo "Aviso: Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)." >&2
+          echo "::warning::Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)."
         fi
+
+    - name: Upload artefato SCA
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sca-results
+        path: |
+          veracode_sca.log
+        if-no-files-found: warn

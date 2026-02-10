@@ -1,0 +1,113 @@
+name: 'Validar inputs'
+description: 'Valida combinacoes de inputs obrigatorios condicionais antes de executar qualquer scan.'
+
+inputs:
+  enable_sca:
+    description: 'SCA ativo (true/false).'
+    required: true
+  veracode_sca_token:
+    description: 'Token do Veracode SCA.'
+    required: false
+  enable_iac:
+    description: 'IaC/Secrets ativo (true/false).'
+    required: true
+  enable_pipelinescan:
+    description: 'Pipeline Scan ativo (true/false).'
+    required: true
+  enable_baseline:
+    description: 'Baseline Bantuu ativo (true/false).'
+    required: true
+  bantuu_api_key:
+    description: 'API Key do Bantuu.'
+    required: false
+  enable_auto_packager:
+    description: 'Auto Packager ativo (true/false).'
+    required: true
+  scan_file:
+    description: 'Caminho do artefato compactado.'
+    required: false
+  enable_upload_scan:
+    description: 'Upload & Scan ativo (true/false).'
+    required: true
+  enable_business_unit:
+    description: 'Vinculo de Business Unit ativo (true/false).'
+    required: true
+  veracode_business_unit:
+    description: 'Nome da Business Unit.'
+    required: false
+  veracode_api_id:
+    description: 'ID da API do Veracode.'
+    required: true
+  veracode_api_key:
+    description: 'Key da API do Veracode.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validar inputs condicionais
+      shell: bash
+      env:
+        ENABLE_SCA: ${{ inputs.enable_sca }}
+        SCA_TOKEN: ${{ inputs.veracode_sca_token }}
+        ENABLE_IAC: ${{ inputs.enable_iac }}
+        ENABLE_PIPELINE: ${{ inputs.enable_pipelinescan }}
+        ENABLE_BASELINE: ${{ inputs.enable_baseline }}
+        BANTUU_KEY: ${{ inputs.bantuu_api_key }}
+        ENABLE_AUTO_PACKAGER: ${{ inputs.enable_auto_packager }}
+        SCAN_FILE: ${{ inputs.scan_file }}
+        ENABLE_UPLOAD: ${{ inputs.enable_upload_scan }}
+        ENABLE_BU: ${{ inputs.enable_business_unit }}
+        BU_NAME: ${{ inputs.veracode_business_unit }}
+        VID: ${{ inputs.veracode_api_id }}
+        VKEY: ${{ inputs.veracode_api_key }}
+      run: |
+        set -euo pipefail
+
+        erros=()
+
+        if [ -z "${VID:-}" ]; then
+          erros+=("veracode_api_id e obrigatorio.")
+        fi
+
+        if [ -z "${VKEY:-}" ]; then
+          erros+=("veracode_api_key e obrigatorio.")
+        fi
+
+        if [ "${ENABLE_SCA}" = "true" ] && [ -z "${SCA_TOKEN:-}" ]; then
+          erros+=("enable_sca=true requer veracode_sca_token.")
+        fi
+
+        if [ "${ENABLE_BASELINE}" = "true" ] && [ -z "${BANTUU_KEY:-}" ]; then
+          erros+=("enable_baseline=true requer bantuu_api_key.")
+        fi
+
+        if [ "${ENABLE_AUTO_PACKAGER}" != "true" ] && [ -z "${SCAN_FILE:-}" ]; then
+          erros+=("enable_auto_packager=false requer scan_file.")
+        fi
+
+        if [ "${ENABLE_BU}" = "true" ]; then
+          if [ "${ENABLE_UPLOAD}" != "true" ]; then
+            erros+=("enable_business_unit=true requer enable_upload_scan=true (o vinculo depende do profile criado pelo Upload & Scan).")
+          fi
+          if [ -z "${BU_NAME:-}" ]; then
+            erros+=("enable_business_unit=true requer veracode_business_unit (nome da BU).")
+          fi
+          if echo "${BU_NAME:-}" | grep -q ','; then
+            erros+=("veracode_business_unit nao pode conter virgula (Veracode permite apenas uma BU por aplicacao).")
+          fi
+        fi
+
+        if [ ${#erros[@]} -gt 0 ]; then
+          echo ""
+          echo "============================================"
+          echo "  VALIDACAO DE INPUTS FALHOU"
+          echo "============================================"
+          for e in "${erros[@]}"; do
+            echo "::error::${e}"
+          done
+          echo "============================================"
+          exit 1
+        fi
+
+        echo "Todos os inputs validados com sucesso."

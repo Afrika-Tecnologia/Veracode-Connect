@@ -1,12 +1,16 @@
 name: 'Bantuu baseline flow'
-description: 'Consulta baseline no Bantuu e roda Veracode Pipeline Scan com ou sem baseline, subindo baseline se necessário.'
+description: 'Consulta baseline no Bantuu, roda Veracode Pipeline Scan com ou sem baseline, sobe baseline se necessario e publica resultados.'
 
 inputs:
   bantuu_api_key:
     description: 'API Key usada no Bantuu.'
     required: true
+  bantuu_base_url:
+    description: 'URL base do Bantuu (sem barra final).'
+    required: false
+    default: 'https://www.bantuu.io'
   repository_full_name:
-    description: 'Repositório org/repo usado nas chamadas ao Bantuu.'
+    description: 'Repositorio org/repo usado nas chamadas ao Bantuu.'
     required: true
   veracode_api_id:
     description: 'ID da API do Veracode.'
@@ -22,21 +26,21 @@ inputs:
     required: false
     default: 'false'
   fail_on_severity:
-    description: 'Severidades que fazem o scan falhar quando há baseline.'
+    description: 'Severidades que fazem o scan falhar quando ha baseline (ex.: "Very High, High").'
     required: false
 
 outputs:
   has_baseline:
-    description: 'true/false indicando se o Bantuu possui baseline para o repositório.'
+    description: 'true/false indicando se o Bantuu possui baseline para o repositorio.'
     value: ${{ steps.check_baseline.outputs.has_baseline }}
   pipeline_status:
-    description: 'Resumo do caminho seguido: com baseline ou sem baseline e upload.'
+    description: 'Resumo do caminho seguido: com baseline ou sem baseline (com upload).'
     value: ${{ steps.pipeline_status_with_baseline.outputs.pipeline_status || steps.pipeline_status_without_baseline.outputs.pipeline_status }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Ensure jq is installed
+    - name: Instalar jq (se necessario)
       id: ensure_jq
       shell: bash
       run: |
@@ -47,22 +51,18 @@ runs:
           sudo apt-get install -y jq
         fi
 
-    - name: Check baseline from Bantuu
+    - name: Consultar baseline no Bantuu
       id: check_baseline
       shell: bash
       env:
         BANTUU_API_KEY: ${{ inputs.bantuu_api_key }}
+        BANTUU_BASE_URL: ${{ inputs.bantuu_base_url }}
         REPOSITORY_FULL_NAME: ${{ inputs.repository_full_name }}
       run: |
         set -euo pipefail
 
-        if [ -z "${BANTUU_API_KEY:-}" ]; then
-          echo "Erro: bantuu_api_key nao foi fornecida." >&2
-          exit 1
-        fi
-
+        echo "::group::Bantuu baseline (consulta)"
         RESPONSE_FILE="baseline-response.json"
-        BANTUU_BASE_URL="https://www.bantuu.io"
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
@@ -82,19 +82,21 @@ runs:
         fi
 
         echo "has_baseline=${HAS_BASELINE}" >> "$GITHUB_OUTPUT"
+        echo "has_baseline=${HAS_BASELINE}"
+        echo "::endgroup::"
 
-    - name: Create local baseline file from Bantuu
+    - name: Criar arquivo de baseline local a partir do Bantuu
       id: create_local_baseline
       if: steps.check_baseline.outputs.has_baseline == 'true'
       shell: bash
       run: |
         set -euo pipefail
-
         jq '.results' baseline-response.json > baseline.json
 
-    - name: Run Veracode Pipeline Scan with baseline
+    - name: Rodar Veracode Pipeline Scan com baseline
       id: pipeline_with_baseline
       if: steps.check_baseline.outputs.has_baseline == 'true'
+      continue-on-error: true
       uses: veracode/Veracode-pipeline-scan-action@v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
@@ -106,9 +108,42 @@ runs:
         json_output: 'true'
         json_output_file: 'results.json'
 
-    - name: Run Veracode Pipeline Scan without baseline
+    - name: Enviar resultados do scan com baseline para o Bantuu
+      id: upload_baseline_results
+      if: steps.check_baseline.outputs.has_baseline == 'true'
+      shell: bash
+      env:
+        BANTUU_API_KEY: ${{ inputs.bantuu_api_key }}
+        BANTUU_BASE_URL: ${{ inputs.bantuu_base_url }}
+        REPOSITORY_FULL_NAME: ${{ inputs.repository_full_name }}
+      run: |
+        set -euo pipefail
+
+        echo "::group::Bantuu baseline (upload resultado com baseline)"
+        if [ ! -f "results.json" ]; then
+          echo "::warning::results.json nao encontrado apos o Pipeline Scan com baseline. Pulando upload."
+          echo "::endgroup::"
+          exit 0
+        fi
+
+        results=$(cat results.json)
+
+        HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
+          -X POST "${BANTUU_BASE_URL}/api/veracode/baselineupload?repositoryFullName=${REPOSITORY_FULL_NAME}" \
+          -H "Content-Type: application/json" \
+          -H "X-API-Key: ${BANTUU_API_KEY}" \
+          -d "${results}")
+
+        if [ "${HTTP_STATUS}" -ge 400 ]; then
+          echo "::warning::Falha ao enviar resultados com baseline para o Bantuu (HTTP ${HTTP_STATUS}). O job continua."
+          cat /tmp/bantuu-upload-response.txt || true
+        fi
+        echo "::endgroup::"
+
+    - name: Rodar Veracode Pipeline Scan sem baseline
       id: pipeline_without_baseline
       if: steps.check_baseline.outputs.has_baseline == 'false'
+      continue-on-error: true
       uses: veracode/Veracode-pipeline-scan-action@v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
@@ -118,22 +153,33 @@ runs:
         json_output: 'true'
         json_output_file: 'results.json'
 
-    - name: Upload new baseline results to Bantuu
+    - name: Upload artefato Pipeline Scan
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pipescan-results
+        path: |
+          results.json
+          filtered_results.json
+        if-no-files-found: warn
+
+    - name: Enviar resultados para o Bantuu (novo baseline)
       id: upload_results
       if: steps.check_baseline.outputs.has_baseline == 'false'
       shell: bash
       env:
         BANTUU_API_KEY: ${{ inputs.bantuu_api_key }}
+        BANTUU_BASE_URL: ${{ inputs.bantuu_base_url }}
         REPOSITORY_FULL_NAME: ${{ inputs.repository_full_name }}
       run: |
         set -euo pipefail
 
+        echo "::group::Bantuu baseline (upload)"
         if [ ! -f "results.json" ]; then
           echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          echo "::endgroup::"
           exit 1
         fi
-
-        BANTUU_BASE_URL="https://www.bantuu.io"
 
         payload=$(jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
           '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
@@ -147,23 +193,55 @@ runs:
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "Erro ao enviar baseline para Bantuu. Verifique as credenciais." >&2
           cat /tmp/bantuu-upload-response.txt || true
+          echo "::endgroup::"
           exit 1
         fi
+        echo "::endgroup::"
 
-    - name: Set pipeline status output (with baseline)
+    - name: Definir status (com baseline)
       id: pipeline_status_with_baseline
       if: steps.check_baseline.outputs.has_baseline == 'true'
       shell: bash
       run: |
         set -euo pipefail
-
         echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
 
-    - name: Set pipeline status output (without baseline)
+    - name: Definir status (sem baseline, baseline enviado)
       id: pipeline_status_without_baseline
       if: steps.check_baseline.outputs.has_baseline == 'false'
       shell: bash
       run: |
         set -euo pipefail
-
         echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+
+    - name: Verificar resultado do Pipeline Scan (policy_fail)
+      if: always()
+      shell: bash
+      env:
+        POLICY_FAIL: ${{ inputs.policy_fail }}
+        WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
+        WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "results.json" ]; then
+          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          exit 1
+        fi
+
+        outcome="skipped"
+        for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
+          if [ -n "${o}" ] && [ "${o}" != "skipped" ]; then
+            outcome="${o}"
+            break
+          fi
+        done
+
+        if [ "${outcome}" = "failure" ]; then
+          if [ "${POLICY_FAIL}" = "true" ]; then
+            echo "Erro: Pipeline Scan falhou e policy_fail=true." >&2
+            exit 1
+          else
+            echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+          fi
+        fi

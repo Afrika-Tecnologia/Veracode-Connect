@@ -9,7 +9,7 @@ inputs:
     description: 'Key da API do Veracode (VKEY).'
     required: true
   repository_full_name:
-    description: 'Repositório org/repo usado como appname no Veracode.'
+    description: 'Repositorio org/repo usado como appname no Veracode.'
     required: true
   veracode_sandbox:
     description: 'Define se o Upload & Scan deve usar sandbox (true) ou o app principal (false).'
@@ -22,7 +22,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Compute sandbox name
+    - name: Calcular nome do sandbox
       id: vars
       shell: bash
       env:
@@ -56,12 +56,12 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/veracode-uploadandscan-action@master
+      uses: veracode/veracode-uploadandscan-action@0.2.4
       with:
         appname: ${{ inputs.repository_full_name }}
         createprofile: true
         filepath: ${{ inputs.filepath }}
-        version: 'Scan from Veracode Integration Helper: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        version: 'Scan via Veracode Integration Helper: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         createsandbox: ${{ inputs.veracode_sandbox }}

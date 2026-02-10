@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.1.1] - 2026-02-10
+
+### Fixed
+
+- Corrigido erro de "File not found" ao utilizar a action em outros repositórios: referências locais (`./internal/...`) foram substituídas por caminhos absolutos do repositório (`JuanCunhaa/Veracode-Integration-Helper/internal/...@v1.1`).
+
 ## [1.0.28] - 2026-02-10
 
 ### Fixed

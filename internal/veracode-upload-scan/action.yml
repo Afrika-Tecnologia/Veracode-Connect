@@ -56,7 +56,7 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/veracode-uploadandscan-action@v1
+      uses: veracode/veracode-uploadandscan-action@v0.2.11
       with:
         appname: ${{ inputs.repository_full_name }}
         createprofile: true

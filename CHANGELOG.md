@@ -8,6 +8,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.1.2] - 2026-02-10
+
+### Fixed
+
+- Atualizada a action `veracode-uploadandscan-action` para `@v1` (era `0.2.4`) para corrigir erro de build do Docker (`openjdk:latest` not found).
+- Renomeado input `deleteincompletescan` para `deleteincomplete` (v1).
+
+
 ## [1.1.1] - 2026-02-10
 
 ### Fixed

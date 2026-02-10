@@ -131,11 +131,11 @@ async function requestVeracodeJson({
       }
 
       const safeBody = response.rawBody ? response.rawBody.slice(0, 2000) : "";
-      throw new Error(`HTTP ${statusCode} em ${method} ${path}. Body (trunc): ${safeBody}`);
+      throw new Error(`HTTP ${statusCode} em ${method} ${path}. Corpo (truncado): ${safeBody}`);
     }
 
     if (attempt === maxAttempts) {
-      throw new Error(`HTTP ${statusCode} (retry esgotado) em ${method} ${path}`);
+      throw new Error(`HTTP ${statusCode} (tentativas esgotadas) em ${method} ${path}`);
     }
 
     const backoffMs = Math.min(30000, 1000 * Math.pow(2, attempt - 1));
@@ -216,9 +216,7 @@ async function findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName }) {
 }
 
 async function main() {
-  const enable =
-    (process.env.ENABLE_BUSINESS_UNIT || "false").toLowerCase() === "true" ||
-    (process.env.ENABLE_SET_BUSINESS_UNIT || "false").toLowerCase() === "true";
+  const enable = (process.env.ENABLE_BUSINESS_UNIT || "false").toLowerCase() === "true";
 
   const rawBusinessUnit = process.env.VERACODE_BUSINESS_UNIT || "";
 
@@ -243,7 +241,7 @@ async function main() {
   const businessUnit = normalizeSpaces(rawBusinessUnit || "");
 
   if (!businessUnit) {
-    warning("enable_Business_unit=true, mas veracode_business_unit esta vazio. Pulando.");
+    warning("enable_business_unit=true, mas veracode_business_unit esta vazio. Pulando.");
     logGroupEnd();
     return;
   }
@@ -259,13 +257,13 @@ async function main() {
 
   if (!appName) {
     logGroupEnd();
-    throw new Error("ERRO: app name vazio (VERACODE_APP_NAME).");
+    throw new Error("Erro: nome do app vazio (VERACODE_APP_NAME).");
   }
 
   if (!uploadEnabled) {
     logGroupEnd();
     throw new Error(
-      "enable_Business_unit=true exige enable_upload_scan=true, pois o vinculo deve rodar somente apos o Upload & Scan (createprofile=true).",
+      "enable_business_unit=true exige enable_upload_scan=true, pois o vinculo deve rodar somente apos o Upload & Scan (createprofile=true).",
     );
   }
 
@@ -290,7 +288,7 @@ async function main() {
 
   setOutput("business_unit_name", businessUnit);
 
-  process.stdout.write(`Setting Business Unit '${businessUnit}' for application '${appName}'\n`);
+  process.stdout.write(`Vinculando Business Unit '${businessUnit}' a aplicacao '${appName}'\n`);
   process.stdout.write(`Host: ${host}\n`);
 
   const buGuid = await findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName: businessUnit });
@@ -300,7 +298,7 @@ async function main() {
     throw new Error(`BU '${businessUnit}' nao existe ou nao foi localizada via Identity API.`);
   }
   setOutput("business_unit_guid", buGuid);
-  process.stdout.write(`Business Unit GUID resolved: ${buGuid}\n`);
+  process.stdout.write(`GUID da Business Unit resolvido: ${buGuid}\n`);
 
   const appGuid = await findAppGuidByName({ apiId, apiKeyHex, host, appName });
   if (!appGuid) {
@@ -310,7 +308,7 @@ async function main() {
       `Aplicacao '${appName}' nao foi localizada via Applications API. Verifique se o Upload & Scan criou o profile (createprofile=true) e se o nome confere.`,
     );
   }
-  process.stdout.write(`App GUID: ${appGuid}\n`);
+  process.stdout.write(`GUID do App: ${appGuid}\n`);
 
   const app = await requestVeracodeJson({
     apiId,
@@ -355,7 +353,7 @@ async function main() {
   });
 
   setOutput("set_business_unit_status", "success");
-  process.stdout.write("Application profile updated successfully\n");
+  process.stdout.write("Profile da aplicacao atualizado com sucesso.\n");
   logGroupEnd();
 }
 

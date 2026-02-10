@@ -1,5 +1,5 @@
-name: 'Veracode Pipeline Scan only'
-description: 'Roda apenas o Veracode Pipeline Scan sem integrar com Bantuu.'
+name: 'Veracode Pipeline Scan (sem Bantuu)'
+description: 'Roda apenas o Veracode Pipeline Scan sem integrar com o Bantuu e publica resultados.'
 
 inputs:
   veracode_api_id:
@@ -24,8 +24,9 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Run Veracode Pipeline Scan
+    - name: Rodar Veracode Pipeline Scan
       id: pipeline_only
+      continue-on-error: true
       uses: veracode/Veracode-pipeline-scan-action@v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
@@ -35,11 +36,42 @@ runs:
         json_output: 'true'
         json_output_file: 'results.json'
 
-    - name: Set pipeline status output
+    - name: Upload artefato Pipeline Scan
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pipescan-results
+        path: |
+          results.json
+          filtered_results.json
+        if-no-files-found: warn
+
+    - name: Definir status do pipeline
       id: pipeline_status
       shell: bash
       run: |
         set -euo pipefail
-
         echo "pipeline_status=scan_completed_without_bantuu" >> "$GITHUB_OUTPUT"
 
+    - name: Verificar resultado do Pipeline Scan (policy_fail)
+      if: always()
+      shell: bash
+      env:
+        POLICY_FAIL: ${{ inputs.policy_fail }}
+        PIPELINE_OUTCOME: ${{ steps.pipeline_only.outcome }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "results.json" ]; then
+          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          exit 1
+        fi
+
+        if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
+          if [ "${POLICY_FAIL}" = "true" ]; then
+            echo "Erro: Pipeline Scan falhou e policy_fail=true." >&2
+            exit 1
+          else
+            echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+          fi
+        fi

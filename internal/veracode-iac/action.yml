@@ -1,5 +1,5 @@
-name: 'Veracode IaC'
-description: 'Roda o Veracode Container/IaC/Secrets scanning (directory scan) e imprime o resultado no console.'
+name: 'Veracode IaC / Secrets'
+description: 'Roda o Veracode Container/IaC/Secrets scanning (directory scan), coleta resultados e publica como artefato.'
 
 inputs:
   veracode_api_id:
@@ -12,7 +12,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Veracode Container/IaC/Secrets scan (directory)
+    - name: Veracode Container/IaC/Secrets scan (diretorio)
       id: iac_scan
       continue-on-error: true
       uses: veracode/container_iac_secrets_scanning@v1.0.6
@@ -26,3 +26,45 @@ runs:
         format: table
         fail_build: 'false'
         fail_build_on_error: 'false'
+
+    - name: Coletar arquivos de resultado do IaC
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        mkdir -p iac-results
+
+        files=(
+          "results.json"
+          "results.txt"
+          "sbom_cyclonedx_xml.xml"
+          "sbom_cyclonedx_json.json"
+          "sbom_spdx_tag_value.json"
+          "sbom_spdx_json.json"
+          "sbom_github.json"
+        )
+
+        moved_any="false"
+        for f in "${files[@]}"; do
+          if [ -f "${f}" ]; then
+            mv -f "${f}" "iac-results/${f}"
+            moved_any="true"
+          fi
+        done
+
+        if [ "${moved_any}" != "true" ]; then
+          echo "::warning::Nenhum arquivo de resultado do IaC foi encontrado para coletar."
+        else
+          echo "Arquivos coletados em iac-results/:"
+          ls -la iac-results || true
+        fi
+
+    - name: Upload artefato IaC
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: iac-results
+        path: |
+          iac-results
+        if-no-files-found: warn

@@ -1,0 +1,57 @@
+name: 'Vincular Business Unit'
+description: 'Vincula o application profile do Veracode a uma Business Unit via REST API (HMAC).'
+
+inputs:
+  enable_business_unit:
+    description: 'Ativa/desativa o vinculo de BU (true/false).'
+    required: true
+  veracode_business_unit:
+    description: 'Nome da Business Unit (ex.: "BU TI").'
+    required: false
+    default: ''
+  veracode_api_id:
+    description: 'ID da API do Veracode (VID).'
+    required: true
+  veracode_api_key:
+    description: 'Key da API do Veracode (VKEY).'
+    required: true
+  veracode_app_name:
+    description: 'Nome do app no Veracode (org/repo).'
+    required: true
+  enable_upload_scan:
+    description: 'Indica se o Upload & Scan esta ativo (true/false).'
+    required: true
+  upload_and_scan_outcome:
+    description: 'Resultado do step de Upload & Scan (success/failure/skipped).'
+    required: false
+    default: 'skipped'
+
+outputs:
+  business_unit_name:
+    description: 'Nome da Business Unit aplicada.'
+    value: ${{ steps.set_business_unit.outputs.business_unit_name }}
+  business_unit_guid:
+    description: 'GUID da Business Unit aplicada.'
+    value: ${{ steps.set_business_unit.outputs.business_unit_guid }}
+  set_business_unit_status:
+    description: 'Status do vinculo (success | skipped | failed).'
+    value: ${{ steps.set_business_unit.outputs.set_business_unit_status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Vincular Business Unit via REST
+      id: set_business_unit
+      shell: bash
+      env:
+        ENABLE_BUSINESS_UNIT: ${{ inputs.enable_business_unit }}
+        VERACODE_BUSINESS_UNIT: ${{ inputs.veracode_business_unit }}
+        VERACODE_API_ID: ${{ inputs.veracode_api_id }}
+        VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
+        VERACODE_API_HOST: api.veracode.com
+        VERACODE_APP_NAME: ${{ inputs.veracode_app_name }}
+        ENABLE_UPLOAD_SCAN: ${{ inputs.enable_upload_scan }}
+        UPLOAD_AND_SCAN_OUTCOME: ${{ inputs.upload_and_scan_outcome }}
+      run: |
+        set -euo pipefail
+        node "$GITHUB_ACTION_PATH/set-business-unit.js"

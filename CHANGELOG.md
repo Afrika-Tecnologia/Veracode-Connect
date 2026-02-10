@@ -8,6 +8,18 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.27] - 2026-02-10
+
+### Changed
+
+- Refatoração completa da estruturada action: `action.yml` agora é uma orquestradora que chama sub-actions em `internal/`.
+- Padronização de todas as mensagens de log e erro para Português (PT-BR).
+- Melhoria na robustez: validação inicial de inputs obrigatórios condicionais.
+- Melhoria na segurança: uso de variáveis de ambiente para secrets em vez de interpolação no shell.
+- Melhoria no tratamento de erros: `policy_fail` agora é verificado corretamente mesmo com `continue-on-error`.
+- Pinned version: `veracode-uploadandscan-action` fixado na versão `0.2.4` para estabilidade.
+- Novo passo no fluxo de baseline: envio de resultados de scan com baseline para o endpoint de histórico do Bantuu.
+
 ## [1.0.26] - 2026-01-07
 
 ### Changed

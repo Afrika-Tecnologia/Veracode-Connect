@@ -117,7 +117,7 @@ runs:
     # ── 1. Validar inputs ────────────────────────────────────────────
     - name: Validar inputs
       id: validate
-      uses: ./internal/validate-inputs
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/validate-inputs@v1
       with:
         enable_sca: ${{ inputs.enable_sca }}
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
@@ -137,7 +137,7 @@ runs:
     - name: Veracode SCA
       id: veracode_sca
       if: inputs.enable_sca == 'true'
-      uses: ./internal/veracode-sca
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/veracode-sca@v1
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
 
@@ -145,7 +145,7 @@ runs:
     - name: Veracode IaC / Secrets
       id: veracode_iac
       if: inputs.enable_iac == 'true'
-      uses: ./internal/veracode-iac
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/veracode-iac@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -153,7 +153,7 @@ runs:
     # ── 4. Preparar scan file ────────────────────────────────────────
     - name: Preparar scan file
       id: prepare_scan_file
-      uses: ./internal/auto-packager
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/auto-packager@v1
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
@@ -161,13 +161,13 @@ runs:
     # ── 5. Resolver nome do repositorio ──────────────────────────────
     - name: Resolver nome do repositorio
       id: resolve_repo
-      uses: ./internal/resolve-repo
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/resolve-repo@v1
 
     # ── 6a. Bantuu baseline flow (pipeline + baseline) ───────────────
     - name: Bantuu baseline flow
       id: baseline_flow
       if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline == 'true'
-      uses: ./internal/bantuu-baseline-flow
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/bantuu-baseline-flow@v1
       with:
         bantuu_api_key: ${{ inputs.bantuu_api_key }}
         bantuu_base_url: ${{ inputs.bantuu_base_url }}
@@ -182,7 +182,7 @@ runs:
     - name: Pipeline Scan (sem Bantuu)
       id: pipeline_only
       if: inputs.enable_pipelinescan == 'true' && inputs.enable_baseline != 'true'
-      uses: ./internal/pipeline-only
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/pipeline-only@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -202,7 +202,7 @@ runs:
     - name: Veracode Upload & Scan
       id: upload_and_scan
       if: inputs.enable_upload_scan == 'true'
-      uses: ./internal/veracode-upload-scan
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/veracode-upload-scan@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -214,7 +214,7 @@ runs:
     - name: Vincular Business Unit
       id: business_unit
       if: steps.resolve_bu_flag.outputs.enable_bu == 'true'
-      uses: ./internal/veracode-business-unit
+      uses: JuanCunhaa/Veracode-Integration-Helper/internal/veracode-business-unit@v1
       with:
         enable_business_unit: ${{ steps.resolve_bu_flag.outputs.enable_bu }}
         veracode_business_unit: ${{ inputs.veracode_business_unit }}

@@ -8,6 +8,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.0.30] - 2026-02-10
+
+### Fixed
+
+- Corrigido problema de resolução de sub-actions em runners substituindo caminhos relativos (`./internal/...`) por referências completas (`Owner/Repo/internal/...@v1`).
+
 ## [1.0.29] - 2026-02-10
 
 ### Fixed

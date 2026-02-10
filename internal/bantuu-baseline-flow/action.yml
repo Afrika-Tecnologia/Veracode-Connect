@@ -64,6 +64,7 @@ runs:
         RESPONSE_FILE="baseline-response.json"
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
+          -H "ngrok-skip-browser-warning: true" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPOSITORY_FULL_NAME}")
 
@@ -130,6 +131,7 @@ runs:
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
           -X POST "${BANTUU_BASE_URL}/api/veracode/baselineupload?repositoryFullName=${REPOSITORY_FULL_NAME}" \
           -H "Content-Type: application/json" \
+          -H "ngrok-skip-browser-warning: true" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           -d "${results}")
 
@@ -186,6 +188,7 @@ runs:
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
           -X POST "${BANTUU_BASE_URL}/api/veracode/stock-issues/upload" \
           -H "Content-Type: application/json" \
+          -H "ngrok-skip-browser-warning: true" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           -d "${payload}")
 

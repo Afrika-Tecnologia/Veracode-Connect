@@ -43,7 +43,7 @@ jobs:
           path: veracode-artifact
 
       - name: Pipeline Scan + IaC + Upload & Scan (scan_file)
-        uses: JuanCunhaa/Veracode-Integration-Helper@v1
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}

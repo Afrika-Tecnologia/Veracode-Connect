@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Auto Packager + Baseline + IaC
-        uses: JuanCunhaa/Veracode-Integration-Helper@v1
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
         with:
           bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}

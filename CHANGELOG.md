@@ -8,6 +8,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.1.4] - 2026-02-18
+
+### Changed
+
+- Renomeadas todas as referências de `JuanCunhaa/Veracode-Integration-Helper` para `Afrika-Tecnologia/Veracode-Connect`.
+- Atualizado `action.yml` para apontar para `Afrika-Tecnologia/Veracode-Connect` (mantendo a tag `@v1.1` nas sub-actions internas).
+
+
 ## [1.1.2] - 2026-02-10
 
 ### Fixed

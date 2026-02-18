@@ -7,7 +7,7 @@ Criada e mantida por Juan Cunha: https://github.com/JuanCunhaa
 Uso (exemplo rapido):
 
 ```yml
-- uses: JuanCunhaa/Veracode-Integration-Helper@v1
+- uses: Afrika-Tecnologia/Veracode-Connect@v1
 ```
 
 ## Fluxo (ordem dos steps)

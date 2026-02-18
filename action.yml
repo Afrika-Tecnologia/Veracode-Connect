@@ -1,5 +1,5 @@
-name: 'Veracode Integration Helper'
-description: 'Orquestra integracoes do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu.'
+name: 'Veracode Connect'
+description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu.'
 author: 'JuanCunhaa'
 branding:
   icon: 'shield'

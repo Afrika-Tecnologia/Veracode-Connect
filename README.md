@@ -2,8 +2,6 @@
 
 GitHub Action facilitadora para implementar o Veracode no seu repositorio, com suporte opcional ao baseline via Bantuu.
 
-Criada e mantida por Juan Cunha: https://github.com/Afrika-Tecnologia
-
 Uso (exemplo rapido):
 
 ```yml

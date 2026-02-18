@@ -8,13 +8,6 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
-## [1.1.4] - 2026-02-18
-
-### Changed
-
-- Renomeadas todas as referências de `JuanCunhaa/Veracode-Integration-Helper` para `Afrika-Tecnologia/Veracode-Connect`.
-- Atualizado `action.yml` para apontar para `Afrika-Tecnologia/Veracode-Connect` (mantendo a tag `@v1.1` nas sub-actions internas).
-
 
 ## [1.1.2] - 2026-02-10
 
@@ -28,7 +21,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Fixed
 
-- Corrigido erro de "File not found" ao utilizar a action em outros repositórios: referências locais (`./internal/...`) foram substituídas por caminhos absolutos do repositório (`JuanCunhaa/Veracode-Integration-Helper/internal/...@v1.1`).
+- Corrigido erro de "File not found" ao utilizar a action em outros repositórios: referências locais (`./internal/...`) foram substituídas por caminhos absolutos do repositório (`Afrika-Tecnologia/Veracode-Connect/internal/...@v1.1`).
 
 ## [1.0.28] - 2026-02-10
 
@@ -59,13 +52,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Changed
 
 - Atualiza `README.md`, `SECURITY.md` e `LICENSE` para o novo nome do projeto e informacoes do mantenedor.
-- Workflow de release: atualiza o nome do release para **Veracode Integration Helper**.
+- Workflow de release: atualiza o nome do release para **Veracode Connect**.
 
 ## [1.0.24] - 2026-01-07
 
 ### Changed
 
-- Renomeia a action para **Veracode Integration Helper** e atualiza a documentacao/exemplos para usar `JuanCunhaa/Veracode-Integration-Helper@v1`.
+- Renomeia a action para **Veracode Connect** e atualiza a documentacao/exemplos para usar `Afrika-Tecnologia/Veracode-Connect@v1`.
 - Atualiza a string de `version` usada no Upload & Scan.
 
 ## [1.0.23] - 2026-01-07
@@ -177,7 +170,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Added
 
-- Versao inicial da Action Veracode Integration Helper.
+- Versao inicial da Action Veracode Connect.
 - Integracao com Veracode Pipeline Scan.
 - Consulta e criacao de baseline no Bantuu a partir do `results.json`.
 

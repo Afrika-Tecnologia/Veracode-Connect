@@ -10,7 +10,7 @@ Versoes suportadas:
 
 ## Reportando vulnerabilidades
 
-Se voce encontrar uma vulnerabilidade ou comportamento de seguranca inesperado relacionado a Action **Veracode Integration Helper**:
+Se voce encontrar uma vulnerabilidade ou comportamento de seguranca inesperado relacionado a Action **Veracode Connect**:
 
 - Nao abra uma issue publica com detalhes sensiveis.
 - Use o fluxo de **GitHub Security Advisories** no repositorio ou entre em contato de forma privada com os mantenedores do projeto.

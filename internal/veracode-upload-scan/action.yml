@@ -61,7 +61,7 @@ runs:
         appname: ${{ inputs.repository_full_name }}
         createprofile: true
         filepath: ${{ inputs.filepath }}
-        version: 'Scan via Veracode Integration Helper: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         createsandbox: ${{ inputs.veracode_sandbox }}

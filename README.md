@@ -1,8 +1,8 @@
-# Veracode Integration Helper
+# Veracode Connect
 
 GitHub Action facilitadora para implementar o Veracode no seu repositorio, com suporte opcional ao baseline via Bantuu.
 
-Criada e mantida por Juan Cunha: https://github.com/JuanCunhaa
+Criada e mantida por Juan Cunha: https://github.com/Afrika-Tecnologia
 
 Uso (exemplo rapido):
 
@@ -70,7 +70,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 - nao espera o scan finalizar (`scantimeout: 0`)
 - sempre ativa: `scanallnonfataltoplevelmodules`, `includenewmodules`, `deleteincompletescan: 2`
 - `sandboxname` (quando `veracode_sandbox: 'true'`): `{branch}-{org-repo}`
-- `version`: `Scan from Veracode Integration Helper: <repo_url> - <run_id>-<run_number>-<run_attempt>`
+- `version`: `Scan from Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
 
 ## Exemplos
 

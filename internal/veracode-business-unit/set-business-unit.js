@@ -65,7 +65,7 @@ async function requestVeracodeJson({
 }) {
   const urlPathWithQuery = path;
   const headers = {
-    "User-Agent": "Veracode Integration Helper - Veracode BU Linker",
+    "User-Agent": "Veracode Connect - Veracode BU Linker",
     Accept: "application/json",
     ...extraHeaders,
   };

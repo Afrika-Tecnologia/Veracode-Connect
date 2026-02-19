@@ -78,6 +78,10 @@ inputs:
     description: 'Nome da Business Unit unica a ser atribuida ao app (ex.: "BU TI").'
     required: false
     default: ''
+  veracode_policy_name:
+    description: 'Nome da policy a ser usada no scan do Veracode.'
+    required: false
+    default: ''
 
 outputs:
   has_baseline:
@@ -181,6 +185,7 @@ runs:
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
         policy_fail: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     # ── 6b. Pipeline Scan sem Bantuu ─────────────────────────────────
     - name: Pipeline Scan (sem Bantuu)
@@ -192,6 +197,7 @@ runs:
         veracode_api_key: ${{ inputs.veracode_api_key }}
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
         policy_fail: ${{ inputs.policy_fail }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     # ── 6c. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)

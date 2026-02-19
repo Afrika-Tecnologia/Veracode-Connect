@@ -36,6 +36,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `bantuu_api_key` | nao* | - | Obrigatorio na pratica quando `enable_baseline: 'true'`. |
 | `policy_fail` | nao | `'false'` | Controla `fail_build` do Pipeline Scan. |
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
+| `veracode_policy_name` | nao | `''` | Nome da policy a ser usada no scan do Veracode. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
 | `veracode_sandbox` | nao | `'true'` | Se `'true'`, cria/usa sandbox; senao usa o app principal. |
 | `enable_sca` | nao | `'false'` | Ativa SCA. |

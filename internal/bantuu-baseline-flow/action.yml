@@ -27,6 +27,10 @@ inputs:
   fail_on_severity:
     description: 'Severidades que fazem o scan falhar quando ha baseline (ex.: "Very High, High").'
     required: false
+  veracode_policy_name:
+    description: 'Nome da policy a ser usada no scan do Veracode.'
+    required: false
+    default: ''
 
 outputs:
   has_baseline:
@@ -106,6 +110,7 @@ runs:
         fail_on_severity: ${{ inputs.fail_on_severity }}
         json_output: 'true'
         json_output_file: 'results.json'
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     - name: Enviar resultados do scan com baseline para o Bantuu
       id: upload_baseline_results
@@ -151,6 +156,7 @@ runs:
         fail_build: ${{ inputs.policy_fail }}
         json_output: 'true'
         json_output_file: 'results.json'
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     - name: Upload artefato Pipeline Scan
       if: always()

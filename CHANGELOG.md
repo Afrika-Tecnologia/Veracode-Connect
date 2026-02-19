@@ -13,7 +13,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Added
 
-- Adicionado input `veracode_policy_name` no pipeline scan para permitir o uso de uma politica do veracode para quebra de pipeline.
+- Adicionado input ` ` no pipeline scan para permitir o uso de uma politica do veracode para quebra de pipeline.
 
 ## [1.1.5] - 2026-02-19
 

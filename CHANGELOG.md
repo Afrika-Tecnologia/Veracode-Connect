@@ -9,6 +9,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - N/A.
 
 
+## [1.1.5] - 2026-02-19
+
+### Added
+
+- Adicionado input `veracode_appname` no Upload & Scan par permitir o uso de um nome de aplicação diferente do nome do repositório.
+
 ## [1.1.2] - 2026-02-10
 
 ### Fixed

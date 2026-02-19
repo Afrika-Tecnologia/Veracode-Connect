@@ -43,6 +43,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
 | `enable_Business_unit` | nao | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (apos Upload & Scan). |
 | `veracode_business_unit` | nao | `''` | Nome da BU (ex.: `BU TI`). Se contiver virgula, a action falha. |
+| `veracode_appname` | nao | `${{ github.repository }}` | Nome do app no Veracode. |
 
 ## Outputs
 

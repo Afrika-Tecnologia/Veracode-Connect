@@ -14,10 +14,14 @@ inputs:
   veracode_sandbox:
     description: 'Define se o Upload & Scan deve usar sandbox (true) ou o app principal (false).'
     required: false
-    default: 'true'
+    default: 'false'
   filepath:
     description: 'Caminho do arquivo .zip a ser enviado para o Veracode (mesmo artefato do Pipeline Scan).'
     required: true
+  veracode_appname:
+    description: 'Nome do app no Veracode.'
+    required: false
+    default: '${{ github.repository }}'
 
 runs:
   using: 'composite'
@@ -58,7 +62,7 @@ runs:
       id: upload_and_scan
       uses: veracode/veracode-uploadandscan-action@0.2.11
       with:
-        appname: ${{ inputs.repository_full_name }}
+        appname: ${{ inputs.veracode_appname }}
         createprofile: true
         filepath: ${{ inputs.filepath }}
         version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'

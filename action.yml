@@ -60,6 +60,10 @@ inputs:
   fail_on_severity:
     description: 'Severidades que fazem o scan falhar quando ha baseline (ex.: "Very High, High").'
     required: false
+  veracode_appname:
+    description: 'Nome do app no Veracode.'
+    required: false
+    default: '${{ github.repository }}'
 
   # Business Unit (aceita ambos os nomes para backward compat)
   enable_set_business_unit:
@@ -209,6 +213,7 @@ runs:
         repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        veracode_appname: ${{ inputs.veracode_appname }}
 
     # ── 8. Business Unit ─────────────────────────────────────────────
     - name: Vincular Business Unit

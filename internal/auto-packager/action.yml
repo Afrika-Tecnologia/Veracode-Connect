@@ -38,7 +38,7 @@ runs:
           fi
 
           if ! command -v veracode >/dev/null 2>&1; then
-            curl -fsS https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION=3.4.0 sh
+            curl -fsS https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION=2.46.0 sh
           fi
 
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"

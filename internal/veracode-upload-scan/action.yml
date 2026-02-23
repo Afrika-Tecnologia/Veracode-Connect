@@ -62,7 +62,7 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/veracode-uploadandscan-action@ddca86b1d1d45639d1c414003f3495f71851cfe2 # 0.2.11
+      uses: veracode/uploadandscan-action@540bce452ba00f3038b32ed2b58b58ac054fc34e # v0.2.0
       with:
         appname: ${{ inputs.veracode_appname }}
         createprofile: true
@@ -72,7 +72,5 @@ runs:
         vkey: ${{ inputs.veracode_api_key }}
         createsandbox: ${{ inputs.veracode_sandbox }}
         sandboxname: ${{ steps.vars.outputs.sandbox_name }}
-        scanallnonfataltoplevelmodules: true
-        includenewmodules: true
         deleteincompletescan: 2
         scantimeout: 0

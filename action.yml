@@ -208,7 +208,6 @@ runs:
     - name: Pipeline Scan (sem Bantuu)
       id: pipeline_only
       if: inputs.enable_baseline != 'true' && inputs.enable_pipelinescan == 'true'
-      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
@@ -229,8 +228,7 @@ runs:
     # ── 7. Upload & Scan ─────────────────────────────────────────────
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      if: inputs.enable_upload_scan == 'true'
-      continue-on-error: true
+      if: (success() || failure()) && inputs.enable_upload_scan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
@@ -243,78 +241,26 @@ runs:
     # ── 8. Business Unit ─────────────────────────────────────────────
     - name: Vincular Business Unit
       id: business_unit
-      if: steps.resolve_bu_flag.outputs.enable_bu == 'true'
+      if: (success() || failure()) && steps.resolve_bu_flag.outputs.enable_bu == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-business-unit@v1
       with:
         enable_business_unit: ${{ steps.resolve_bu_flag.outputs.enable_bu }}
         veracode_business_unit: ${{ inputs.veracode_business_unit }}
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
-        veracode_app_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
+        veracode_app_name: ${{ inputs.veracode_appname }}
         enable_upload_scan: ${{ inputs.enable_upload_scan }}
         upload_and_scan_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
 
     # ── 9. Trava de Build (step final obrigatorio) ───────────────────
     - name: Trava de Build (verificacao final)
       if: always()
-      shell: bash
-      env:
-        FAIL_BUILD: ${{ inputs.fail_build }}
-        SCA_STATUS: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
-        IAC_OUTCOME: ${{ steps.veracode_iac.outcome || 'skipped' }}
-        BASELINE_OUTCOME: ${{ steps.baseline_flow.outcome || 'skipped' }}
-        PIPELINE_OUTCOME: ${{ steps.pipeline_only.outcome || 'skipped' }}
-        UPLOAD_OUTCOME: ${{ steps.upload_and_scan.outcome || 'skipped' }}
-        BU_STATUS: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}
-      run: |
-        set -euo pipefail
-
-        echo "::group::Trava de Build (verificacao final)"
-        echo "============================================"
-        echo "  RESUMO DOS RESULTADOS"
-        echo "============================================"
-
-        falhas=()
-
-        check_status() {
-          local name="$1"
-          local status="$2"
-          if [ "${status}" = "failure" ] || [ "${status}" = "failed" ]; then
-            echo "  ❌ ${name}: ${status}"
-            falhas+=("${name}")
-          elif [ "${status}" = "skipped" ]; then
-            echo "  ⏭️  ${name}: skipped"
-          elif [ "${status}" = "warning" ]; then
-            echo "  ⚠️  ${name}: warning"
-            falhas+=("${name}")
-          else
-            echo "  ✅ ${name}: ${status}"
-          fi
-        }
-
-        check_status "Veracode SCA" "${SCA_STATUS}"
-        check_status "Veracode IaC/Secrets" "${IAC_OUTCOME}"
-        check_status "Bantuu Baseline Flow" "${BASELINE_OUTCOME}"
-        check_status "Pipeline Scan" "${PIPELINE_OUTCOME}"
-        check_status "Upload & Scan" "${UPLOAD_OUTCOME}"
-        check_status "Business Unit" "${BU_STATUS}"
-
-        echo "============================================"
-
-        if [ ${#falhas[@]} -gt 0 ]; then
-          echo ""
-          echo "::error::Os seguintes steps falharam: ${falhas[*]}"
-          echo ""
-
-          if [ "${FAIL_BUILD}" = "true" ]; then
-            echo "::error::fail_build=true — Travando a esteira."
-            echo "::endgroup::"
-            exit 1
-          else
-            echo "::warning::fail_build=false — Falhas detectadas, mas o build NAO sera travado."
-          fi
-        else
-          echo ""
-          echo "Todos os steps executados com sucesso."
-        fi
-        echo "::endgroup::"
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
+      with:
+        fail_build: ${{ inputs.fail_build }}
+        sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
+        iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
+        baseline_outcome: ${{ steps.baseline_flow.outcome || 'skipped' }}
+        pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
+        upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
+        bu_status: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}

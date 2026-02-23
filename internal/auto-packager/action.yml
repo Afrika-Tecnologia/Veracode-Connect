@@ -18,7 +18,15 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Preparar scan file
+    - name: Configurar Cache da Veracode CLI
+      id: cli_cache
+      if: inputs.enable_auto_packager == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/veracode
+        key: veracode-cli-2.46.0-${{ runner.os }}
+
+    - name: Preparar scan file (Veracode CLI)
       id: prepare
       shell: bash
       env:
@@ -37,7 +45,7 @@ runs:
             exit 0
           fi
 
-          if ! command -v veracode >/dev/null 2>&1; then
+          if [ "${{ steps.cli_cache.outputs.cache-hit }}" != "true" ] && ! command -v veracode >/dev/null 2>&1; then
             curl -fsS https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION=2.46.0 sh
           fi
 
@@ -78,25 +86,8 @@ runs:
             fi
             shopt -u nullglob
             if [ ${#zips[@]} -eq 0 ]; then
-              echo "::warning::Nenhum arquivo .zip gerado pela Veracode CLI (Auto Packager). Gerando app.zip via 'zip' (fallback)."
-
-              if ! command -v zip >/dev/null 2>&1; then
-                sudo apt-get update -y
-                sudo apt-get install -y zip
-              fi
-
-              rm -f app.zip
-              zip -rq app.zip . \
-                -x ".git/*" ".github/*" \
-                -x "node_modules/*" "*/node_modules/*" "*/*/node_modules/*" "*/*/*/node_modules/*" \
-                -x "veracode" "veracode.exe" "veracode-cli_*" \
-                -x "app.zip" \
-                -x "results.json" "filtered_results.json" "baseline.json" "baseline-response.json" \
-                -x "veracode_package.log" "veracode_sca.log" "veracode_iac.log"
-
-              echo "Criado app.zip (fallback):"
-              ls -lh app.zip || true
-              echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
+              echo "::warning::Nenhum arquivo .zip gerado pela Veracode CLI. Acionando fallback (TheDoctor0/zip-release)."
+              echo "needs_fallback=true" >> "$GITHUB_OUTPUT"
               echo "::endgroup::"
               exit 0
             fi
@@ -130,5 +121,34 @@ runs:
             exit 1
           fi
 
-          echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fallback ZIP (zip-release)
+      if: steps.prepare.outputs.needs_fallback == 'true'
+      uses: TheDoctor0/zip-release@09336613be18a8208dfa66bd57efafd9e2685657 # v0.7.6
+      with:
+        type: 'zip'
+        filename: 'app.zip'
+        exclusions: '*.git* /*node_modules/* veracode veracode.exe veracode-cli_* app.zip results.json filtered_results.json baseline.json baseline-response.json veracode_*.log iac-results/*'
+
+    - name: Concluir Fallback ZIP
+      if: steps.prepare.outputs.needs_fallback == 'true'
+      shell: bash
+      run: |
+        echo "Criado app.zip via TheDoctor0/zip-release (fallback):"
+        ls -lh app.zip || true
+        echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
+      id: fallback_output
+
+    - name: Consolidar Saida
+      id: final_output
+      shell: bash
+      env:
+        PREP_FILE: ${{ steps.prepare.outputs.scan_file }}
+        FALL_FILE: ${{ steps.fallback_output.outputs.scan_file }}
+      run: |
+        if [ -n "${FALL_FILE:-}" ]; then
+          echo "scan_file=${FALL_FILE}" >> "$GITHUB_OUTPUT"
+        else
+          echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
         fi

@@ -6,7 +6,19 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
-- N/A.
+## [1.1.10] - 2026-02-23
+
+### Added
+- Extração do step final de validação para um novo internal action (`internal/build-gate`) para manter a padronização e modularidade.
+- Cache de runner persistente (`actions/cache`) da ferramenta Veracode CLI no step iterativo do `auto-packager`.
+- Adoção da action `TheDoctor0/zip-release` como substituto escalável para falhas intermitentes do zip em bash.
+- Injeção de flags robustas de network nos curls do `veracode-sca` (`--connect-timeout 30 --max-time 120`, `--retry`).
+
+### Changed
+- Atualização da versão pinada da Veracode CLI no `auto-packager` de `3.4.0` para `2.46.0`.
+- Remoção do `continue-on-error: true` de diversos actions substituídos por encadeamentos literais `if: (success() || failure())` na orquestração.
+- Abstração completa e segura do longo script shell legível em `validate-inputs`, convertendo e encapsulando suas decisões operacionais em Node.js assíncrono padrão (`index.js`).
+- Ajuste das credenciais e migração segura da Action de Upload & Scan para um fork versionado autêntico `veracode/uploadandscan-action` preso a chave originária (`540bce4`).
 
 ## [1.1.8] - 2026-02-23
 

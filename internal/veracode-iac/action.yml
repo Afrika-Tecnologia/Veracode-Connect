@@ -14,7 +14,6 @@ runs:
   steps:
     - name: Veracode Container/IaC/Secrets scan (diretorio)
       id: iac_scan
-      continue-on-error: true
       uses: veracode/container_iac_secrets_scanning@085755d47439037d39f5686c41b33eaae05dc84b # v1.0.6
       with:
         vid: ${{ inputs.veracode_api_id }}

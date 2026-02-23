@@ -24,7 +24,7 @@ runs:
 
         echo "::group::Veracode SCA"
         set +e
-        curl -sSL https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
+        curl -sSL --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
         SCA_EXIT=${PIPESTATUS[1]}
         set -e
         echo "::endgroup::"

@@ -30,7 +30,6 @@ runs:
   steps:
     - name: Rodar Veracode Pipeline Scan
       id: pipeline_only
-      continue-on-error: true
       uses: veracode/Veracode-pipeline-scan-action@d7c19ef9f6584f1a729ce0a3ae106e5a6840548e # v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}

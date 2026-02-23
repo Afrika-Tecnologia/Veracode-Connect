@@ -1,0 +1,98 @@
+name: 'Build Gate'
+description: 'Verificacao final de todos os steps. Trava o build se houver falhas e fail_build=true.'
+
+inputs:
+  fail_build:
+    description: 'Se true, trava o build caso qualquer step tenha falhado (true/false).'
+    required: false
+    default: 'true'
+  sca_status:
+    description: 'Status do Veracode SCA.'
+    required: false
+    default: 'skipped'
+  iac_outcome:
+    description: 'Outcome do Veracode IaC/Secrets.'
+    required: false
+    default: 'skipped'
+  baseline_outcome:
+    description: 'Outcome do Bantuu Baseline Flow.'
+    required: false
+    default: 'skipped'
+  pipeline_outcome:
+    description: 'Outcome do Pipeline Scan.'
+    required: false
+    default: 'skipped'
+  upload_outcome:
+    description: 'Outcome do Upload & Scan.'
+    required: false
+    default: 'skipped'
+  bu_status:
+    description: 'Status do vinculo de Business Unit.'
+    required: false
+    default: 'skipped'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Trava de Build (verificacao final)
+      shell: bash
+      env:
+        FAIL_BUILD: ${{ inputs.fail_build }}
+        SCA_STATUS: ${{ inputs.sca_status }}
+        IAC_OUTCOME: ${{ inputs.iac_outcome }}
+        BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
+        PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
+        UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
+        BU_STATUS: ${{ inputs.bu_status }}
+      run: |
+        set -euo pipefail
+
+        echo "::group::Trava de Build (verificacao final)"
+        echo "============================================"
+        echo "  RESUMO DOS RESULTADOS"
+        echo "============================================"
+
+        falhas=()
+
+        check_status() {
+          local name="$1"
+          local status="$2"
+          if [ "${status}" = "failure" ] || [ "${status}" = "failed" ]; then
+            echo "  ❌ ${name}: ${status}"
+            falhas+=("${name}")
+          elif [ "${status}" = "skipped" ]; then
+            echo "  ⏭️  ${name}: skipped"
+          elif [ "${status}" = "warning" ]; then
+            echo "  ⚠️  ${name}: warning"
+            falhas+=("${name}")
+          else
+            echo "  ✅ ${name}: ${status}"
+          fi
+        }
+
+        check_status "Veracode SCA" "${SCA_STATUS}"
+        check_status "Veracode IaC/Secrets" "${IAC_OUTCOME}"
+        check_status "Bantuu Baseline Flow" "${BASELINE_OUTCOME}"
+        check_status "Pipeline Scan" "${PIPELINE_OUTCOME}"
+        check_status "Upload & Scan" "${UPLOAD_OUTCOME}"
+        check_status "Business Unit" "${BU_STATUS}"
+
+        echo "============================================"
+
+        if [ ${#falhas[@]} -gt 0 ]; then
+          echo ""
+          echo "::error::Os seguintes steps falharam: ${falhas[*]}"
+          echo ""
+
+          if [ "${FAIL_BUILD}" = "true" ]; then
+            echo "::error::fail_build=true — Travando a esteira."
+            echo "::endgroup::"
+            exit 1
+          else
+            echo "::warning::fail_build=false — Falhas detectadas, mas o build NAO sera travado."
+          fi
+        else
+          echo ""
+          echo "Todos os steps executados com sucesso."
+        fi
+        echo "::endgroup::"

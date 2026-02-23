@@ -36,6 +36,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Fixed
 
 - 26 exemplos vazios (0 bytes) preenchidos com workflows completos e funcionais.
+- Auto Packager: adicionado flag `--trust` no `veracode package` para evitar prompt interativo ("Do you trust the authors?") que causava falha `EOF` no CI.
 
 
 ## [1.1.6] - 2026-02-19

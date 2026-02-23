@@ -60,7 +60,7 @@ runs:
 
           "${VERACODE_CMD}" package discover . || true
           set +e
-          "${VERACODE_CMD}" package --source . --type directory --output . 2>&1 | tee veracode_package.log
+          "${VERACODE_CMD}" package --trust --source . --type directory --output . 2>&1 | tee veracode_package.log
           PACKAGE_EXIT=${PIPESTATUS[0]}
           set -e
 

@@ -1,5 +1,5 @@
 # Script para automatizar o processo de release e tagging da Action (Versao Windows PowerShell)
-# Uso: .\.github\scripts\release.ps1 -Version 1.1.6
+# Uso: .\.github\scripts\release.ps1 -Version 1.1.7
 
 param (
     [Parameter(Mandatory = $true)]

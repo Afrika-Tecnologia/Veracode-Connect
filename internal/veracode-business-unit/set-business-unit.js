@@ -77,15 +77,18 @@ async function requestVeracodeJson({
     headers["Content-Length"] = String(payload.length);
   }
 
-  headers.Authorization = buildVeracodeAuthHeader({
-    apiId,
-    apiKeyHex,
-    host,
-    urlPathWithQuery,
-    method,
-  });
+
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    // Regenerar header de auth a cada tentativa (timestamp atualizado)
+    headers.Authorization = buildVeracodeAuthHeader({
+      apiId,
+      apiKeyHex,
+      host,
+      urlPathWithQuery,
+      method,
+    });
+
     const response = await new Promise((resolve, reject) => {
       const req = https.request(
         {
@@ -130,8 +133,7 @@ async function requestVeracodeJson({
         }
       }
 
-      const safeBody = response.rawBody ? response.rawBody.slice(0, 2000) : "";
-      throw new Error(`HTTP ${statusCode} em ${method} ${path}. Corpo (truncado): ${safeBody}`);
+      throw new Error(`HTTP ${statusCode} em ${method} ${path}. Consulte os logs para detalhes.`);
     }
 
     if (attempt === maxAttempts) {
@@ -194,7 +196,7 @@ async function findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName }) {
 
   for (const initialPath of candidates) {
     let path = initialPath;
-    for (let page = 0; page < 200; page += 1) {
+    for (let page = 0; page < 20; page += 1) {
       const json = await requestVeracodeJson({ apiId, apiKeyHex, host, method: "GET", path });
       const bus = getEmbeddedList(json, "business_units");
       for (const bu of bus) {
@@ -272,12 +274,6 @@ async function main() {
     throw new Error(
       `Upload & Scan esta habilitado, mas nao concluiu com sucesso (outcome=${uploadOutcome}). Nao e seguro aplicar Business Unit.`,
     );
-  }
-
-  if (businessUnit.includes(",")) {
-    setOutput("set_business_unit_status", "failed");
-    logGroupEnd();
-    throw new Error("Veracode permite apenas uma Business Unit por aplicacao. Informe apenas uma BU.");
   }
 
   if (businessUnit.length === 0) {

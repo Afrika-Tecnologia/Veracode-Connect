@@ -1,0 +1,56 @@
+name: Security Scan (Artefato/scan_file + Sem Baseline + SCA)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build / package scan file (app.zip)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y zip
+          rm -f app.zip
+          zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
+
+      - name: Upload scan file
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: app.zip
+          if-no-files-found: error
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download scan file
+        uses: actions/download-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: veracode-artifact
+
+      - name: Pipeline Scan sem Baseline + SCA (scan_file)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'false'
+          scan_file: veracode-artifact/app.zip
+          enable_baseline: 'false'
+          enable_pipelinescan: 'true'
+          policy_fail: 'false'
+          enable_sca: 'true'
+          veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}

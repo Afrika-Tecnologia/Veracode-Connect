@@ -15,7 +15,7 @@ runs:
     - name: Veracode Container/IaC/Secrets scan (diretorio)
       id: iac_scan
       continue-on-error: true
-      uses: veracode/container_iac_secrets_scanning@v1.0.6
+      uses: veracode/container_iac_secrets_scanning@085755d47439037d39f5686c41b33eaae05dc84b # v1.0.6
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -33,6 +33,7 @@ runs:
       run: |
         set -euo pipefail
 
+        echo "::group::Coletar resultados IaC/Secrets"
         mkdir -p iac-results
 
         files=(
@@ -59,10 +60,11 @@ runs:
           echo "Arquivos coletados em iac-results/:"
           ls -la iac-results || true
         fi
+        echo "::endgroup::"
 
     - name: Upload artefato IaC
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: iac-results
         path: |

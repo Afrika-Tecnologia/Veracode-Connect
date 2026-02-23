@@ -31,14 +31,14 @@ runs:
           echo "::group::Preparar scan file (Auto Packager)"
 
           if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
-            echo "Usando scan_file informado: ${INPUT_SCAN_FILE}"
+            echo "::warning::Auto Packager esta ativo, mas scan_file foi fornecido. Usando scan_file informado: ${INPUT_SCAN_FILE}"
             echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
             echo "::endgroup::"
             exit 0
           fi
 
           if ! command -v veracode >/dev/null 2>&1; then
-            curl -fsS https://tools.veracode.com/veracode-cli/install | sh
+            curl -fsS https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION=3.4.0 sh
           fi
 
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
@@ -51,7 +51,8 @@ runs:
             VERACODE_CMD="${PWD}/veracode"
             echo "${PWD}" >> "$GITHUB_PATH"
           else
-            echo "Erro: Veracode CLI foi instalada mas o binario 'veracode' nao foi encontrado no PATH/workspace." >&2
+            echo "::error::Veracode CLI foi instalada mas o binario 'veracode' nao foi encontrado no PATH/workspace."
+            echo "::endgroup::"
             exit 1
           fi
 
@@ -103,7 +104,8 @@ runs:
           fi
 
           if [ ! -f "${ZIP_FILE}" ]; then
-            echo "Erro: arquivo '${ZIP_FILE}' nao encontrado apos o Auto Packager." >&2
+            echo "::error::Arquivo '${ZIP_FILE}' nao encontrado apos o Auto Packager."
+            echo "::endgroup::"
             exit 1
           fi
 
@@ -119,12 +121,12 @@ runs:
           echo "::endgroup::"
         else
           if [ -z "${INPUT_SCAN_FILE}" ]; then
-            echo "Erro: scan_file nao foi fornecido e enable_auto_packager esta 'false'." >&2
+            echo "::error::scan_file nao foi fornecido e enable_auto_packager esta 'false'."
             exit 1
           fi
 
           if [ ! -f "${INPUT_SCAN_FILE}" ]; then
-            echo "Erro: arquivo '${INPUT_SCAN_FILE}' nao encontrado." >&2
+            echo "::error::Arquivo '${INPUT_SCAN_FILE}' nao encontrado."
             exit 1
           fi
 

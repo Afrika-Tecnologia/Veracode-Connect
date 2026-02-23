@@ -6,6 +6,11 @@ inputs:
     description: 'Token de API do Veracode SCA (mapeado para SRCCLR_API_TOKEN).'
     required: true
 
+outputs:
+  sca_status:
+    description: 'Resultado do SCA (success | warning).'
+    value: ${{ steps.run_sca.outputs.sca_status }}
+
 runs:
   using: 'composite'
   steps:
@@ -26,11 +31,14 @@ runs:
 
         if [ "${SCA_EXIT}" -ne 0 ]; then
           echo "::warning::Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)."
+          echo "sca_status=warning" >> "$GITHUB_OUTPUT"
+        else
+          echo "sca_status=success" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload artefato SCA
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: sca-results
         path: |

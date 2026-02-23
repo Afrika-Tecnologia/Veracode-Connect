@@ -12,16 +12,18 @@ runs:
     - name: Resolver nome do repositorio
       id: resolve
       shell: bash
-      env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
+        echo "::group::Resolver nome do repositorio"
         REPO="${GITHUB_REPOSITORY:-}"
 
         if [ -z "${REPO}" ]; then
-          echo "Erro: github.repository nao esta definido no contexto." >&2
+          echo "::error::github.repository nao esta definido no contexto."
+          echo "::endgroup::"
           exit 1
         fi
 
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
+        echo "Repositorio: ${REPO}"
+        echo "::endgroup::"

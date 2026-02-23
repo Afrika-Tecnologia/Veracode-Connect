@@ -37,6 +37,7 @@ runs:
       run: |
         set -euo pipefail
 
+        echo "::group::Veracode Upload & Scan (preparacao)"
         branch="${HEAD_REF:-$REF_NAME}"
         if [ -z "${branch}" ]; then
           branch="unknown"
@@ -57,10 +58,11 @@ runs:
         fi
 
         echo "sandbox_name=${sandbox_name}" >> "$GITHUB_OUTPUT"
+        echo "::endgroup::"
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/veracode-uploadandscan-action@0.2.11
+      uses: veracode/veracode-uploadandscan-action@ddca86b1d1d45639d1c414003f3495f71851cfe2 # 0.2.11
       with:
         appname: ${{ inputs.veracode_appname }}
         createprofile: true

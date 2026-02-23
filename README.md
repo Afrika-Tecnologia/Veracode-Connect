@@ -15,9 +15,11 @@ Uso (exemplo rapido):
 3) Define o `.zip` do scan:
    - `enable_auto_packager: 'true'` -> tenta Auto Packager (com fallback para `app.zip`)
    - `enable_auto_packager: 'false'` -> usa o `scan_file` que voce fornecer
-4) (Opcional) Pipeline Scan (`enable_pipelinescan: 'true'`) com ou sem baseline Bantuu (`enable_baseline`)
-5) (Opcional) Upload & Scan (static) por ultimo (`enable_upload_scan: 'true'`)
-6) (Opcional) Set Business Unit via REST (rodando somente apos Upload & Scan) (`enable_Business_unit: 'true'`)
+4) (Opcional) Baseline Bantuu (`enable_baseline: 'true'`) — roda o Pipeline Scan integrado ao Bantuu
+5) (Opcional) Pipeline Scan sem Bantuu (`enable_pipelinescan: 'true'` + `enable_baseline: 'false'`)
+6) (Opcional) Upload & Scan (static) por ultimo (`enable_upload_scan: 'true'`)
+7) (Opcional) Set Business Unit via REST (rodando somente apos Upload & Scan) (`enable_business_unit: 'true'`)
+8) **Trava de Build** — step final que verifica todos os resultados (`fail_build: 'true'`)
 
 Os logs ficam agrupados no console (`::group::/::endgroup::`).
 
@@ -32,9 +34,10 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `enable_auto_packager` | nao | `'false'` | Se `'true'`, tenta gerar `app.zip` automaticamente; senao usa `scan_file`. |
 | `scan_file` | nao* | - | Obrigatorio na pratica quando `enable_auto_packager: 'false'`. |
 | `enable_pipelinescan` | nao | `'true'` | Desative para rodar so Upload & Scan. |
-| `enable_baseline` | nao | `'true'` | Usa baseline Bantuu (somente com Pipeline Scan ativo). |
+| `enable_baseline` | nao | `'true'` | Usa baseline Bantuu (roda Pipeline Scan integrado ao Bantuu). |
 | `bantuu_api_key` | nao* | - | Obrigatorio na pratica quando `enable_baseline: 'true'`. |
 | `policy_fail` | nao | `'false'` | Controla `fail_build` do Pipeline Scan. |
+| `fail_build` | nao | `'true'` | Se `'true'`, trava a esteira quando qualquer scan falhar. |
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
 | `veracode_policy_name` | nao | `''` | Nome da policy a ser usada no scan do Veracode. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
@@ -42,7 +45,7 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `enable_sca` | nao | `'false'` | Ativa SCA. |
 | `veracode_sca_token` | nao* | - | Obrigatorio na pratica quando `enable_sca: 'true'`. |
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
-| `enable_Business_unit` | nao | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (apos Upload & Scan). |
+| `enable_business_unit` | nao | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (apos Upload & Scan). |
 | `veracode_business_unit` | nao | `''` | Nome da BU (ex.: `BU TI`). Se contiver virgula, a action falha. |
 | `veracode_appname` | nao | `${{ github.repository }}` | Nome do app no Veracode. |
 
@@ -56,6 +59,9 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `business_unit_name` | Nome da BU aplicada. |
 | `business_unit_guid` | GUID da BU aplicada. |
 | `set_business_unit_status` | `skipped` \| `success` \| `failed`. |
+| `sca_status` | Resultado do SCA: `success` \| `warning` \| `skipped`. |
+| `iac_status` | Resultado do IaC: `success` \| `failure` \| `skipped`. |
+| `upload_scan_status` | Resultado do Upload & Scan: `success` \| `failure` \| `skipped`. |
 
 ## Artefatos (sempre publicados quando o modulo roda)
 

@@ -1,0 +1,65 @@
+name: Lint GitHub Actions
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'action.yml'
+      - 'internal/**/action.yml'
+      - '.github/workflows/**'
+      - 'examples/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'action.yml'
+      - 'internal/**/action.yml'
+      - '.github/workflows/**'
+      - 'examples/**'
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Instalar actionlint
+        run: |
+          set -euo pipefail
+          bash <(curl -sS https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+
+      - name: Lint action.yml e workflows
+        run: |
+          set -euo pipefail
+
+          echo "::group::Lint workflows (.github/workflows)"
+          ./actionlint -color .github/workflows/*.yml || true
+          echo "::endgroup::"
+
+          echo "::group::Lint exemplos (examples/)"
+          for f in examples/*.yml; do
+            echo "--- ${f} ---"
+            ./actionlint -color "${f}" || true
+          done
+          echo "::endgroup::"
+
+      - name: Verificar exemplos nao vazios
+        run: |
+          set -euo pipefail
+
+          echo "::group::Verificar exemplos nao vazios"
+          empty_count=0
+          for f in examples/*.yml; do
+            if [ ! -s "${f}" ]; then
+              echo "::error::Exemplo vazio encontrado: ${f}"
+              empty_count=$((empty_count + 1))
+            fi
+          done
+
+          if [ "${empty_count}" -gt 0 ]; then
+            echo "::error::${empty_count} exemplo(s) vazio(s) encontrado(s)."
+            exit 1
+          fi
+
+          echo "Todos os exemplos possuem conteudo."
+          echo "::endgroup::"

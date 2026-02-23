@@ -2,7 +2,7 @@
 # Uso: .\.github\scripts\release.ps1 -Version 1.1.6
 
 param (
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$Version
 )
 
@@ -40,10 +40,16 @@ git checkout main
 git pull origin main
 
 # Verifica se a tag ja existe
-$ExistingTag = git rev-parse "$TagFull" 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Erro: A tag $TagFull ja existe localmente." -ForegroundColor Red
-    exit 1
+try {
+    $ExistingTag = git rev-parse "$TagFull" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Erro: A tag $TagFull ja existe localmente." -ForegroundColor Red
+        exit 1
+    }
+}
+catch {
+    # Se der erro, significa que a tag nao existe (o que eh bom)
+    $null
 }
 
 Write-Host "Criando tag $TagFull..." -ForegroundColor Green

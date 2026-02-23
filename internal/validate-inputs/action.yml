@@ -20,6 +20,10 @@ inputs:
   bantuu_api_key:
     description: 'API Key do Bantuu.'
     required: false
+  bantuu_base_url:
+    description: 'URL base do Bantuu.'
+    required: false
+    default: ''
   enable_auto_packager:
     description: 'Auto Packager ativo (true/false).'
     required: true
@@ -54,6 +58,7 @@ runs:
         ENABLE_PIPELINE: ${{ inputs.enable_pipelinescan }}
         ENABLE_BASELINE: ${{ inputs.enable_baseline }}
         BANTUU_KEY: ${{ inputs.bantuu_api_key }}
+        BANTUU_URL: ${{ inputs.bantuu_base_url }}
         ENABLE_AUTO_PACKAGER: ${{ inputs.enable_auto_packager }}
         SCAN_FILE: ${{ inputs.scan_file }}
         ENABLE_UPLOAD: ${{ inputs.enable_upload_scan }}
@@ -64,6 +69,7 @@ runs:
       run: |
         set -euo pipefail
 
+        echo "::group::Validar inputs condicionais"
         erros=()
 
         if [ -z "${VID:-}" ]; then
@@ -82,8 +88,24 @@ runs:
           erros+=("enable_baseline=true requer bantuu_api_key.")
         fi
 
-        if [ "${ENABLE_AUTO_PACKAGER}" != "true" ] && [ -z "${SCAN_FILE:-}" ]; then
-          erros+=("enable_auto_packager=false requer scan_file.")
+        # Validar bantuu_base_url (sem barra final, formato URL)
+        if [ "${ENABLE_BASELINE}" = "true" ] && [ -n "${BANTUU_URL:-}" ]; then
+          if echo "${BANTUU_URL}" | grep -qE '/$'; then
+            erros+=("bantuu_base_url nao deve terminar com barra (/).  Atual: '${BANTUU_URL}'")
+          fi
+          if ! echo "${BANTUU_URL}" | grep -qE '^https?://'; then
+            erros+=("bantuu_base_url deve comecar com http:// ou https://. Atual: '${BANTUU_URL}'")
+          fi
+        fi
+
+        # scan_file so e obrigatorio se pipeline, upload ou baseline estao ativos E auto_packager esta desativado
+        needs_scan_file="false"
+        if [ "${ENABLE_PIPELINE}" = "true" ] || [ "${ENABLE_UPLOAD}" = "true" ] || [ "${ENABLE_BASELINE}" = "true" ]; then
+          needs_scan_file="true"
+        fi
+
+        if [ "${needs_scan_file}" = "true" ] && [ "${ENABLE_AUTO_PACKAGER}" != "true" ] && [ -z "${SCAN_FILE:-}" ]; then
+          erros+=("scan_file e obrigatorio quando auto_packager esta desativado e pipeline/upload/baseline estao ativos.")
         fi
 
         if [ "${ENABLE_BU}" = "true" ]; then
@@ -107,7 +129,9 @@ runs:
             echo "::error::${e}"
           done
           echo "============================================"
+          echo "::endgroup::"
           exit 1
         fi
 
         echo "Todos os inputs validados com sucesso."
+        echo "::endgroup::"

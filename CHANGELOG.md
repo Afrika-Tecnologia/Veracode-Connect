@@ -8,6 +8,35 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - N/A.
 
+## [1.1.7] - 2026-02-23
+
+### Added
+
+- Novo input `fail_build` (default `'true'`): trava de build final que verifica se algum step falhou.
+- Novo input `enable_business_unit` (lowercase, substitui `enable_Business_unit`; alias legado mantido).
+- Novos outputs: `sca_status`, `iac_status`, `upload_scan_status`.
+- Step final obrigatorio "Trava de Build" com resumo visual de todos os resultados.
+- Workflow CI de linting (`actionlint`) para validar sintaxe dos YAMLs e verificar exemplos vazios.
+
+### Changed
+
+- **Logica baseline/pipescan**: `enable_baseline=true` roda o baseline flow independentemente de `enable_pipelinescan`; `enable_pipelinescan=true` + `enable_baseline=false` roda pipeline only.
+- Auto-packager so e executado quando pipeline, upload ou baseline estao ativos (antes rodava sempre).
+- `scan_file` so e obrigatorio quando pipeline/upload/baseline estao ativos (permite usar apenas SCA + IaC).
+- Todas as dependencias externas pinadas por SHA de commit (supply-chain security).
+- Refs internas de sub-actions alteradas de `@v1.1` para `@v1` (consistencia com major version tag).
+- Veracode CLI (Auto Packager) pinada na versao `3.4.0`.
+- `::group::` adicionado em todas as sub-actions para logs organizados.
+- `curl` para Bantuu agora usa `--connect-timeout 30 --max-time 120`.
+- `set-business-unit.js`: HMAC auth regenerado dentro do loop de retry; paginacao de BUs reduzida de 200 para 20 paginas; validacao de virgula removida (duplicada, feita no validate-inputs).
+- `continue-on-error` adicionado no Upload & Scan e Baseline Flow (resultados verificados na trava de build final).
+- Condicoes `always()` substituidas por verificacoes de outcome (evita steps desnecessarios).
+- Warning exibido quando auto-packager ativo mas `scan_file` fornecido.
+
+### Fixed
+
+- 26 exemplos vazios (0 bytes) preenchidos com workflows completos e funcionais.
+
 
 ## [1.1.6] - 2026-02-19
 

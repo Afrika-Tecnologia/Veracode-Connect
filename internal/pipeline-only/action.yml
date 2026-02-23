@@ -31,7 +31,7 @@ runs:
     - name: Rodar Veracode Pipeline Scan
       id: pipeline_only
       continue-on-error: true
-      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
+      uses: veracode/Veracode-pipeline-scan-action@d7c19ef9f6584f1a729ce0a3ae106e5a6840548e # v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -42,8 +42,8 @@ runs:
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     - name: Upload artefato Pipeline Scan
-      if: always()
-      uses: actions/upload-artifact@v4
+      if: steps.pipeline_only.outcome != 'skipped'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: pipescan-results
         path: |
@@ -59,7 +59,7 @@ runs:
         echo "pipeline_status=scan_completed_without_bantuu" >> "$GITHUB_OUTPUT"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
-      if: always()
+      if: steps.pipeline_only.outcome != 'skipped'
       shell: bash
       env:
         POLICY_FAIL: ${{ inputs.policy_fail }}
@@ -68,13 +68,13 @@ runs:
         set -euo pipefail
 
         if [ ! -f "results.json" ]; then
-          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          echo "::error::results.json nao encontrado apos o Pipeline Scan."
           exit 1
         fi
 
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "Erro: Pipeline Scan falhou e policy_fail=true." >&2
+            echo "::error::Pipeline Scan falhou e policy_fail=true."
             exit 1
           else
             echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."

@@ -1,0 +1,26 @@
+name: Security Scan (Pipeline Desativado + Upload & Scan Apenas - Auto Packager)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload & Scan Apenas (Pipeline Desativado - Auto Packager)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_pipelinescan: 'false'
+          enable_baseline: 'false'
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'true'
+          enable_auto_packager: 'true'

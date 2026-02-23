@@ -68,10 +68,13 @@ runs:
         RESPONSE_FILE="baseline-response.json"
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
+          --connect-timeout 30 \
+          --max-time 120 \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPOSITORY_FULL_NAME}")
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
+          echo "::warning::Bantuu retornou HTTP ${HTTP_STATUS} ao consultar baseline. Continuando sem baseline."
           echo '{}' > "${RESPONSE_FILE}"
         fi
 
@@ -100,7 +103,7 @@ runs:
       id: pipeline_with_baseline
       if: steps.check_baseline.outputs.has_baseline == 'true'
       continue-on-error: true
-      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
+      uses: veracode/Veracode-pipeline-scan-action@d7c19ef9f6584f1a729ce0a3ae106e5a6840548e # v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -133,6 +136,8 @@ runs:
         results=$(cat results.json)
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
+          --connect-timeout 30 \
+          --max-time 120 \
           -X POST "${BANTUU_BASE_URL}/api/veracode/baselineupload?repositoryFullName=${REPOSITORY_FULL_NAME}" \
           -H "Content-Type: application/json" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
@@ -140,7 +145,6 @@ runs:
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Falha ao enviar resultados com baseline para o Bantuu (HTTP ${HTTP_STATUS}). O job continua."
-          cat /tmp/bantuu-upload-response.txt || true
         fi
         echo "::endgroup::"
 
@@ -148,7 +152,7 @@ runs:
       id: pipeline_without_baseline
       if: steps.check_baseline.outputs.has_baseline == 'false'
       continue-on-error: true
-      uses: veracode/Veracode-pipeline-scan-action@v1.0.20
+      uses: veracode/Veracode-pipeline-scan-action@d7c19ef9f6584f1a729ce0a3ae106e5a6840548e # v1.0.20
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -159,8 +163,8 @@ runs:
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
     - name: Upload artefato Pipeline Scan
-      if: always()
-      uses: actions/upload-artifact@v4
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: pipescan-results
         path: |
@@ -181,7 +185,7 @@ runs:
 
         echo "::group::Bantuu baseline (upload)"
         if [ ! -f "results.json" ]; then
-          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          echo "::error::results.json nao encontrado apos o Pipeline Scan."
           echo "::endgroup::"
           exit 1
         fi
@@ -190,14 +194,15 @@ runs:
           '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
+          --connect-timeout 30 \
+          --max-time 120 \
           -X POST "${BANTUU_BASE_URL}/api/veracode/stock-issues/upload" \
           -H "Content-Type: application/json" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
           -d "${payload}")
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "Erro ao enviar baseline para Bantuu. Verifique as credenciais." >&2
-          cat /tmp/bantuu-upload-response.txt || true
+          echo "::error::Falha ao enviar baseline para Bantuu (HTTP ${HTTP_STATUS}). Verifique as credenciais."
           echo "::endgroup::"
           exit 1
         fi
@@ -220,7 +225,7 @@ runs:
         echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
-      if: always()
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
       shell: bash
       env:
         POLICY_FAIL: ${{ inputs.policy_fail }}
@@ -230,7 +235,7 @@ runs:
         set -euo pipefail
 
         if [ ! -f "results.json" ]; then
-          echo "Erro: results.json nao encontrado apos o Pipeline Scan." >&2
+          echo "::error::results.json nao encontrado apos o Pipeline Scan."
           exit 1
         fi
 
@@ -244,7 +249,7 @@ runs:
 
         if [ "${outcome}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "Erro: Pipeline Scan falhou e policy_fail=true." >&2
+            echo "::error::Pipeline Scan falhou e policy_fail=true."
             exit 1
           else
             echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."

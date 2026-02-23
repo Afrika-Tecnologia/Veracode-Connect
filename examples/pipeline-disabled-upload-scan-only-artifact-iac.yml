@@ -1,0 +1,56 @@
+name: Security Scan (Pipeline Desativado + Upload & Scan + IaC - Artefato)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build / package scan file (app.zip)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y zip
+          rm -f app.zip
+          zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
+
+      - name: Upload scan file
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: app.zip
+          if-no-files-found: error
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download scan file
+        uses: actions/download-artifact@v4
+        with:
+          name: veracode-scan-file
+          path: veracode-artifact
+
+      - name: Upload & Scan + IaC (Pipeline Desativado - Artefato)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_pipelinescan: 'false'
+          enable_baseline: 'false'
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'true'
+          enable_auto_packager: 'false'
+          scan_file: veracode-artifact/app.zip
+          enable_iac: 'true'

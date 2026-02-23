@@ -1,0 +1,30 @@
+name: Security Scan (Auto Packager + Sem Baseline + SCA + IaC + Upload & Scan)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pipeline Scan + SCA + IaC + Upload & Scan sem Baseline (Auto Packager)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'true'
+          enable_baseline: 'false'
+          enable_pipelinescan: 'true'
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'true'
+          policy_fail: 'false'
+          enable_sca: 'true'
+          veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
+          enable_iac: 'true'

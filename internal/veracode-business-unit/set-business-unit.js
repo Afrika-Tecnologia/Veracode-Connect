@@ -111,6 +111,11 @@ async function requestVeracodeJson({
         },
       );
 
+      // Adicionar timeout
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Timeout de conexão (30s) atingido.'));
+      });
+
       req.on("error", reject);
       if (payload) req.write(payload);
       req.end();
@@ -243,7 +248,7 @@ async function main() {
   const businessUnit = normalizeSpaces(rawBusinessUnit || "");
 
   if (!businessUnit) {
-    warning("enable_business_unit=true, mas veracode_business_unit esta vazio. Pulando.");
+    warning("enable_business_unit=true, mas veracode_business_unit está vazio. Pulando.");
     logGroupEnd();
     return;
   }
@@ -272,36 +277,30 @@ async function main() {
   if (uploadOutcome !== "success") {
     logGroupEnd();
     throw new Error(
-      `Upload & Scan esta habilitado, mas nao concluiu com sucesso (outcome=${uploadOutcome}). Nao e seguro aplicar Business Unit.`,
+      `Upload & Scan está habilitado, mas não concluiu com sucesso (outcome=${uploadOutcome}). Não é seguro aplicar Business Unit.`,
     );
-  }
-
-  if (businessUnit.length === 0) {
-    warning("Nenhuma Business Unit valida foi encontrada apos normalizacao. Pulando.");
-    logGroupEnd();
-    return;
   }
 
   setOutput("business_unit_name", businessUnit);
 
-  process.stdout.write(`Vinculando Business Unit '${businessUnit}' a aplicacao '${appName}'\n`);
+  process.stdout.write(`Vinculando Business Unit '${businessUnit}' à aplicação '${appName}'\n`);
   process.stdout.write(`Host: ${host}\n`);
 
   const buGuid = await findBusinessUnitGuidByName({ apiId, apiKeyHex, host, buName: businessUnit });
   if (!buGuid) {
     setOutput("set_business_unit_status", "failed");
     logGroupEnd();
-    throw new Error(`BU '${businessUnit}' nao existe ou nao foi localizada via Identity API.`);
+    throw new Error(`BU '${businessUnit}' não existe ou não foi localizada via Identity API.`);
   }
   setOutput("business_unit_guid", buGuid);
-  process.stdout.write(`GUID da Business Unit resolvido: ${buGuid}\n`);
+  process.stdout.write(`Business Unit '${businessUnit}' localizada com sucesso.\n`);
 
   const appGuid = await findAppGuidByName({ apiId, apiKeyHex, host, appName });
   if (!appGuid) {
     setOutput("set_business_unit_status", "failed");
     logGroupEnd();
     throw new Error(
-      `Aplicacao '${appName}' nao foi localizada via Applications API. Verifique se o Upload & Scan criou o profile (createprofile=true) e se o nome confere.`,
+      `Aplicação '${appName}' não foi localizada via Applications API. Verifique se o Upload & Scan criou o profile (createprofile=true) e se o nome confere.`,
     );
   }
   process.stdout.write(`GUID do App: ${appGuid}\n`);

@@ -66,12 +66,14 @@ runs:
 
         echo "::group::Bantuu baseline (consulta)"
         RESPONSE_FILE="baseline-response.json"
+        
+        REPO_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "${REPOSITORY_FULL_NAME}")
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o "${RESPONSE_FILE}" \
           --connect-timeout 30 \
           --max-time 120 \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
-          "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPOSITORY_FULL_NAME}")
+          "${BANTUU_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPO_ENCODED}")
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Bantuu retornou HTTP ${HTTP_STATUS} ao consultar baseline. Continuando sem baseline."
@@ -128,24 +130,25 @@ runs:
 
         echo "::group::Bantuu baseline (upload resultado com baseline)"
         if [ ! -f "results.json" ]; then
-          echo "::warning::results.json nao encontrado apos o Pipeline Scan com baseline. Pulando upload."
+          echo "::warning::results.json não encontrado após o Pipeline Scan com baseline. Pulando upload."
           echo "::endgroup::"
           exit 0
         fi
 
-        results=$(cat results.json)
+        REPO_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "${REPOSITORY_FULL_NAME}")
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
           --connect-timeout 30 \
           --max-time 120 \
-          -X POST "${BANTUU_BASE_URL}/api/veracode/baselineupload?repositoryFullName=${REPOSITORY_FULL_NAME}" \
+          -X POST "${BANTUU_BASE_URL}/api/veracode/baselineupload?repositoryFullName=${REPO_ENCODED}" \
           -H "Content-Type: application/json" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
-          -d "${results}")
+          --data-binary @results.json)
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Falha ao enviar resultados com baseline para o Bantuu (HTTP ${HTTP_STATUS}). O job continua."
         fi
+        rm -f /tmp/bantuu-upload-response.txt
         echo "::endgroup::"
 
     - name: Rodar Veracode Pipeline Scan sem baseline
@@ -185,13 +188,13 @@ runs:
 
         echo "::group::Bantuu baseline (upload)"
         if [ ! -f "results.json" ]; then
-          echo "::error::results.json nao encontrado apos o Pipeline Scan."
+          echo "::error::results.json não encontrado após o Pipeline Scan."
           echo "::endgroup::"
           exit 1
         fi
 
-        payload=$(jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
-          '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json)
+        jq -c --arg repo "${REPOSITORY_FULL_NAME}" \
+          '. as $scan | {repositoryFullName: $repo, scanResult: $scan}' results.json > payload.json
 
         HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/bantuu-upload-response.txt \
           --connect-timeout 30 \
@@ -199,30 +202,44 @@ runs:
           -X POST "${BANTUU_BASE_URL}/api/veracode/stock-issues/upload" \
           -H "Content-Type: application/json" \
           -H "X-API-Key: ${BANTUU_API_KEY}" \
-          -d "${payload}")
+          --data-binary @payload.json)
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::error::Falha ao enviar baseline para Bantuu (HTTP ${HTTP_STATUS}). Verifique as credenciais."
+          rm -f /tmp/bantuu-upload-response.txt payload.json
           echo "::endgroup::"
           exit 1
         fi
+        rm -f /tmp/bantuu-upload-response.txt payload.json
         echo "::endgroup::"
 
     - name: Definir status (com baseline)
       id: pipeline_status_with_baseline
       if: steps.check_baseline.outputs.has_baseline == 'true'
       shell: bash
+      env:
+        OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
       run: |
         set -euo pipefail
-        echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
+        if [ "${OUTCOME}" = "failure" ]; then
+          echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
+        else
+          echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Definir status (sem baseline, baseline enviado)
       id: pipeline_status_without_baseline
       if: steps.check_baseline.outputs.has_baseline == 'false'
       shell: bash
+      env:
+        OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
       run: |
         set -euo pipefail
-        echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+        if [ "${OUTCOME}" = "failure" ]; then
+          echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+        else
+          echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
       if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
@@ -235,13 +252,13 @@ runs:
         set -euo pipefail
 
         if [ ! -f "results.json" ]; then
-          echo "::error::results.json nao encontrado apos o Pipeline Scan."
+          echo "::error::results.json não encontrado após o Pipeline Scan."
           exit 1
         fi
 
         outcome="skipped"
         for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
-          if [ -n "${o}" ] && [ "${o}" != "skipped" ]; then
+          if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
             outcome="${o}"
             break
           fi

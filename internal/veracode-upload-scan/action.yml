@@ -9,7 +9,7 @@ inputs:
     description: 'Key da API do Veracode (VKEY).'
     required: true
   repository_full_name:
-    description: 'Repositorio org/repo usado como appname no Veracode.'
+    description: 'Repositório org/repo usado como appname no Veracode.'
     required: true
   veracode_sandbox:
     description: 'Define se o Upload & Scan deve usar sandbox (true) ou o app principal (false).'
@@ -37,7 +37,7 @@ runs:
       run: |
         set -euo pipefail
 
-        echo "::group::Veracode Upload & Scan (preparacao)"
+        echo "::group::Veracode Upload & Scan (preparação)"
         branch="${HEAD_REF:-$REF_NAME}"
         if [ -z "${branch}" ]; then
           branch="unknown"

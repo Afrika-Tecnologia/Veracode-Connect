@@ -1,29 +1,29 @@
-name: 'Resolver nome do repositorio'
-description: 'Resolve o nome completo do repositorio (org/repo) a partir do contexto do GitHub.'
+name: 'Resolver nome do repositório'
+description: 'Resolve o nome completo do repositório (org/repo) a partir do contexto do GitHub.'
 
 outputs:
   repository_full_name:
-    description: 'Repositorio no formato org/repo.'
+    description: 'Repositório no formato org/repo.'
     value: ${{ steps.resolve.outputs.repository_full_name }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Resolver nome do repositorio
+    - name: Resolver nome do repositório
       id: resolve
       shell: bash
       run: |
         set -euo pipefail
 
-        echo "::group::Resolver nome do repositorio"
+        echo "::group::Resolver nome do repositório"
         REPO="${GITHUB_REPOSITORY:-}"
 
         if [ -z "${REPO}" ]; then
-          echo "::error::github.repository nao esta definido no contexto."
+          echo "::error::github.repository não está definido no contexto."
           echo "::endgroup::"
           exit 1
         fi
 
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
-        echo "Repositorio: ${REPO}"
+        echo "Repositório: ${REPO}"
         echo "::endgroup::"

@@ -20,6 +20,9 @@ const erros = [];
 
 if (!VID) erros.push("veracode_api_id é obrigatório.");
 if (!VKEY) erros.push("veracode_api_key é obrigatório.");
+if (VKEY && (!/^[0-9a-fA-F]+$/.test(VKEY) || VKEY.length % 2 !== 0)) {
+    erros.push("veracode_api_key deve ser uma string hexadecimal válida.");
+}
 if (ENABLE_SCA === 'true' && !SCA_TOKEN) erros.push("enable_sca=true requer veracode_sca_token.");
 if (ENABLE_BASELINE === 'true' && !BANTUU_KEY) erros.push("enable_baseline=true requer bantuu_api_key.");
 

@@ -12,9 +12,9 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Veracode Container/IaC/Secrets scan (diretorio)
+    - name: Veracode Container/IaC/Secrets scan (diretório)
       id: iac_scan
-      uses: veracode/container_iac_secrets_scanning@085755d47439037d39f5686c41b33eaae05dc84b # v1.0.6
+      uses: veracode/container_iac_secrets_scanning@6846f033a36fa3665b75b6c50f21d6f8b08d64b8 # v1.0.7
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -25,6 +25,20 @@ runs:
         format: table
         fail_build: 'false'
         fail_build_on_error: 'false'
+
+    - name: Definir status
+      if: always()
+      id: status
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ steps.iac_scan.outcome }}" = "success" ]; then
+          echo "iac_status=success" >> "$GITHUB_OUTPUT"
+        elif [ "${{ steps.iac_scan.outcome }}" = "failure" ]; then
+          echo "iac_status=failure" >> "$GITHUB_OUTPUT"
+        else
+          echo "iac_status=skipped" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Coletar arquivos de resultado do IaC
       if: always()

@@ -1,5 +1,5 @@
 name: 'Veracode Connect'
-description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu.'
+description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu. Requer permissions: contents: read'
 author: 'Afrika-Tecnologia'
 branding:
   icon: 'shield'
@@ -51,14 +51,14 @@ inputs:
     required: false
     default: 'true'
   scan_file:
-    description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager esta desativado.'
+    description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager está desativado.'
     required: false
   policy_fail:
     description: 'Define se o scan deve quebrar o build por policy (true/false).'
     required: false
     default: 'false'
   fail_on_severity:
-    description: 'Severidades que fazem o scan falhar quando ha baseline (ex.: "Very High, High").'
+    description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
   fail_build:
     description: 'Se true, o build falha caso qualquer scan reporte erro. Se false, apenas emite warnings (true/false).'
@@ -75,11 +75,11 @@ inputs:
     required: false
     default: 'false'
   enable_business_unit:
-    description: 'Ativa/desativa o vinculo automatico do app a UMA Business Unit via REST (true/false).'
+    description: 'Ativa/desativa o vínculo automático do app a UMA Business Unit via REST (true/false).'
     required: false
     default: 'false'
   veracode_business_unit:
-    description: 'Nome da Business Unit unica a ser atribuida ao app (ex.: "BU TI").'
+    description: 'Nome da Business Unit única a ser atribuída ao app (ex.: "BU TI").'
     required: false
     default: ''
   veracode_policy_name:
@@ -89,13 +89,13 @@ inputs:
 
 outputs:
   has_baseline:
-    description: 'true/false indicando se o Bantuu possui baseline para o repositorio.'
+    description: 'true/false indicando se o Bantuu possui baseline para o repositório.'
     value: ${{ steps.baseline_flow.outputs.has_baseline || 'false' }}
   pipeline_status:
     description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload), apenas scan ou pipeline desativado.'
     value: ${{ steps.baseline_flow.outputs.pipeline_status || steps.pipeline_only.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
   repository_full_name:
-    description: 'Repositorio org/repo usado para consultar e enviar baseline ao Bantuu.'
+    description: 'Repositório org/repo usado para consultar e enviar baseline ao Bantuu.'
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
 
   business_unit_name:
@@ -105,7 +105,7 @@ outputs:
     description: 'GUID da Business Unit aplicada.'
     value: ${{ steps.business_unit.outputs.business_unit_guid || '' }}
   set_business_unit_status:
-    description: 'Status do passo de vinculo de BU (success | skipped | failed).'
+    description: 'Status do passo de vínculo de BU (success | skipped | failed).'
     value: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}
 
   sca_status:
@@ -113,7 +113,7 @@ outputs:
     value: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
   iac_status:
     description: 'Resultado do Veracode IaC/Secrets (success | failure | skipped).'
-    value: ${{ steps.veracode_iac.outcome || 'skipped' }}
+    value: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
   upload_scan_status:
     description: 'Resultado do Upload & Scan (success | failure | skipped).'
     value: ${{ steps.upload_and_scan.outcome || 'skipped' }}
@@ -182,8 +182,8 @@ runs:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
 
-    # ── 5. Resolver nome do repositorio ──────────────────────────────
-    - name: Resolver nome do repositorio
+    # ── 5. Resolver nome do repositório ──────────────────────────────
+    - name: Resolver nome do repositório
       id: resolve_repo
       uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
 
@@ -191,7 +191,6 @@ runs:
     - name: Bantuu baseline flow
       id: baseline_flow
       if: inputs.enable_baseline == 'true'
-      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/bantuu-baseline-flow@v1
       with:
         bantuu_api_key: ${{ inputs.bantuu_api_key }}
@@ -252,8 +251,8 @@ runs:
         enable_upload_scan: ${{ inputs.enable_upload_scan }}
         upload_and_scan_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
 
-    # ── 9. Trava de Build (step final obrigatorio) ───────────────────
-    - name: Trava de Build (verificacao final)
+    # ── 9. Trava de Build (step final obrigatório) ───────────────────
+    - name: Trava de Build (verificação final)
       if: always()
       uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
       with:

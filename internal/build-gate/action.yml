@@ -27,7 +27,7 @@ inputs:
     required: false
     default: 'skipped'
   bu_status:
-    description: 'Status do vinculo de Business Unit.'
+    description: 'Status do vínculo de Business Unit.'
     required: false
     default: 'skipped'
 
@@ -47,24 +47,25 @@ runs:
       run: |
         set -euo pipefail
 
-        echo "::group::Trava de Build (verificacao final)"
+        echo "::group::Trava de Build (verificação final)"
         echo "============================================"
         echo "  RESUMO DOS RESULTADOS"
         echo "============================================"
 
         falhas=()
+        alertas=()
 
         check_status() {
           local name="$1"
           local status="$2"
-          if [ "${status}" = "failure" ] || [ "${status}" = "failed" ]; then
+          if [[ "${status}" == "failure" || "${status}" == "failed" || "${status}" == "scan_failed"* ]]; then
             echo "  ❌ ${name}: ${status}"
             falhas+=("${name}")
           elif [ "${status}" = "skipped" ]; then
             echo "  ⏭️  ${name}: skipped"
           elif [ "${status}" = "warning" ]; then
             echo "  ⚠️  ${name}: warning"
-            falhas+=("${name}")
+            alertas+=("${name}")
           else
             echo "  ✅ ${name}: ${status}"
           fi
@@ -79,6 +80,11 @@ runs:
 
         echo "============================================"
 
+        if [ ${#alertas[@]} -gt 0 ]; then
+          echo ""
+          echo "::warning::Os seguintes steps geraram alertas: ${alertas[*]}"
+        fi
+
         if [ ${#falhas[@]} -gt 0 ]; then
           echo ""
           echo "::error::Os seguintes steps falharam: ${falhas[*]}"
@@ -89,10 +95,10 @@ runs:
             echo "::endgroup::"
             exit 1
           else
-            echo "::warning::fail_build=false — Falhas detectadas, mas o build NAO sera travado."
+            echo "::warning::fail_build=false — Falhas detectadas, mas o build NÃO será travado."
           fi
         else
           echo ""
-          echo "Todos os steps executados com sucesso."
+          echo "Processo de verificação concluído sem falhas."
         fi
         echo "::endgroup::"

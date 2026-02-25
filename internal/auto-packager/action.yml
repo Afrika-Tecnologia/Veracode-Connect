@@ -9,11 +9,19 @@ inputs:
   scan_file:
     description: 'Caminho do artefato ja empacotado quando o auto packager esta desativado.'
     required: false
+  cli_version:
+    description: 'Versao da Veracode CLI a ser baixada.'
+    required: false
+    default: '2.46.0'
+  cli_cache_key_prefix:
+    description: 'Prefixo para a chave de cache da Veracode CLI.'
+    required: false
+    default: 'veracode-cli'
 
 outputs:
   scan_file:
     description: 'Caminho efetivo do arquivo a ser usado no Veracode Pipeline Scan.'
-    value: ${{ steps.prepare.outputs.scan_file }}
+    value: ${{ steps.final_output.outputs.scan_file }}
 
 runs:
   using: 'composite'
@@ -24,7 +32,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}/veracode
-        key: veracode-cli-2.46.0-${{ runner.os }}
+        key: ${{ inputs.cli_cache_key_prefix }}-${{ inputs.cli_version }}-${{ runner.os }}
 
     - name: Preparar scan file (Veracode CLI)
       id: prepare
@@ -32,6 +40,7 @@ runs:
       env:
         ENABLE: ${{ inputs.enable_auto_packager }}
         INPUT_SCAN_FILE: ${{ inputs.scan_file }}
+        CLI_VERSION: ${{ inputs.cli_version }}
       run: |
         set -euo pipefail
 
@@ -39,14 +48,14 @@ runs:
           echo "::group::Preparar scan file (Auto Packager)"
 
           if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::warning::Auto Packager esta ativo, mas scan_file foi fornecido. Usando scan_file informado: ${INPUT_SCAN_FILE}"
+            echo "::warning::Auto Packager está ativo, mas scan_file foi fornecido. Usando scan_file informado: ${INPUT_SCAN_FILE}"
             echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
             echo "::endgroup::"
             exit 0
           fi
 
           if [ "${{ steps.cli_cache.outputs.cache-hit }}" != "true" ] && ! command -v veracode >/dev/null 2>&1; then
-            curl -fsS https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION=2.46.0 sh
+            curl -fsSL --fail-with-body --connect-timeout 15 --max-time 60 https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION="${CLI_VERSION}" sh
           fi
 
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
@@ -59,7 +68,7 @@ runs:
             VERACODE_CMD="${PWD}/veracode"
             echo "${PWD}" >> "$GITHUB_PATH"
           else
-            echo "::error::Veracode CLI foi instalada mas o binario 'veracode' nao foi encontrado no PATH/workspace."
+            echo "::error::Veracode CLI foi instalada mas o binário 'veracode' não foi encontrado no PATH/workspace."
             echo "::endgroup::"
             exit 1
           fi
@@ -95,7 +104,7 @@ runs:
           fi
 
           if [ ! -f "${ZIP_FILE}" ]; then
-            echo "::error::Arquivo '${ZIP_FILE}' nao encontrado apos o Auto Packager."
+            echo "::error::Arquivo '${ZIP_FILE}' não encontrado após o Auto Packager."
             echo "::endgroup::"
             exit 1
           fi
@@ -112,12 +121,12 @@ runs:
           echo "::endgroup::"
         else
           if [ -z "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::scan_file nao foi fornecido e enable_auto_packager esta 'false'."
+            echo "::error::scan_file não foi fornecido e enable_auto_packager está 'false'."
             exit 1
           fi
 
           if [ ! -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::Arquivo '${INPUT_SCAN_FILE}' nao encontrado."
+            echo "::error::Arquivo '${INPUT_SCAN_FILE}' não encontrado."
             exit 1
           fi
 
@@ -129,7 +138,7 @@ runs:
       with:
         type: 'zip'
         filename: 'app.zip'
-        exclusions: '*.git* /*node_modules/* veracode veracode.exe veracode-cli_* app.zip results.json filtered_results.json baseline.json baseline-response.json veracode_*.log iac-results/*'
+        exclusions: '*.git* /*node_modules/* veracode veracode.exe veracode-cli_* app.zip results.json filtered_results.json baseline.json baseline-response.json veracode_*.log iac-results/* .next/* dist/* build/* target/* .gradle/* __pycache__/* *.pyc *.class coverage/* .cache/* .pytest_cache/* *.log bin/* obj/*'
 
     - name: Concluir Fallback ZIP
       if: steps.prepare.outputs.needs_fallback == 'true'

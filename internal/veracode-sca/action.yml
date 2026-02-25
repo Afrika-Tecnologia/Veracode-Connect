@@ -24,13 +24,27 @@ runs:
 
         echo "::group::Veracode SCA"
         set +e
-        curl -sSL --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh | bash -s -- scan --allow-dirty 2>&1 | tee veracode_sca.log
-        SCA_EXIT=${PIPESTATUS[1]}
+        curl -fsSL --fail-with-body --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh > ci.sh
+        CURL_EXIT="${PIPESTATUS[0]}"
+
+        if [ "${CURL_EXIT}" -ne 0 ]; then
+          echo "::error::Falha ao baixar o script SCA do Veracode (curl exit ${CURL_EXIT})."
+          exit 1
+        fi
+
+        # Verificação simples de tamanho (script não pode ser vazio/muito pequeno)
+        if [ ! -s ci.sh ] || [ $(wc -c < ci.sh) -lt 1000 ]; then
+          echo "::error::Script ci.sh baixado é inválido ou muito pequeno."
+          exit 1
+        fi
+
+        bash ci.sh -- scan --allow-dirty 2>&1 | tee veracode_sca.log
+        bash_exit="${PIPESTATUS[0]}"
         set -e
         echo "::endgroup::"
 
-        if [ "${SCA_EXIT}" -ne 0 ]; then
-          echo "::warning::Veracode SCA retornou exit code ${SCA_EXIT} (o job continua)."
+        if [ "${bash_exit}" -ne 0 ]; then
+          echo "::warning::Veracode SCA retornou exit code ${bash_exit} (o job continua)."
           echo "sca_status=warning" >> "$GITHUB_OUTPUT"
         else
           echo "sca_status=success" >> "$GITHUB_OUTPUT"

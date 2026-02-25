@@ -9,6 +9,10 @@ inputs:
     description: 'Nome da Business Unit (ex.: "BU TI").'
     required: false
     default: ''
+  veracode_api_host:
+    description: 'Host da API Veracode.'
+    required: false
+    default: 'api.veracode.com'
   veracode_api_id:
     description: 'ID da API do Veracode (VID).'
     required: true
@@ -19,7 +23,7 @@ inputs:
     description: 'Nome do app no Veracode (org/repo).'
     required: true
   enable_upload_scan:
-    description: 'Indica se o Upload & Scan esta ativo (true/false).'
+    description: 'Indica se o Upload & Scan está ativo (true/false).'
     required: true
   upload_and_scan_outcome:
     description: 'Resultado do step de Upload & Scan (success/failure/skipped).'
@@ -34,7 +38,7 @@ outputs:
     description: 'GUID da Business Unit aplicada.'
     value: ${{ steps.set_business_unit.outputs.business_unit_guid }}
   set_business_unit_status:
-    description: 'Status do vinculo (success | skipped | failed).'
+    description: 'Status do vínculo (success | skipped | failed).'
     value: ${{ steps.set_business_unit.outputs.set_business_unit_status }}
 
 runs:
@@ -48,7 +52,7 @@ runs:
         VERACODE_BUSINESS_UNIT: ${{ inputs.veracode_business_unit }}
         VERACODE_API_ID: ${{ inputs.veracode_api_id }}
         VERACODE_API_KEY: ${{ inputs.veracode_api_key }}
-        VERACODE_API_HOST: api.veracode.com
+        VERACODE_API_HOST: ${{ inputs.veracode_api_host }}
         VERACODE_APP_NAME: ${{ inputs.veracode_app_name }}
         ENABLE_UPLOAD_SCAN: ${{ inputs.enable_upload_scan }}
         UPLOAD_AND_SCAN_OUTCOME: ${{ inputs.upload_and_scan_outcome }}

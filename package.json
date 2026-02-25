@@ -1,6 +1,6 @@
- {
+{
     "name": "veracode-connect-action",
-    "version": "1.1.7",
+    "version": "1.1.11",
     "description": "Veracode Connect Action scripts and tests",
     "scripts": {
         "test": "node --test internal/**/*.test.js"

@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-02-25
+
+### Changed
+- Referências internas no `action.yml` alteradas de caminhos hardcoded com repo (`Afrika-Tecnologia/Veracode-Connect/internal/...@v1`) para caminhos relativos estritos (`./internal/...`). Isso garante que a versão exata sendo chamada por referência local seja usada, preservando a lógica exata de cada branch ou tag e reduzindo potenciais atrasos de sincronização de versão da branch `main`.
+- Correções maciças de segurança: blindagem de `curl` via URL Enconding e `--data-binary`, Validação estrita de checksums e tamanho de script `ci.sh` do SCA, e proteção contra vazamento de `BU_GUID` e de Infra nos logs do Business Unit REST SDK.
+- Melhorias profundas de robustez: refatoração da _Trava de Build_ (`build-gate`) que agora não trava o pipeline ao encontrar apenas "warnings"; Timeout (via `req.setTimeout` e cli config) de conexões demoradas garantindo fail-fast na esteira. E auto-packager otimizado ignorando pastas `.next/`, `node_modules/`, obj/ bin/ por default garantindo pacotes mais minimalistas no upload. 
+- Padronização em Pt-BR em quase todos os outputs de consoles e logs, e simplificação dos códigos de erro retornados (`pipeline_status` / `iac_status`).
+
 ## [1.1.10] - 2026-02-23
 
 ### Added

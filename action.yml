@@ -139,7 +139,7 @@ runs:
     # ── 1. Validar inputs ────────────────────────────────────────────
     - name: Validar inputs
       id: validate
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/validate-inputs@v1
+      uses: ./internal/validate-inputs
       with:
         enable_sca: ${{ inputs.enable_sca }}
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
@@ -160,7 +160,7 @@ runs:
     - name: Veracode SCA
       id: veracode_sca
       if: inputs.enable_sca == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-sca@v1
+      uses: ./internal/veracode-sca
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
 
@@ -168,7 +168,7 @@ runs:
     - name: Veracode IaC / Secrets
       id: veracode_iac
       if: inputs.enable_iac == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1
+      uses: ./internal/veracode-iac
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -177,7 +177,7 @@ runs:
     - name: Preparar scan file
       id: prepare_scan_file
       if: inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || inputs.enable_baseline == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
+      uses: ./internal/auto-packager
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
@@ -185,13 +185,13 @@ runs:
     # ── 5. Resolver nome do repositório ──────────────────────────────
     - name: Resolver nome do repositório
       id: resolve_repo
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
+      uses: ./internal/resolve-repo
 
     # ── 6a. Bantuu baseline flow (quando baseline ativo) ─────────────
     - name: Bantuu baseline flow
       id: baseline_flow
       if: inputs.enable_baseline == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/bantuu-baseline-flow@v1
+      uses: ./internal/bantuu-baseline-flow
       with:
         bantuu_api_key: ${{ inputs.bantuu_api_key }}
         bantuu_base_url: ${{ inputs.bantuu_base_url }}
@@ -207,7 +207,7 @@ runs:
     - name: Pipeline Scan (sem Bantuu)
       id: pipeline_only
       if: inputs.enable_baseline != 'true' && inputs.enable_pipelinescan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1
+      uses: ./internal/pipeline-only
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -228,7 +228,7 @@ runs:
     - name: Veracode Upload & Scan
       id: upload_and_scan
       if: (success() || failure()) && inputs.enable_upload_scan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1
+      uses: ./internal/veracode-upload-scan
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -241,7 +241,7 @@ runs:
     - name: Vincular Business Unit
       id: business_unit
       if: (success() || failure()) && steps.resolve_bu_flag.outputs.enable_bu == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-business-unit@v1
+      uses: ./internal/veracode-business-unit
       with:
         enable_business_unit: ${{ steps.resolve_bu_flag.outputs.enable_bu }}
         veracode_business_unit: ${{ inputs.veracode_business_unit }}
@@ -254,7 +254,7 @@ runs:
     # ── 9. Trava de Build (step final obrigatório) ───────────────────
     - name: Trava de Build (verificação final)
       if: always()
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
+      uses: ./internal/build-gate
       with:
         fail_build: ${{ inputs.fail_build }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}

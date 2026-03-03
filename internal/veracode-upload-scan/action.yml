@@ -81,27 +81,75 @@ runs:
           exit 1
         fi
 
-        # veracode/uploadandscan-action espera um diretório (faz readdir internamente)
-        # Copiar o zip para um diretório isolado evita o erro ENOTDIR
-        UPLOAD_DIR="${GITHUB_WORKSPACE}/.veracode-upload"
-        mkdir -p "${UPLOAD_DIR}"
-        cp "${ABS_PATH}" "${UPLOAD_DIR}/$(basename "${ABS_PATH}")"
-
-        echo "filepath=${UPLOAD_DIR}" >> "$GITHUB_OUTPUT"
-        echo "Filepath resolvido: ${UPLOAD_DIR}/$(basename "${ABS_PATH}")"
+        echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
+        echo "Filepath resolvido: ${ABS_PATH}"
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/uploadandscan-action@540bce452ba00f3038b32ed2b58b58ac054fc34e # v0.2.0
-      with:
-        appname: ${{ inputs.veracode_appname }}
-        createprofile: true
-        filepath: ${{ steps.resolve_filepath.outputs.filepath }}
-        version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
-        vid: ${{ inputs.veracode_api_id }}
-        vkey: ${{ inputs.veracode_api_key }}
-        createsandbox: ${{ inputs.veracode_sandbox }}
-        sandboxname: ${{ steps.vars.outputs.sandbox_name }}
-        deleteincompletescan: true
-        scantimeout: 0
+      shell: bash
+      env:
+        VID: ${{ inputs.veracode_api_id }}
+        VKEY: ${{ inputs.veracode_api_key }}
+        APP_NAME: ${{ inputs.veracode_appname }}
+        FILEPATH: ${{ steps.resolve_filepath.outputs.filepath }}
+        BUILD_VERSION: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        CREATE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        SANDBOX_NAME: ${{ steps.vars.outputs.sandbox_name }}
+      run: |
+        set -euo pipefail
+        echo "::group::Veracode Upload & Scan"
+
+        echo "Arquivo a enviar: ${FILEPATH}"
+
+        # Baixar o Veracode Java API Wrapper
+        JAR_VERSION="26.2.18.0"
+        JAR_NAME="vosp-api-wrappers-java-${JAR_VERSION}.jar"
+        JAR_URL="https://repo1.maven.org/maven2/com/veracode/vosp/api/wrappers/vosp-api-wrappers-java/${JAR_VERSION}/${JAR_NAME}"
+        echo "Baixando Veracode Java API Wrapper ${JAR_VERSION}..."
+        curl -fsSL "${JAR_URL}" -o "${JAR_NAME}"
+
+        echo "Enviando arquivo para o Veracode..."
+        if [ "${CREATE_SANDBOX}" = "true" ] && [ -n "${SANDBOX_NAME}" ]; then
+          java -jar "${JAR_NAME}" \
+            -action UploadFile \
+            -vid "${VID}" \
+            -vkey "${VKEY}" \
+            -appname "${APP_NAME}" \
+            -version "${BUILD_VERSION}" \
+            -filepath "${FILEPATH}" \
+            -createprofile true \
+            -deleteincompletescan true \
+            -createsandbox true \
+            -sandboxname "${SANDBOX_NAME}"
+
+          echo "Iniciando pré-scan (autoscan ativado — sem aguardar resultado)..."
+          java -jar "${JAR_NAME}" \
+            -action BeginPrescan \
+            -vid "${VID}" \
+            -vkey "${VKEY}" \
+            -appname "${APP_NAME}" \
+            -sandboxname "${SANDBOX_NAME}" \
+            -autoscan true
+        else
+          java -jar "${JAR_NAME}" \
+            -action UploadFile \
+            -vid "${VID}" \
+            -vkey "${VKEY}" \
+            -appname "${APP_NAME}" \
+            -version "${BUILD_VERSION}" \
+            -filepath "${FILEPATH}" \
+            -createprofile true \
+            -deleteincompletescan true
+
+          echo "Iniciando pré-scan (autoscan ativado — sem aguardar resultado)..."
+          java -jar "${JAR_NAME}" \
+            -action BeginPrescan \
+            -vid "${VID}" \
+            -vkey "${VKEY}" \
+            -appname "${APP_NAME}" \
+            -autoscan true
+        fi
+
+        echo "✅ Scan enviado com sucesso. Resultado disponível no portal Veracode."
+        echo "::endgroup::"

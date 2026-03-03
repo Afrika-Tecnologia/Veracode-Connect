@@ -144,9 +144,11 @@ runs:
       if: steps.prepare.outputs.needs_fallback == 'true'
       shell: bash
       run: |
+        echo "::group::Concluir Fallback ZIP"
         echo "Criado app.zip via TheDoctor0/zip-release (fallback):"
         ls -lh app.zip || true
         echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
+        echo "::endgroup::"
       id: fallback_output
 
     - name: Consolidar Saida

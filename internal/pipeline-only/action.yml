@@ -73,16 +73,20 @@ runs:
       run: |
         set -euo pipefail
 
+        echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ ! -f "results.json" ]; then
           echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::endgroup::"
           exit 1
         fi
 
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
             echo "::error::Pipeline Scan falhou e policy_fail=true."
+            echo "::endgroup::"
             exit 1
           else
             echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
           fi
         fi
+        echo "::endgroup::"

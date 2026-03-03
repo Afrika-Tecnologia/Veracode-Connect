@@ -24,7 +24,7 @@ runs:
 
         echo "::group::Veracode SCA"
         set +e
-        curl -fsSL --fail-with-body --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh > ci.sh
+        curl -fsSL --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh > ci.sh
         CURL_EXIT="${PIPESTATUS[0]}"
 
         if [ "${CURL_EXIT}" -ne 0 ]; then

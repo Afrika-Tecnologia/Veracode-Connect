@@ -60,13 +60,35 @@ runs:
         echo "sandbox_name=${sandbox_name}" >> "$GITHUB_OUTPUT"
         echo "::endgroup::"
 
+    - name: Resolver filepath absoluto
+      id: resolve_filepath
+      shell: bash
+      env:
+        INPUT_FILEPATH: ${{ inputs.filepath }}
+      run: |
+        set -euo pipefail
+        echo "::group::Resolver filepath absoluto"
+        if [[ "${INPUT_FILEPATH}" = /* ]]; then
+          ABS_PATH="${INPUT_FILEPATH}"
+        else
+          ABS_PATH="${GITHUB_WORKSPACE}/${INPUT_FILEPATH}"
+        fi
+        if [ ! -f "${ABS_PATH}" ]; then
+          echo "::error::Arquivo não encontrado: ${ABS_PATH}"
+          echo "::endgroup::"
+          exit 1
+        fi
+        echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
+        echo "Filepath resolvido: ${ABS_PATH}"
+        echo "::endgroup::"
+
     - name: Veracode Upload & Scan
       id: upload_and_scan
       uses: veracode/uploadandscan-action@540bce452ba00f3038b32ed2b58b58ac054fc34e # v0.2.0
       with:
         appname: ${{ inputs.veracode_appname }}
         createprofile: true
-        filepath: ${{ inputs.filepath }}
+        filepath: ${{ steps.resolve_filepath.outputs.filepath }}
         version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}

@@ -58,3 +58,4 @@ runs:
         path: |
           veracode_sca.log
         if-no-files-found: warn
+        retention-days: 3

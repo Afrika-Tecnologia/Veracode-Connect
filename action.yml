@@ -176,7 +176,7 @@ runs:
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
     - name: Preparar scan file
       id: prepare_scan_file
-      if: inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || inputs.enable_baseline == 'true'
+      if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || inputs.enable_baseline == 'true')
       uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
@@ -185,6 +185,7 @@ runs:
     # ── 5. Resolver nome do repositório ──────────────────────────────
     - name: Resolver nome do repositório
       id: resolve_repo
+      if: success() || failure()
       uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
 
     # ── 6a. Bantuu baseline flow (quando baseline ativo) ─────────────

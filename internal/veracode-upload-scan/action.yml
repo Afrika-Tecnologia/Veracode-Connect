@@ -31,9 +31,9 @@ runs:
       shell: bash
       env:
         ENABLE_SANDBOX: ${{ inputs.veracode_sandbox }}
-        REPOSITORY_FULL_NAME: ${{ inputs.repository_full_name }}
         HEAD_REF: ${{ github.head_ref }}
         REF_NAME: ${{ github.ref_name }}
+        APP_NAME: ${{ inputs.veracode_appname }}
       run: |
         set -euo pipefail
 
@@ -43,14 +43,7 @@ runs:
           branch="unknown"
         fi
 
-        sanitize() {
-          printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g; s/-+/-/g'
-        }
-
-        branch_s="$(sanitize "${branch}")"
-        repo_s="$(sanitize "${REPOSITORY_FULL_NAME}")"
-
-        sandbox_name="${branch_s}-${repo_s}"
+        sandbox_name="${branch} - ${APP_NAME}"
         sandbox_name="$(printf '%s' "${sandbox_name}" | cut -c1-80)"
 
         if [ "${ENABLE_SANDBOX}" != "true" ]; then
@@ -87,69 +80,15 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      shell: bash
-      env:
-        VID: ${{ inputs.veracode_api_id }}
-        VKEY: ${{ inputs.veracode_api_key }}
-        APP_NAME: ${{ inputs.veracode_appname }}
-        FILEPATH: ${{ steps.resolve_filepath.outputs.filepath }}
-        BUILD_VERSION: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
-        CREATE_SANDBOX: ${{ inputs.veracode_sandbox }}
-        SANDBOX_NAME: ${{ steps.vars.outputs.sandbox_name }}
-      run: |
-        set -euo pipefail
-        echo "::group::Veracode Upload & Scan"
-
-        echo "Arquivo a enviar: ${FILEPATH}"
-
-        # Baixar o Veracode Java API Wrapper
-        JAR_VERSION="26.2.18.0"
-        JAR_NAME="vosp-api-wrappers-java-${JAR_VERSION}.jar"
-        JAR_URL="https://repo1.maven.org/maven2/com/veracode/vosp/api/wrappers/vosp-api-wrappers-java/${JAR_VERSION}/${JAR_NAME}"
-        echo "Baixando Veracode Java API Wrapper ${JAR_VERSION}..."
-        curl -fsSL "${JAR_URL}" -o "${JAR_NAME}"
-
-        echo "Enviando arquivo para o Veracode..."
-        if [ "${CREATE_SANDBOX}" = "true" ] && [ -n "${SANDBOX_NAME}" ]; then
-          java -jar "${JAR_NAME}" \
-            -action UploadFile \
-            -vid "${VID}" \
-            -vkey "${VKEY}" \
-            -appname "${APP_NAME}" \
-            -version "${BUILD_VERSION}" \
-            -filepath "${FILEPATH}" \
-            -createprofile true \
-            -deleteincompletescan true \
-            -createsandbox true \
-            -sandboxname "${SANDBOX_NAME}"
-
-          echo "Iniciando pré-scan (autoscan ativado — sem aguardar resultado)..."
-          java -jar "${JAR_NAME}" \
-            -action BeginPrescan \
-            -vid "${VID}" \
-            -vkey "${VKEY}" \
-            -appname "${APP_NAME}" \
-            -sandboxname "${SANDBOX_NAME}" \
-            -autoscan true
-        else
-          java -jar "${JAR_NAME}" \
-            -action UploadFile \
-            -vid "${VID}" \
-            -vkey "${VKEY}" \
-            -appname "${APP_NAME}" \
-            -version "${BUILD_VERSION}" \
-            -filepath "${FILEPATH}" \
-            -createprofile true \
-            -deleteincompletescan true
-
-          echo "Iniciando pré-scan (autoscan ativado — sem aguardar resultado)..."
-          java -jar "${JAR_NAME}" \
-            -action BeginPrescan \
-            -vid "${VID}" \
-            -vkey "${VKEY}" \
-            -appname "${APP_NAME}" \
-            -autoscan true
-        fi
-
-        echo "✅ Scan enviado com sucesso. Resultado disponível no portal Veracode."
-        echo "::endgroup::"
+      uses: veracode/veracode-uploadandscan-action@ddca86b1d1d45639d1c414003f3495f71851cfe2 # 0.2.11
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        appname: '${{ inputs.veracode_appname }}'
+        createprofile: true
+        filepath: ${{ steps.resolve_filepath.outputs.filepath }}
+        version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
+        createsandbox: ${{ inputs.veracode_sandbox }}
+        sandboxname: ${{ steps.vars.outputs.sandbox_name }}
+        deleteincompletescan: 2
+        scanallnonfataltoplevelmodules: true

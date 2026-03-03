@@ -49,6 +49,7 @@ runs:
           results.json
           filtered_results.json
         if-no-files-found: warn
+        retention-days: 3
 
     - name: Definir status do pipeline
       id: pipeline_status

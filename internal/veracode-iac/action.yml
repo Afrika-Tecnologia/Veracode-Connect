@@ -83,3 +83,4 @@ runs:
         path: |
           iac-results
         if-no-files-found: warn
+        retention-days: 3

@@ -68,18 +68,27 @@ runs:
       run: |
         set -euo pipefail
         echo "::group::Resolver filepath absoluto"
+
         if [[ "${INPUT_FILEPATH}" = /* ]]; then
           ABS_PATH="${INPUT_FILEPATH}"
         else
           ABS_PATH="${GITHUB_WORKSPACE}/${INPUT_FILEPATH}"
         fi
+
         if [ ! -f "${ABS_PATH}" ]; then
           echo "::error::Arquivo não encontrado: ${ABS_PATH}"
           echo "::endgroup::"
           exit 1
         fi
-        echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
-        echo "Filepath resolvido: ${ABS_PATH}"
+
+        # veracode/uploadandscan-action espera um diretório (faz readdir internamente)
+        # Copiar o zip para um diretório isolado evita o erro ENOTDIR
+        UPLOAD_DIR="${GITHUB_WORKSPACE}/.veracode-upload"
+        mkdir -p "${UPLOAD_DIR}"
+        cp "${ABS_PATH}" "${UPLOAD_DIR}/$(basename "${ABS_PATH}")"
+
+        echo "filepath=${UPLOAD_DIR}" >> "$GITHUB_OUTPUT"
+        echo "Filepath resolvido: ${UPLOAD_DIR}/$(basename "${ABS_PATH}")"
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan

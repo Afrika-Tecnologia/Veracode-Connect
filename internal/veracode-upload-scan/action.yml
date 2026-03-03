@@ -72,5 +72,5 @@ runs:
         vkey: ${{ inputs.veracode_api_key }}
         createsandbox: ${{ inputs.veracode_sandbox }}
         sandboxname: ${{ steps.vars.outputs.sandbox_name }}
-        deleteincompletescan: 2
+        deleteincompletescan: true
         scantimeout: 0

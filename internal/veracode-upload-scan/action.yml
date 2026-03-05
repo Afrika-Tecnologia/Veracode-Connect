@@ -92,3 +92,50 @@ runs:
         sandboxname: ${{ steps.vars.outputs.sandbox_name }}
         deleteincompletescan: 2
         scanallnonfataltoplevelmodules: true
+
+    - name: Gerar Summary do Upload & Scan
+      if: always()
+      shell: bash
+      env:
+        UPLOAD_OUTCOME: ${{ steps.upload_and_scan.outcome }}
+        APP_NAME: ${{ inputs.veracode_appname }}
+        SANDBOX_NAME: ${{ steps.vars.outputs.sandbox_name }}
+        ENABLE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        FILEPATH: ${{ steps.resolve_filepath.outputs.filepath }}
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### 📤 Veracode Upload & Scan"
+          echo ""
+
+          if [ "${UPLOAD_OUTCOME}" = "success" ]; then
+            echo "> ✅ Upload & Scan enviado com sucesso"
+          elif [ "${UPLOAD_OUTCOME}" = "failure" ]; then
+            echo "> ❌ Upload & Scan falhou"
+          else
+            echo "> ⏭️ Upload & Scan: ${UPLOAD_OUTCOME}"
+          fi
+          echo ""
+
+          FILE_NAME="N/A"
+          FILE_SIZE="N/A"
+          if [ -n "${FILEPATH:-}" ] && [ -f "${FILEPATH}" ]; then
+            FILE_NAME=$(basename "${FILEPATH}")
+            FILE_SIZE=$(du -h "${FILEPATH}" | cut -f1)
+          fi
+
+          echo "| Propriedade | Valor |"
+          echo "|---|---|"
+          echo "| App Name | \`${APP_NAME}\` |"
+          if [ "${ENABLE_SANDBOX}" = "true" ]; then
+            echo "| Sandbox | \`${SANDBOX_NAME}\` |"
+          else
+            echo "| Sandbox | Desativado (scan no app principal) |"
+          fi
+          echo "| Artefato | \`${FILE_NAME}\` |"
+          echo "| Tamanho | ${FILE_SIZE} |"
+          echo "| Status | ${UPLOAD_OUTCOME} |"
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"

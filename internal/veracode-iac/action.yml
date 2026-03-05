@@ -134,22 +134,15 @@ runs:
             echo ""
             # ── FIM DEBUG ──
 
-            # Extrair findings — tenta várias estruturas conhecidas
-            # Salva em /tmp/iac_findings.json como array
+            # Extrair findings — estrutura real: .vulnerabilities.matches[]
             set +e
             FINDINGS_ARRAY=$(jq '
-              if .matches then .matches
+              if .vulnerabilities.matches then .vulnerabilities.matches
+              elif .matches then .matches
               elif type == "array" then .
               elif .findings then .findings
-              elif .results then
-                if (.results | type) == "array" then .results
-                else [.results]
-                end
-              elif .vulnerabilities then .vulnerabilities
-              else
-                # Último recurso: coletar todos os arrays internos
-                [ .. | arrays | .[] | objects ] | unique_by(.id // .vulnerability.id // .) | 
-                if length > 0 then . else [] end
+              elif .results then .results
+              else []
               end
             ' iac-results/results.json 2>/dev/null)
             EXIT_CODE=$?
@@ -163,13 +156,13 @@ runs:
 
             TOTAL=$(jq 'if type == "array" then length else 0 end' /tmp/iac_findings.json 2>/dev/null || echo "0")
 
-            # Severidade — tenta todos os caminhos conhecidos
-            SEV='.vulnerability.severity // .severity // .Severity // .SEVERITY // .risk_level // .risk // "unknown" | tostring | ascii_downcase'
+            # Severidade em .vulnerability.severity (Critical/High/Medium/Low/Negligible)
+            SEV='.vulnerability.severity // .severity // "unknown" | tostring | ascii_downcase'
 
-            CRITICAL=$(jq "[.[] | select((${SEV}) | test(\"critical|very.high\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            CRITICAL=$(jq "[.[] | select((${SEV}) | test(\"critical\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
             HIGH=$(jq "[.[] | select((${SEV}) == \"high\")] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
             MEDIUM=$(jq "[.[] | select((${SEV}) | test(\"^med\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
-            LOW=$(jq "[.[] | select((${SEV}) | test(\"^(low|info|negligible)\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            LOW=$(jq "[.[] | select((${SEV}) | test(\"^(low|negligible)\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
@@ -187,31 +180,25 @@ runs:
               echo "|---|---|---|---|---|"
 
               jq -r '
-                def get_sev:
-                  (.vulnerability.severity // .severity // .Severity // .risk_level // "N/A") | tostring;
-
                 def sev_icon:
                   (. | ascii_downcase) |
-                  if test("critical|very.high") then "🔴"
+                  if test("critical") then "🔴"
                   elif . == "high" then "🟠"
                   elif startswith("med") then "🟡"
-                  elif test("^(low|info|negligible)") then "🔵"
+                  elif test("^(low|negligible)") then "🔵"
                   else "⚪" end;
 
-                def get_id:
-                  (.vulnerability.id // .id // .cve // .rule_id // "N/A") | tostring;
-
-                def get_desc:
-                  (.vulnerability.description // .title // .description // .message // .vulnerability.id // .id // "N/A") | tostring | if length > 80 then .[:77] + "..." else . end;
-
-                def get_target:
-                  (.artifact.name // .file // .filename // .location // .path // "N/A") | tostring |
-                  if . != "N/A" then
-                    . + " " + ((.artifact.version // "") | tostring)
-                  else . end;
-
                 to_entries[] |
-                "| \(.key + 1) | \(.value | get_sev | sev_icon) \(.value | get_sev) | \(.value | get_id) | \(.value | get_desc) | \(.value | get_target) |"
+                .key as $i |
+                .value |
+                {
+                  sev: (.vulnerability.severity // "N/A"),
+                  vid: (.vulnerability.id // "N/A"),
+                  cve: ((.relatedVulnerabilities // [] | map(select(.id | startswith("CVE"))) | .[0].id) // .vulnerability.id // "N/A"),
+                  desc: (.vulnerability.description // "N/A" | if length > 70 then .[:67] + "..." else . end),
+                  lib: ((.artifact.name // "N/A") + " " + (.artifact.version // ""))
+                } |
+                "| \($i + 1) | \(.sev | sev_icon) \(.sev) | \(.cve) | \(.desc) | \(.lib) |"
               ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
 
               echo ""

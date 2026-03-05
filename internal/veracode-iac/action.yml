@@ -115,12 +115,20 @@ runs:
 
           if [ -f "iac-results/results.json" ]; then
 
-            # ── DEBUG: dump completo para calibrar o parser ──
-            echo "<details><summary>🔧 Debug: JSON completo do IaC (results.json)</summary>"
+            # ── DEBUG: estrutura do JSON (limitado para não estourar 1024k) ──
+            echo "<details><summary>🔧 Debug: estrutura do JSON do IaC</summary>"
             echo ""
+            echo "**Chaves raiz:**"
             echo '```json'
-            cat iac-results/results.json | jq '.' 2>/dev/null || cat iac-results/results.json
+            jq 'if type == "object" then keys elif type == "array" then "array[\(length)]" else type end' iac-results/results.json 2>/dev/null || echo "erro"
             echo '```'
+            echo ""
+            echo "**Primeiro finding:**"
+            echo '```json'
+            jq '.[0]' /tmp/iac_findings.json 2>/dev/null | head -60 || echo "vazio"
+            echo '```'
+            echo ""
+            echo "**Tamanho do results.json:** $(wc -c < iac-results/results.json 2>/dev/null || echo '?') bytes"
             echo ""
             echo "</details>"
             echo ""

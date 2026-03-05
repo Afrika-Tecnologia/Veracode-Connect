@@ -114,49 +114,29 @@ runs:
           echo ""
 
           if [ -f "iac-results/results.json" ]; then
-            # Normalizar: extrair todos os findings de qualquer estrutura possível
-            # O Veracode IaC pode retornar diversas estruturas:
-            #   - Array raiz: [...]
-            #   - Objeto com .findings, .results, .vulnerabilities
-            #   - Objeto aninhado com .results.findings, .scan.findings, etc.
-            #   - Múltiplas categorias: .vulnerabilities + .violations + .iac + .secrets
+            # O Veracode CLI (container/IaC/Secrets) usa Grype internamente.
+            # Estrutura Grype: { matches: [...], source: {...}, db: {...} }
+            # Cada match: { vulnerability: { id, severity, description, ... }, artifact: { name, version, ... }, ... }
+            # Também suportar formatos alternativos como array raiz ou .findings/.results
             jq -e '
-              def collect:
-                if type == "array" then .
-                elif type == "object" then
-                  [ (.findings // [])[], (.results // [])[], (.vulnerabilities // [])[], 
-                    (.violations // [])[], (.iac // [])[], (.secrets // [])[] ] |
-                  if length > 0 then .
-                  else
-                    # Tentar um nível mais fundo
-                    [ to_entries[] | .value | 
-                      if type == "array" then .[]
-                      elif type == "object" then
-                        ((.findings // [])[], (.results // [])[], (.vulnerabilities // [])[], (.violations // [])[])
-                      else empty
-                      end
-                    ]
-                  end
-                else []
-                end;
-              collect
+              if .matches then .matches
+              elif type == "array" then .
+              elif .findings then .findings
+              elif .results then .results
+              elif .vulnerabilities then .vulnerabilities
+              else []
+              end
             ' iac-results/results.json > /tmp/iac_findings.json 2>/dev/null || echo "[]" > /tmp/iac_findings.json
 
             TOTAL=$(jq 'length' /tmp/iac_findings.json 2>/dev/null || echo "0")
 
-            # Extrair severidade de forma genérica (tenta todos os campos possíveis, recursivamente)
-            get_sev='(
-              .severity // .Severity // .SEVERITY //
-              .risk_level // .risk // .Risk //
-              .finding_details.severity // .finding_details.Severity //
-              .cvss_score // .score //
-              "unknown"
-            )'
+            # Severidade: Grype usa .vulnerability.severity, fallback para .severity
+            SEV_EXPR='.vulnerability.severity // .severity // .Severity // .risk_level // "unknown" | tostring | ascii_downcase'
 
-            CRITICAL=$(jq --arg gs "$get_sev" '[.[] | ('"$get_sev"' | if type == "number" then (if . >= 9 then "critical" else "" end) else (tostring | ascii_downcase) end) | select(startswith("critical") or . == "very high")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
-            HIGH=$(jq '[.[] | ('"$get_sev"' | if type == "number" then (if . >= 7 and . < 9 then "high" else "" end) else (tostring | ascii_downcase) end) | select(. == "high")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
-            MEDIUM=$(jq '[.[] | ('"$get_sev"' | if type == "number" then (if . >= 4 and . < 7 then "medium" else "" end) else (tostring | ascii_downcase) end) | select(startswith("med"))] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
-            LOW=$(jq '[.[] | ('"$get_sev"' | if type == "number" then (if . >= 0 and . < 4 then "low" else "" end) else (tostring | ascii_downcase) end) | select(startswith("low") or startswith("info"))] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            CRITICAL=$(jq "[.[] | select((${SEV_EXPR}) | startswith(\"critical\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            HIGH=$(jq "[.[] | select((${SEV_EXPR}) == \"high\")] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq "[.[] | select((${SEV_EXPR}) | startswith(\"med\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            LOW=$(jq "[.[] | select((${SEV_EXPR}) | test(\"^(low|info|negligible)\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
@@ -170,53 +150,30 @@ runs:
             if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
               echo "<details><summary>📋 Detalhes dos findings (${TOTAL})</summary>"
               echo ""
-              echo "| # | Severidade | Tipo | Descrição | Arquivo |"
+              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca |"
               echo "|---|---|---|---|---|"
 
               jq -r '
-                def get_sev:
-                  (.severity // .Severity // .SEVERITY // .risk_level // .risk // .Risk // .finding_details.severity // .finding_details.Severity // "N/A") | tostring;
-
-                def severity_icon:
-                  (if type == "number" then
-                    if . >= 9 then "CRITICAL"
-                    elif . >= 7 then "HIGH"
-                    elif . >= 4 then "MEDIUM"
-                    else "LOW" end
-                  else tostring end) |
-                  ascii_downcase |
-                  if startswith("critical") or . == "very high" then "🔴"
+                def sev_icon:
+                  (. | ascii_downcase) |
+                  if startswith("critical") then "🔴"
                   elif . == "high" then "🟠"
                   elif startswith("med") then "🟡"
-                  elif startswith("low") or startswith("info") then "🔵"
+                  elif startswith("low") or startswith("info") or startswith("negligible") then "🔵"
                   else "⚪" end;
 
-                def get_type:
-                  (.type // .category // .finding_type // .finding_details.finding_type // .finding_details.category // .rule_id // "N/A") | tostring;
-
-                def get_desc:
-                  (.title // .description // .message // .finding_details.title // .finding_details.description // .rule_id // .cwe_name // "N/A") | tostring | if length > 80 then .[:77] + "..." else . end;
-
-                def get_file:
-                  (.file // .filename // .source_file // .finding_details.file // .finding_details.filename // (.files.source_file.file) // .location // .path // "N/A") | tostring;
-
                 to_entries[] |
-                "| \(.key + 1) | \(.value | get_sev | severity_icon) \(.value | get_sev) | \(.value | get_type) | \(.value | get_desc) | \(.value | get_file) |"
+                .key as $i |
+                .value |
+                # Grype format
+                if .vulnerability then
+                  "| \($i + 1) | \(.vulnerability.severity // "N/A" | sev_icon) \(.vulnerability.severity // "N/A") | \(.vulnerability.id // "N/A") | \(.vulnerability.description // .vulnerability.id // "N/A" | tostring | if length > 80 then .[:77] + "..." else . end) | \(.artifact.name // "N/A") \(.artifact.version // "") |"
+                else
+                  # Fallback genérico
+                  "| \($i + 1) | \(.severity // .Severity // "N/A" | tostring | sev_icon) \(.severity // .Severity // "N/A") | \(.id // .cve // .rule_id // "N/A") | \(.title // .description // .message // "N/A" | tostring | if length > 80 then .[:77] + "..." else . end) | \(.file // .filename // .artifact.name // "N/A") |"
+                end
               ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
 
-              echo ""
-              echo "</details>"
-            fi
-
-            # Debug: se severidades não bateram com total, mostrar estrutura
-            COUNTED=$(( ${CRITICAL:-0} + ${HIGH:-0} + ${MEDIUM:-0} + ${LOW:-0} ))
-            if [ "${TOTAL}" != "0" ] && [ "${COUNTED}" -eq 0 ] 2>/dev/null; then
-              echo ""
-              echo "<details><summary>🔧 Debug: estrutura do JSON (severidades não identificadas)</summary>"
-              echo ""
-              echo '```json'
-              jq '.[0]' /tmp/iac_findings.json 2>/dev/null || jq '.' iac-results/results.json 2>/dev/null | head -50 || echo "Erro ao ler JSON"
-              echo '```'
               echo ""
               echo "</details>"
             fi

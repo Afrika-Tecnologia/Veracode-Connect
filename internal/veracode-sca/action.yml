@@ -91,7 +91,10 @@ runs:
             echo "| 🔵 Low Risk | ${VULN_LOW} |"
             echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
             echo "| Bibliotecas vulneráveis | ${VULN_LIBS} |"
-            echo "| Bibliotecas analisadas | ${LIB_TOTAL} (${DIRECT_LIBS} diretas) |"
+            echo "| Total de bibliotecas analisadas | ${LIB_TOTAL} |"
+            echo "| Bibliotecas diretas | ${DIRECT_LIBS} |"
+            TRANSITIVE_LIBS=$(( ${LIB_TOTAL:-0} - ${DIRECT_LIBS:-0} ))
+            echo "| Bibliotecas transitivas | ${TRANSITIVE_LIBS} |"
             echo ""
 
             # Detalhes das vulnerabilidades (linhas CVE-* e NO-CVE do log)
@@ -120,15 +123,6 @@ runs:
               echo ""
               echo "</details>"
             fi
-
-            echo ""
-            echo "<details><summary>📋 Log completo do SCA</summary>"
-            echo ""
-            echo '```'
-            cat veracode_sca.log
-            echo '```'
-            echo ""
-            echo "</details>"
           else
             echo "> ⚠️ Log do SCA não encontrado."
           fi

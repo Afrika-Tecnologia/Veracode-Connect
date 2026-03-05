@@ -114,10 +114,7 @@ runs:
           echo ""
 
           if [ -f "iac-results/results.json" ]; then
-            # O Veracode CLI (container/IaC/Secrets) usa Grype internamente.
-            # Estrutura Grype: { matches: [...], source: {...}, db: {...} }
-            # Cada match: { vulnerability: { id, severity, description, ... }, artifact: { name, version, ... }, ... }
-            # Também suportar formatos alternativos como array raiz ou .findings/.results
+            # Extrair findings — tenta várias estruturas conhecidas
             jq -e '
               if .matches then .matches
               elif type == "array" then .
@@ -130,8 +127,47 @@ runs:
 
             TOTAL=$(jq 'length' /tmp/iac_findings.json 2>/dev/null || echo "0")
 
-            # Severidade: Grype usa .vulnerability.severity, fallback para .severity
-            SEV_EXPR='.vulnerability.severity // .severity // .Severity // .risk_level // "unknown" | tostring | ascii_downcase'
+            # ── DEBUG: mostrar estrutura real do JSON para calibrar o parser ──
+            echo "<details><summary>🔧 Debug: estrutura do JSON do IaC</summary>"
+            echo ""
+            echo "**Chaves raiz do results.json:**"
+            echo '```json'
+            jq 'if type == "object" then keys elif type == "array" then "array[\(length)]" else type end' iac-results/results.json 2>/dev/null || echo "erro"
+            echo '```'
+            echo ""
+            echo "**Primeiro elemento do array de findings:**"
+            echo '```json'
+            jq '.[0]' /tmp/iac_findings.json 2>/dev/null || echo "vazio"
+            echo '```'
+            echo ""
+            if [ "${TOTAL}" -gt 1 ] 2>/dev/null; then
+              echo "**Segundo elemento (para comparar):**"
+              echo '```json'
+              jq '.[1]' /tmp/iac_findings.json 2>/dev/null || echo "vazio"
+              echo '```'
+              echo ""
+            fi
+            echo "</details>"
+            echo ""
+            # ── FIM DEBUG ──
+
+            # Tentar extrair severidade de vários caminhos possíveis
+            # Caminho 1: Grype (.vulnerability.severity)
+            # Caminho 2: direto (.severity)
+            # Caminho 3: outros (.risk_level, .Severity)
+            SEV_EXPR='(
+              .vulnerability.severity //
+              .severity // .Severity // .SEVERITY //
+              .risk_level // .risk //
+              .finding_details.severity //
+              (if .cvss_score then
+                if .cvss_score >= 9 then "Critical"
+                elif .cvss_score >= 7 then "High"
+                elif .cvss_score >= 4 then "Medium"
+                else "Low" end
+              else null end) //
+              "unknown"
+            ) | tostring | ascii_downcase'
 
             CRITICAL=$(jq "[.[] | select((${SEV_EXPR}) | startswith(\"critical\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
             HIGH=$(jq "[.[] | select((${SEV_EXPR}) == \"high\")] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
@@ -150,10 +186,13 @@ runs:
             if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
               echo "<details><summary>📋 Detalhes dos findings (${TOTAL})</summary>"
               echo ""
-              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca |"
+              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca / Arquivo |"
               echo "|---|---|---|---|---|"
 
               jq -r '
+                def get_sev:
+                  (.vulnerability.severity // .severity // .Severity // .risk_level // "N/A") | tostring;
+
                 def sev_icon:
                   (. | ascii_downcase) |
                   if startswith("critical") then "🔴"
@@ -162,16 +201,20 @@ runs:
                   elif startswith("low") or startswith("info") or startswith("negligible") then "🔵"
                   else "⚪" end;
 
+                def get_id:
+                  (.vulnerability.id // .id // .cve // .rule_id // "N/A") | tostring;
+
+                def get_desc:
+                  (.vulnerability.description // .title // .description // .message // .vulnerability.id // .id // "N/A") | tostring | if length > 80 then .[:77] + "..." else . end;
+
+                def get_target:
+                  (.artifact.name // .file // .filename // .location // .path // "N/A") | tostring |
+                  if . != "N/A" then
+                    . + " " + ((.artifact.version // "") | tostring)
+                  else . end;
+
                 to_entries[] |
-                .key as $i |
-                .value |
-                # Grype format
-                if .vulnerability then
-                  "| \($i + 1) | \(.vulnerability.severity // "N/A" | sev_icon) \(.vulnerability.severity // "N/A") | \(.vulnerability.id // "N/A") | \(.vulnerability.description // .vulnerability.id // "N/A" | tostring | if length > 80 then .[:77] + "..." else . end) | \(.artifact.name // "N/A") \(.artifact.version // "") |"
-                else
-                  # Fallback genérico
-                  "| \($i + 1) | \(.severity // .Severity // "N/A" | tostring | sev_icon) \(.severity // .Severity // "N/A") | \(.id // .cve // .rule_id // "N/A") | \(.title // .description // .message // "N/A" | tostring | if length > 80 then .[:77] + "..." else . end) | \(.file // .filename // .artifact.name // "N/A") |"
-                end
+                "| \(.key + 1) | \(.value | get_sev | sev_icon) \(.value | get_sev) | \(.value | get_id) | \(.value | get_desc) | \(.value | get_target) |"
               ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
 
               echo ""

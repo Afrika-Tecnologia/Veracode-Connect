@@ -22,7 +22,7 @@ runs:
         command: scan
         type: directory
         source: .
-        format: table
+        format: json
         fail_build: 'false'
         fail_build_on_error: 'false'
 
@@ -49,6 +49,7 @@ runs:
         echo "::group::Coletar resultados IaC/Secrets"
         mkdir -p iac-results
 
+        # Lista de nomes de arquivos esperados
         files=(
           "results.json"
           "results.txt"
@@ -60,6 +61,8 @@ runs:
         )
 
         moved_any="false"
+
+        # 1) Tentar mover do diretório atual
         for f in "${files[@]}"; do
           if [ -f "${f}" ]; then
             mv -f "${f}" "iac-results/${f}"
@@ -67,8 +70,23 @@ runs:
           fi
         done
 
+        # 2) Se não encontrou, buscar em subdiretórios comuns
+        if [ "${moved_any}" != "true" ]; then
+          echo "Arquivos não encontrados no diretório raiz. Buscando em subdiretórios..."
+          for f in "${files[@]}"; do
+            found=$(find "${GITHUB_WORKSPACE}" -maxdepth 3 -name "${f}" -not -path "*/iac-results/*" -not -path "*/node_modules/*" -print -quit 2>/dev/null || true)
+            if [ -n "${found}" ]; then
+              echo "Encontrado: ${found}"
+              cp -f "${found}" "iac-results/${f}"
+              moved_any="true"
+            fi
+          done
+        fi
+
         if [ "${moved_any}" != "true" ]; then
           echo "::warning::Nenhum arquivo de resultado do IaC foi encontrado para coletar."
+          echo "Listando arquivos .json no workspace (debug):"
+          find "${GITHUB_WORKSPACE}" -maxdepth 3 -name '*.json' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -20 || true
         else
           echo "Arquivos coletados em iac-results/:"
           ls -la iac-results || true

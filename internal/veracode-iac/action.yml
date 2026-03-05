@@ -97,7 +97,6 @@ runs:
 
           if [ -f "iac-results/results.json" ]; then
             # Detectar estrutura do JSON e extrair array de findings
-            # Salvar array normalizado em temp file para reutilizar
             jq -e '
               if type == "array" then .
               elif .findings then .findings
@@ -121,7 +120,7 @@ runs:
             echo "| 🟠 High | ${HIGH} |"
             echo "| 🟡 Medium | ${MEDIUM} |"
             echo "| 🔵 Low | ${LOW} |"
-            echo "| **Total** | **${TOTAL}** |"
+            echo "| **Total Findings** | **${TOTAL}** |"
             echo ""
 
             if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
@@ -146,27 +145,8 @@ runs:
               echo "</details>"
             fi
 
-            # Mostrar estrutura do JSON para debug (se não conseguiu parsear)
-            if [ "${TOTAL}" = "0" ] || [ "${TOTAL}" = "null" ]; then
-              echo "<details><summary>🔧 Debug: estrutura do JSON</summary>"
-              echo ""
-              echo '```json'
-              jq 'if type == "array" then .[0] elif type == "object" then keys else . end' iac-results/results.json 2>/dev/null || echo "Erro ao ler JSON"
-              echo '```'
-              echo ""
-              echo "</details>"
-            fi
-
-          elif [ -f "iac-results/results.txt" ]; then
-            echo "<details><summary>📄 Resultados em texto</summary>"
-            echo ""
-            echo '```'
-            cat iac-results/results.txt
-            echo '```'
-            echo ""
-            echo "</details>"
           else
-            echo "> Nenhum arquivo de resultado encontrado."
+            echo "> ⚠️ Nenhum arquivo de resultado encontrado."
           fi
 
           echo ""

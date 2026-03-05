@@ -73,23 +73,55 @@ runs:
           echo ""
 
           if [ -f "veracode_sca.log" ]; then
-            # Extrair métricas do log do SCA (best-effort)
-            VULN_HIGH=$(grep -oiP '(?:High\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_MEDIUM=$(grep -oiP '(?:Medium\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_LOW=$(grep -oiP '(?:Low\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_TOTAL=$(grep -oiP '(?:Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            LIB_TOTAL=$(grep -oiP '(?:Librar\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            DIRECT_LIBS=$(grep -oiP '(?:Direct\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            # Extrair métricas do log do SCA (formato tabular com espaços)
+            VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_LOW=$(grep -oiP 'Low\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} ))
+            LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
-            echo "| 🔴 High Risk | ${VULN_HIGH} |"
+            echo "| 🔴 Critical Risk | ${VULN_CRITICAL} |"
+            echo "| 🟠 High Risk | ${VULN_HIGH} |"
             echo "| 🟡 Medium Risk | ${VULN_MEDIUM} |"
             echo "| 🔵 Low Risk | ${VULN_LOW} |"
             echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
+            echo "| Bibliotecas vulneráveis | ${VULN_LIBS} |"
             echo "| Bibliotecas analisadas | ${LIB_TOTAL} (${DIRECT_LIBS} diretas) |"
             echo ""
 
+            # Detalhes das vulnerabilidades (linhas CVE-* e NO-CVE do log)
+            VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null || echo "0")
+            if [ "${VULN_LINES}" -gt 0 ] 2>/dev/null; then
+              echo "<details><summary>📋 Detalhes das vulnerabilidades (${VULN_LINES})</summary>"
+              echo ""
+              echo "| # | Severidade | CVE | Descrição | Biblioteca |"
+              echo "|---|---|---|---|---|"
+
+              grep -P '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null | awk -F'  +' '{
+                gsub(/^[ \t]+/, "", $0);
+                cve=$1; sev=$2; desc=$3; lib=$4;
+                gsub(/^[ \t]+|[ \t]+$/, "", cve);
+                gsub(/^[ \t]+|[ \t]+$/, "", sev);
+                gsub(/^[ \t]+|[ \t]+$/, "", desc);
+                gsub(/^[ \t]+|[ \t]+$/, "", lib);
+                icon="⚪";
+                if (sev ~ /Critical/) icon="🔴";
+                else if (sev ~ /High/) icon="🟠";
+                else if (sev ~ /Medium/) icon="🟡";
+                else if (sev ~ /Low/) icon="🔵";
+                printf "| %d | %s %s | %s | %s | %s |\n", NR, icon, sev, cve, desc, lib
+              }' || true
+
+              echo ""
+              echo "</details>"
+            fi
+
+            echo ""
             echo "<details><summary>📋 Log completo do SCA</summary>"
             echo ""
             echo '```'

@@ -163,3 +163,38 @@ runs:
         else
           echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
         fi
+
+    - name: Gerar Summary do Auto Packager
+      if: inputs.enable_auto_packager == 'true'
+      shell: bash
+      env:
+        SCAN_FILE: ${{ steps.final_output.outputs.scan_file }}
+        NEEDS_FALLBACK: ${{ steps.prepare.outputs.needs_fallback }}
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### 📦 Auto Packager"
+          echo ""
+
+          if [ -n "${SCAN_FILE:-}" ] && [ -f "${SCAN_FILE}" ]; then
+            FILE_SIZE=$(du -h "${SCAN_FILE}" | cut -f1)
+            FILE_SIZE_BYTES=$(stat -c%s "${SCAN_FILE}" 2>/dev/null || stat -f%z "${SCAN_FILE}" 2>/dev/null || echo "N/A")
+            FILE_NAME=$(basename "${SCAN_FILE}")
+
+            METHOD="Veracode CLI"
+            if [ "${NEEDS_FALLBACK:-}" = "true" ]; then
+              METHOD="Fallback (zip-release)"
+            fi
+
+            echo "| Propriedade | Valor |"
+            echo "|---|---|"
+            echo "| Artefato | \`${FILE_NAME}\` |"
+            echo "| Tamanho | ${FILE_SIZE} (${FILE_SIZE_BYTES} bytes) |"
+            echo "| Método | ${METHOD} |"
+          else
+            echo "> ⚠️ Nenhum artefato gerado pelo Auto Packager."
+          fi
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"

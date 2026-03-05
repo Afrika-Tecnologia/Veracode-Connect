@@ -84,3 +84,87 @@ runs:
           iac-results
         if-no-files-found: warn
         retention-days: 3
+
+    - name: Gerar Summary do IaC
+      if: always()
+      shell: bash
+      env:
+        IAC_STATUS: ${{ steps.status.outputs.iac_status }}
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### 🛡️ Veracode IaC / Secrets"
+          echo ""
+
+          if [ "${IAC_STATUS}" = "success" ]; then
+            echo "> ✅ IaC/Secrets scan concluído com sucesso"
+          elif [ "${IAC_STATUS}" = "failure" ]; then
+            echo "> ❌ IaC/Secrets scan encontrou problemas"
+          else
+            echo "> ⏭️ IaC/Secrets scan: ${IAC_STATUS:-skipped}"
+          fi
+          echo ""
+
+          # Tentar parsear results.json do IaC
+          if [ -f "iac-results/results.json" ]; then
+            TOTAL=$(jq 'if type == "array" then length elif .findings then (.findings | length) elif .results then (.results | length) else 0 end' iac-results/results.json 2>/dev/null || echo "0")
+
+            echo "| Métrica | Valor |"
+            echo "|---|---|"
+            echo "| Total de findings | ${TOTAL} |"
+            echo ""
+
+            if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
+              echo "| # | Severidade | Tipo | Descrição | Arquivo |"
+              echo "|---|---|---|---|---|"
+
+              # Tentar parsear diferentes estruturas de JSON
+              jq -r '
+                def findings_array:
+                  if type == "array" then .
+                  elif .findings then .findings
+                  elif .results then .results
+                  else [] end;
+
+                def severity_icon:
+                  if . == "CRITICAL" or . == "critical" or . == "Very High" then "🔴"
+                  elif . == "HIGH" or . == "high" or . == "High" then "🟠"
+                  elif . == "MEDIUM" or . == "medium" or . == "Medium" then "🟡"
+                  elif . == "LOW" or . == "low" or . == "Low" then "🔵"
+                  else "⚪" end;
+
+                [findings_array[] | {
+                  sev: (.severity // .Severity // .risk_level // "N/A"),
+                  tipo: (.type // .category // .finding_type // "N/A"),
+                  desc: (.title // .description // .message // .rule_id // "N/A"),
+                  file: (.file // .filename // .source_file // (.files.source_file.file) // "N/A")
+                }] | to_entries[] |
+                "| \(.key + 1) | \(.value.sev | severity_icon) \(.value.sev) | \(.value.tipo) | \(.value.desc) | \(.value.file) |"
+              ' iac-results/results.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
+
+              echo ""
+            fi
+
+            echo "<details><summary>📄 JSON completo dos resultados</summary>"
+            echo ""
+            echo '```json'
+            jq '.' iac-results/results.json 2>/dev/null || cat iac-results/results.json
+            echo '```'
+            echo ""
+            echo "</details>"
+
+          elif [ -f "iac-results/results.txt" ]; then
+            echo "<details><summary>📄 Resultados em texto</summary>"
+            echo ""
+            echo '```'
+            cat iac-results/results.txt
+            echo '```'
+            echo ""
+            echo "</details>"
+          else
+            echo "> Nenhum arquivo de resultado encontrado."
+          fi
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"

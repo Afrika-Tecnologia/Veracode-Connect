@@ -102,3 +102,68 @@ runs:
           echo "Processo de verificação concluído sem falhas."
         fi
         echo "::endgroup::"
+
+    - name: Gerar Summary Final
+      if: always()
+      shell: bash
+      env:
+        FAIL_BUILD: ${{ inputs.fail_build }}
+        SCA_STATUS: ${{ inputs.sca_status }}
+        IAC_OUTCOME: ${{ inputs.iac_outcome }}
+        BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
+        PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
+        UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
+        BU_STATUS: ${{ inputs.bu_status }}
+      run: |
+        set -euo pipefail
+
+        status_icon() {
+          local status="$1"
+          case "${status}" in
+            success)       echo "✅ Success" ;;
+            failure|failed|scan_failed*) echo "❌ Failed" ;;
+            warning)       echo "⚠️ Warning" ;;
+            skipped)       echo "⏭️ Skipped" ;;
+            *)             echo "❓ ${status}" ;;
+          esac
+        }
+
+        has_failure="false"
+        for s in "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
+          if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
+            has_failure="true"
+            break
+          fi
+        done
+
+        {
+          echo "---"
+          echo ""
+          echo "## 🛡️ Veracode Connect — Resumo Final"
+          echo ""
+
+          if [ "${has_failure}" = "true" ]; then
+            if [ "${FAIL_BUILD}" = "true" ]; then
+              echo "> ❌ **Build travado** — Falhas detectadas e \`fail_build=true\`"
+            else
+              echo "> ⚠️ **Falhas detectadas** mas build **não travado** (\`fail_build=false\`)"
+            fi
+          else
+            echo "> ✅ **Todos os checks passaram com sucesso**"
+          fi
+          echo ""
+
+          echo "| Scan | Status |"
+          echo "|---|---|"
+          echo "| Veracode SCA | $(status_icon "${SCA_STATUS}") |"
+          echo "| Veracode IaC/Secrets | $(status_icon "${IAC_OUTCOME}") |"
+          echo "| Bantuu Baseline Flow | $(status_icon "${BASELINE_OUTCOME}") |"
+          echo "| Pipeline Scan | $(status_icon "${PIPELINE_OUTCOME}") |"
+          echo "| Upload & Scan | $(status_icon "${UPLOAD_OUTCOME}") |"
+          echo "| Business Unit | $(status_icon "${BU_STATUS}") |"
+
+          echo ""
+          echo "---"
+          echo ""
+          echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"
+        } >> "$GITHUB_STEP_SUMMARY"

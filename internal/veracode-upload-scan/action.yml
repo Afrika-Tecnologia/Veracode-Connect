@@ -109,15 +109,6 @@ runs:
           echo "### 📤 Veracode Upload & Scan"
           echo ""
 
-          if [ "${UPLOAD_OUTCOME}" = "success" ]; then
-            echo "> ✅ Upload & Scan enviado com sucesso"
-          elif [ "${UPLOAD_OUTCOME}" = "failure" ]; then
-            echo "> ❌ Upload & Scan falhou"
-          else
-            echo "> ⏭️ Upload & Scan: ${UPLOAD_OUTCOME}"
-          fi
-          echo ""
-
           FILE_NAME="N/A"
           FILE_SIZE="N/A"
           if [ -n "${FILEPATH:-}" ] && [ -f "${FILEPATH}" ]; then

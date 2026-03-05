@@ -312,15 +312,6 @@ runs:
           fi
           echo ""
 
-          if [ "${OUTCOME}" = "success" ]; then
-            echo "> ✅ Pipeline Scan concluído com sucesso"
-          elif [ "${OUTCOME}" = "failure" ]; then
-            echo "> ❌ Pipeline Scan encontrou vulnerabilidades"
-          else
-            echo "> ⏭️ Pipeline Scan: ${OUTCOME}"
-          fi
-          echo ""
-
           if [ -f "results.json" ]; then
             TOTAL=$(jq '.findings | length' results.json 2>/dev/null || echo "0")
             VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' results.json 2>/dev/null || echo "0")

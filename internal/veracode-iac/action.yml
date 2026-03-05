@@ -88,8 +88,6 @@ runs:
     - name: Gerar Summary do IaC
       if: always()
       shell: bash
-      env:
-        IAC_STATUS: ${{ steps.status.outputs.iac_status }}
       run: |
         set -euo pipefail
 
@@ -97,29 +95,29 @@ runs:
           echo "### 🛡️ Veracode IaC / Secrets"
           echo ""
 
-          if [ "${IAC_STATUS}" = "success" ]; then
-            echo "> ✅ IaC/Secrets scan concluído com sucesso"
-          elif [ "${IAC_STATUS}" = "failure" ]; then
-            echo "> ❌ IaC/Secrets scan encontrou problemas"
-          else
-            echo "> ⏭️ IaC/Secrets scan: ${IAC_STATUS:-skipped}"
-          fi
-          echo ""
-
-          # Tentar parsear results.json do IaC
           if [ -f "iac-results/results.json" ]; then
+            # Contar por severidade (suporta diferentes estruturas de JSON)
+            CRITICAL=$(jq '[( if type == "array" then .[] elif .findings then .findings[] elif .results then .results[] else empty end ) | select((.severity // .Severity // .risk_level // "") | test("CRITICAL|critical|Very High"; "i"))] | length' iac-results/results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[( if type == "array" then .[] elif .findings then .findings[] elif .results then .results[] else empty end ) | select((.severity // .Severity // .risk_level // "") | test("^HIGH$|^high$|^High$"; "i"))] | length' iac-results/results.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[( if type == "array" then .[] elif .findings then .findings[] elif .results then .results[] else empty end ) | select((.severity // .Severity // .risk_level // "") | test("MEDIUM|medium|Medium"; "i"))] | length' iac-results/results.json 2>/dev/null || echo "0")
+            LOW=$(jq '[( if type == "array" then .[] elif .findings then .findings[] elif .results then .results[] else empty end ) | select((.severity // .Severity // .risk_level // "") | test("LOW|low|Low"; "i"))] | length' iac-results/results.json 2>/dev/null || echo "0")
             TOTAL=$(jq 'if type == "array" then length elif .findings then (.findings | length) elif .results then (.results | length) else 0 end' iac-results/results.json 2>/dev/null || echo "0")
 
-            echo "| Métrica | Valor |"
+            echo "| Severidade | Quantidade |"
             echo "|---|---|"
-            echo "| Total de findings | ${TOTAL} |"
+            echo "| 🔴 Critical | ${CRITICAL} |"
+            echo "| 🟠 High | ${HIGH} |"
+            echo "| 🟡 Medium | ${MEDIUM} |"
+            echo "| 🔵 Low | ${LOW} |"
+            echo "| **Total** | **${TOTAL}** |"
             echo ""
 
             if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
+              echo "<details><summary>📋 Detalhes dos findings (${TOTAL})</summary>"
+              echo ""
               echo "| # | Severidade | Tipo | Descrição | Arquivo |"
               echo "|---|---|---|---|---|"
 
-              # Tentar parsear diferentes estruturas de JSON
               jq -r '
                 def findings_array:
                   if type == "array" then .
@@ -144,15 +142,8 @@ runs:
               ' iac-results/results.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
 
               echo ""
+              echo "</details>"
             fi
-
-            echo "<details><summary>📄 JSON completo dos resultados</summary>"
-            echo ""
-            echo '```json'
-            jq '.' iac-results/results.json 2>/dev/null || cat iac-results/results.json
-            echo '```'
-            echo ""
-            echo "</details>"
 
           elif [ -f "iac-results/results.txt" ]; then
             echo "<details><summary>📄 Resultados em texto</summary>"

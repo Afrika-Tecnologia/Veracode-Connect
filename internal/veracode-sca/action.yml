@@ -72,30 +72,23 @@ runs:
           echo "### 🔍 Veracode SCA (Software Composition Analysis)"
           echo ""
 
-          if [ "${SCA_STATUS}" = "success" ]; then
-            echo "> ✅ SCA concluído com sucesso"
-          elif [ "${SCA_STATUS}" = "warning" ]; then
-            echo "> ⚠️ SCA concluído com alertas"
-          else
-            echo "> ❓ SCA status: ${SCA_STATUS:-desconhecido}"
-          fi
-          echo ""
-
           if [ -f "veracode_sca.log" ]; then
             # Extrair métricas do log do SCA (best-effort)
-            VULN_TOTAL=$(grep -oiP '(?:Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "")
-            LIB_TOTAL=$(grep -oiP '(?:Librar\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "")
-            DIRECT_LIBS=$(grep -oiP '(?:Direct\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "")
-            RISK_SCORE=$(grep -oiP '(?:Risk\s*Score\s*[=:]\s*)\K[0-9.]+' veracode_sca.log 2>/dev/null | head -1 || echo "")
+            VULN_HIGH=$(grep -oiP '(?:High\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_MEDIUM=$(grep -oiP '(?:Medium\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_LOW=$(grep -oiP '(?:Low\s*Risk\s*Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_TOTAL=$(grep -oiP '(?:Vulnerabilit\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            LIB_TOTAL=$(grep -oiP '(?:Librar\w*\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            DIRECT_LIBS=$(grep -oiP '(?:Direct\s*[=:]\s*)\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
 
-            if [ -n "${VULN_TOTAL}" ] || [ -n "${LIB_TOTAL}" ]; then
-              echo "| Métrica | Valor |"
-              echo "|---|---|"
-              [ -n "${LIB_TOTAL}" ] && echo "| Bibliotecas analisadas | ${LIB_TOTAL} (${DIRECT_LIBS:-?} diretas) |"
-              [ -n "${VULN_TOTAL}" ] && echo "| Vulnerabilidades encontradas | ${VULN_TOTAL} |"
-              [ -n "${RISK_SCORE}" ] && echo "| Risk Score | ${RISK_SCORE} |"
-              echo ""
-            fi
+            echo "| Severidade | Quantidade |"
+            echo "|---|---|"
+            echo "| 🔴 High Risk | ${VULN_HIGH} |"
+            echo "| 🟡 Medium Risk | ${VULN_MEDIUM} |"
+            echo "| 🔵 Low Risk | ${VULN_LOW} |"
+            echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
+            echo "| Bibliotecas analisadas | ${LIB_TOTAL} (${DIRECT_LIBS} diretas) |"
+            echo ""
 
             echo "<details><summary>📋 Log completo do SCA</summary>"
             echo ""
@@ -104,6 +97,8 @@ runs:
             echo '```'
             echo ""
             echo "</details>"
+          else
+            echo "> ⚠️ Log do SCA não encontrado."
           fi
 
           echo ""

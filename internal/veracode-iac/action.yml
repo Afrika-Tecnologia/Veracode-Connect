@@ -115,28 +115,9 @@ runs:
 
           if [ -f "iac-results/results.json" ]; then
 
-            # ── DEBUG: estrutura do JSON (limitado para não estourar 1024k) ──
-            echo "<details><summary>🔧 Debug: estrutura do JSON do IaC</summary>"
-            echo ""
-            echo "**Chaves raiz:**"
-            echo '```json'
-            jq 'if type == "object" then keys elif type == "array" then "array[\(length)]" else type end' iac-results/results.json 2>/dev/null || echo "erro"
-            echo '```'
-            echo ""
-            echo "**Primeiro finding:**"
-            echo '```json'
-            jq '.[0]' /tmp/iac_findings.json 2>/dev/null | head -60 || echo "vazio"
-            echo '```'
-            echo ""
-            echo "**Tamanho do results.json:** $(wc -c < iac-results/results.json 2>/dev/null || echo '?') bytes"
-            echo ""
-            echo "</details>"
-            echo ""
-            # ── FIM DEBUG ──
-
             # Extrair findings — estrutura real: .vulnerabilities.matches[]
             set +e
-            FINDINGS_ARRAY=$(jq '
+            jq '
               if .vulnerabilities.matches then .vulnerabilities.matches
               elif .matches then .matches
               elif type == "array" then .
@@ -144,48 +125,43 @@ runs:
               elif .results then .results
               else []
               end
-            ' iac-results/results.json 2>/dev/null)
+            ' iac-results/results.json > /tmp/iac_findings.json 2>/dev/null
             EXIT_CODE=$?
             set -e
 
-            if [ ${EXIT_CODE} -ne 0 ] || [ -z "${FINDINGS_ARRAY}" ]; then
+            if [ ${EXIT_CODE} -ne 0 ] || [ ! -s /tmp/iac_findings.json ]; then
               echo "[]" > /tmp/iac_findings.json
-            else
-              echo "${FINDINGS_ARRAY}" > /tmp/iac_findings.json
             fi
 
-            TOTAL=$(jq 'if type == "array" then length else 0 end' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            TOTAL=$(jq 'length' /tmp/iac_findings.json 2>/dev/null || echo "0")
 
-            # Severidade em .vulnerability.severity (Critical/High/Medium/Low/Negligible)
-            SEV='.vulnerability.severity // .severity // "unknown" | tostring | ascii_downcase'
-
-            CRITICAL=$(jq "[.[] | select((${SEV}) | test(\"critical\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
-            HIGH=$(jq "[.[] | select((${SEV}) == \"high\")] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
-            MEDIUM=$(jq "[.[] | select((${SEV}) | test(\"^med\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
-            LOW=$(jq "[.[] | select((${SEV}) | test(\"^(low|negligible)\"))] | length" /tmp/iac_findings.json 2>/dev/null || echo "0")
+            # Contagem por severidade — comparação direta sem variável intermediária
+            CRITICAL=$(jq '[.[] | select(.vulnerability.severity == "Critical")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.[] | select(.vulnerability.severity == "High")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.[] | select(.vulnerability.severity == "Medium")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            LOW=$(jq '[.[] | select(.vulnerability.severity | test("^(Low|Negligible)"))] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
             echo "| 🔴 Critical | ${CRITICAL} |"
             echo "| 🟠 High | ${HIGH} |"
             echo "| 🟡 Medium | ${MEDIUM} |"
-            echo "| 🔵 Low | ${LOW} |"
+            echo "| 🔵 Low / Negligible | ${LOW} |"
             echo "| **Total Findings** | **${TOTAL}** |"
             echo ""
 
-            if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
+            if [ "${TOTAL:-0}" -gt 0 ] 2>/dev/null; then
               echo "<details><summary>📋 Detalhes dos findings (${TOTAL})</summary>"
               echo ""
-              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca / Arquivo |"
-              echo "|---|---|---|---|---|"
+              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca | Fix |"
+              echo "|---|---|---|---|---|---|"
 
               jq -r '
                 def sev_icon:
-                  (. | ascii_downcase) |
-                  if test("critical") then "🔴"
-                  elif . == "high" then "🟠"
-                  elif startswith("med") then "🟡"
-                  elif test("^(low|negligible)") then "🔵"
+                  if . == "Critical" then "🔴"
+                  elif . == "High" then "🟠"
+                  elif . == "Medium" then "🟡"
+                  elif (. == "Low" or . == "Negligible") then "🔵"
                   else "⚪" end;
 
                 to_entries[] |
@@ -193,13 +169,13 @@ runs:
                 .value |
                 {
                   sev: (.vulnerability.severity // "N/A"),
-                  vid: (.vulnerability.id // "N/A"),
                   cve: ((.relatedVulnerabilities // [] | map(select(.id | startswith("CVE"))) | .[0].id) // .vulnerability.id // "N/A"),
-                  desc: (.vulnerability.description // "N/A" | if length > 70 then .[:67] + "..." else . end),
-                  lib: ((.artifact.name // "N/A") + " " + (.artifact.version // ""))
+                  desc: (.vulnerability.description // "N/A" | gsub("\n"; " ") | if length > 80 then .[:77] + "..." else . end),
+                  lib: ((.artifact.name // "N/A") + "@" + (.artifact.version // "?")),
+                  fix: (.matchDetails[0].fix.suggestedVersion // "—")
                 } |
-                "| \($i + 1) | \(.sev | sev_icon) \(.sev) | \(.cve) | \(.desc) | \(.lib) |"
-              ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - |"
+                "| \($i + 1) | \(.sev | sev_icon) \(.sev) | \(.cve) | \(.desc) | \(.lib) | \(.fix) |"
+              ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - | - |"
 
               echo ""
               echo "</details>"

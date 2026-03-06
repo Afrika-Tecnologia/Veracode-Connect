@@ -157,6 +157,13 @@ runs:
               echo "|---|---|---|---|---|---|"
 
               jq -r '
+                def sev_order:
+                  if . == "Critical" then 1
+                  elif . == "High" then 2
+                  elif . == "Medium" then 3
+                  elif (. == "Low" or . == "Negligible") then 4
+                  else 5 end;
+
                 def sev_icon:
                   if . == "Critical" then "🔴"
                   elif . == "High" then "🟠"
@@ -164,6 +171,7 @@ runs:
                   elif (. == "Low" or . == "Negligible") then "🔵"
                   else "⚪" end;
 
+                [.[] | . + { _sev_order: (.vulnerability.severity // "N/A" | sev_order) }] | sort_by(._sev_order) |
                 to_entries[] |
                 .key as $i |
                 .value |

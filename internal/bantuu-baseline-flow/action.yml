@@ -343,7 +343,7 @@ runs:
               echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
               echo "|---|---|---|---|---|---|"
 
-              jq -r '.findings | to_entries[] |
+              jq -r '.findings | sort_by(-.severity) | to_entries[] |
                 def sev_icon:
                   if . == 5 then "🔴 Very High"
                   elif . == 4 then "🟠 High"

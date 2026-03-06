@@ -130,6 +130,7 @@ runs:
             exit 1
           fi
 
+          echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Fallback ZIP (zip-release)

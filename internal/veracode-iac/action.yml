@@ -22,7 +22,7 @@ runs:
         command: scan
         type: directory
         source: .
-        format: table
+        format: json
         fail_build: 'false'
         fail_build_on_error: 'false'
 
@@ -49,6 +49,7 @@ runs:
         echo "::group::Coletar resultados IaC/Secrets"
         mkdir -p iac-results
 
+        # Lista de nomes de arquivos esperados
         files=(
           "results.json"
           "results.txt"
@@ -60,6 +61,8 @@ runs:
         )
 
         moved_any="false"
+
+        # 1) Tentar mover do diretório atual
         for f in "${files[@]}"; do
           if [ -f "${f}" ]; then
             mv -f "${f}" "iac-results/${f}"
@@ -67,8 +70,23 @@ runs:
           fi
         done
 
+        # 2) Se não encontrou, buscar em subdiretórios comuns
+        if [ "${moved_any}" != "true" ]; then
+          echo "Arquivos não encontrados no diretório raiz. Buscando em subdiretórios..."
+          for f in "${files[@]}"; do
+            found=$(find "${GITHUB_WORKSPACE}" -maxdepth 3 -name "${f}" -not -path "*/iac-results/*" -not -path "*/node_modules/*" -print -quit 2>/dev/null || true)
+            if [ -n "${found}" ]; then
+              echo "Encontrado: ${found}"
+              cp -f "${found}" "iac-results/${f}"
+              moved_any="true"
+            fi
+          done
+        fi
+
         if [ "${moved_any}" != "true" ]; then
           echo "::warning::Nenhum arquivo de resultado do IaC foi encontrado para coletar."
+          echo "Listando arquivos .json no workspace (debug):"
+          find "${GITHUB_WORKSPACE}" -maxdepth 3 -name '*.json' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -20 || true
         else
           echo "Arquivos coletados em iac-results/:"
           ls -la iac-results || true
@@ -84,3 +102,96 @@ runs:
           iac-results
         if-no-files-found: warn
         retention-days: 3
+
+    - name: Gerar Summary do IaC
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### 🛡️ Veracode IaC / Secrets"
+          echo ""
+
+          if [ -f "iac-results/results.json" ]; then
+
+            # Extrair findings — estrutura real: .vulnerabilities.matches[]
+            set +e
+            jq '
+              if .vulnerabilities.matches then .vulnerabilities.matches
+              elif .matches then .matches
+              elif type == "array" then .
+              elif .findings then .findings
+              elif .results then .results
+              else []
+              end
+            ' iac-results/results.json > /tmp/iac_findings.json 2>/dev/null
+            EXIT_CODE=$?
+            set -e
+
+            if [ ${EXIT_CODE} -ne 0 ] || [ ! -s /tmp/iac_findings.json ]; then
+              echo "[]" > /tmp/iac_findings.json
+            fi
+
+            TOTAL=$(jq 'length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+
+            # Contagem por severidade — comparação direta sem variável intermediária
+            CRITICAL=$(jq '[.[] | select(.vulnerability.severity == "Critical")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.[] | select(.vulnerability.severity == "High")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.[] | select(.vulnerability.severity == "Medium")] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+            LOW=$(jq '[.[] | select(.vulnerability.severity | test("^(Low|Negligible)"))] | length' /tmp/iac_findings.json 2>/dev/null || echo "0")
+
+            echo "| Severidade | Quantidade |"
+            echo "|---|---|"
+            echo "| 🔴 Critical | ${CRITICAL} |"
+            echo "| 🟠 High | ${HIGH} |"
+            echo "| 🟡 Medium | ${MEDIUM} |"
+            echo "| 🔵 Low / Negligible | ${LOW} |"
+            echo "| **Total Findings** | **${TOTAL}** |"
+            echo ""
+
+            if [ "${TOTAL:-0}" -gt 0 ] 2>/dev/null; then
+              echo "<details><summary>📋 Detalhes dos findings (${TOTAL})</summary>"
+              echo ""
+              echo "| # | Severidade | CVE / ID | Descrição | Biblioteca | Fix |"
+              echo "|---|---|---|---|---|---|"
+
+              jq -r '
+                def sev_order:
+                  if . == "Critical" then 1
+                  elif . == "High" then 2
+                  elif . == "Medium" then 3
+                  elif (. == "Low" or . == "Negligible") then 4
+                  else 5 end;
+
+                def sev_icon:
+                  if . == "Critical" then "🔴"
+                  elif . == "High" then "🟠"
+                  elif . == "Medium" then "🟡"
+                  elif (. == "Low" or . == "Negligible") then "🔵"
+                  else "⚪" end;
+
+                [.[] | . + { _sev_order: (.vulnerability.severity // "N/A" | sev_order) }] | sort_by(._sev_order) |
+                to_entries[] |
+                .key as $i |
+                .value |
+                {
+                  sev: (.vulnerability.severity // "N/A"),
+                  cve: ((.relatedVulnerabilities // [] | map(select(.id | startswith("CVE"))) | .[0].id) // .vulnerability.id // "N/A"),
+                  desc: (.vulnerability.description // "N/A" | gsub("\n"; " ") | if length > 80 then .[:77] + "..." else . end),
+                  lib: ((.artifact.name // "N/A") + "@" + (.artifact.version // "?")),
+                  fix: (.matchDetails[0].fix.suggestedVersion // "—")
+                } |
+                "| \($i + 1) | \(.sev | sev_icon) \(.sev) | \(.cve) | \(.desc) | \(.lib) | \(.fix) |"
+              ' /tmp/iac_findings.json 2>/dev/null || echo "| - | - | - | Erro ao parsear resultados | - | - |"
+
+              echo ""
+              echo "</details>"
+            fi
+
+          else
+            echo "> ⚠️ Nenhum arquivo de resultado encontrado."
+          fi
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"

@@ -59,3 +59,73 @@ runs:
           veracode_sca.log
         if-no-files-found: warn
         retention-days: 3
+
+    - name: Gerar Summary do SCA
+      if: always()
+      shell: bash
+      env:
+        SCA_STATUS: ${{ steps.run_sca.outputs.sca_status }}
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### 🔍 Veracode SCA (Software Composition Analysis)"
+          echo ""
+
+          if [ -f "veracode_sca.log" ]; then
+            # Extrair métricas do log do SCA (formato tabular com espaços)
+            VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_LOW=$(grep -oiP 'Low\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} ))
+            LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+
+            echo "| Severidade | Quantidade |"
+            echo "|---|---|"
+            echo "| 🔴 Critical Risk | ${VULN_CRITICAL} |"
+            echo "| 🟠 High Risk | ${VULN_HIGH} |"
+            echo "| 🟡 Medium Risk | ${VULN_MEDIUM} |"
+            echo "| 🔵 Low Risk | ${VULN_LOW} |"
+            echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
+            echo "| Bibliotecas vulneráveis | ${VULN_LIBS} |"
+            echo "| Total de bibliotecas analisadas | ${LIB_TOTAL} |"
+            echo "| Bibliotecas diretas | ${DIRECT_LIBS} |"
+            TRANSITIVE_LIBS=$(( ${LIB_TOTAL:-0} - ${DIRECT_LIBS:-0} ))
+            echo "| Bibliotecas transitivas | ${TRANSITIVE_LIBS} |"
+            echo ""
+
+            # Detalhes das vulnerabilidades (linhas CVE-* e NO-CVE do log)
+            VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null || echo "0")
+            if [ "${VULN_LINES}" -gt 0 ] 2>/dev/null; then
+              echo "<details><summary>📋 Detalhes das vulnerabilidades (${VULN_LINES})</summary>"
+              echo ""
+              echo "| # | Severidade | CVE | Descrição | Biblioteca |"
+              echo "|---|---|---|---|---|"
+
+              grep -P '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null | awk -F'  +' '{
+                gsub(/^[ \t]+/, "", $0);
+                cve=$1; sev=$2; desc=$3; lib=$4;
+                gsub(/^[ \t]+|[ \t]+$/, "", cve);
+                gsub(/^[ \t]+|[ \t]+$/, "", sev);
+                gsub(/^[ \t]+|[ \t]+$/, "", desc);
+                gsub(/^[ \t]+|[ \t]+$/, "", lib);
+                icon="⚪"; order=5;
+                if (sev ~ /Critical/) { icon="🔴"; order=1; }
+                else if (sev ~ /High/) { icon="🟠"; order=2; }
+                else if (sev ~ /Medium/) { icon="🟡"; order=3; }
+                else if (sev ~ /Low/) { icon="🔵"; order=4; }
+                printf "%d\t| - | %s %s | %s | %s | %s |\n", order, icon, sev, cve, desc, lib
+              }' | sort -t$'\t' -k1,1n | cut -f2- | awk '{ gsub(/^\| - \|/, "| " NR " |"); print }' || true
+
+              echo ""
+              echo "</details>"
+            fi
+          else
+            echo "> ⚠️ Log do SCA não encontrado."
+          fi
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"

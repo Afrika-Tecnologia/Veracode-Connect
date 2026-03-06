@@ -112,13 +112,13 @@ runs:
                 gsub(/^[ \t]+|[ \t]+$/, "", sev);
                 gsub(/^[ \t]+|[ \t]+$/, "", desc);
                 gsub(/^[ \t]+|[ \t]+$/, "", lib);
-                icon="⚪";
-                if (sev ~ /Critical/) icon="🔴";
-                else if (sev ~ /High/) icon="🟠";
-                else if (sev ~ /Medium/) icon="🟡";
-                else if (sev ~ /Low/) icon="🔵";
-                printf "| %d | %s %s | %s | %s | %s |\n", NR, icon, sev, cve, desc, lib
-              }' || true
+                icon="⚪"; order=5;
+                if (sev ~ /Critical/) { icon="🔴"; order=1; }
+                else if (sev ~ /High/) { icon="🟠"; order=2; }
+                else if (sev ~ /Medium/) { icon="🟡"; order=3; }
+                else if (sev ~ /Low/) { icon="🔵"; order=4; }
+                printf "%d\t| - | %s %s | %s | %s | %s |\n", order, icon, sev, cve, desc, lib
+              }' | sort -t$'\t' -k1,1n | cut -f2- | awk '{ gsub(/^\| - \|/, "| " NR " |"); print }' || true
 
               echo ""
               echo "</details>"

@@ -30,6 +30,10 @@ inputs:
     description: 'Status do vínculo de Business Unit.'
     required: false
     default: 'skipped'
+  validate_outcome:
+    description: 'Outcome do step de validação de inputs (success/failure).'
+    required: false
+    default: 'success'
 
 runs:
   using: 'composite'
@@ -44,6 +48,7 @@ runs:
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
         BU_STATUS: ${{ inputs.bu_status }}
+        VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
       run: |
         set -euo pipefail
 
@@ -71,6 +76,7 @@ runs:
           fi
         }
 
+        check_status "Validação de Inputs" "${VALIDATE_OUTCOME}"
         check_status "Veracode SCA" "${SCA_STATUS}"
         check_status "Veracode IaC/Secrets" "${IAC_OUTCOME}"
         check_status "Bantuu Baseline Flow" "${BASELINE_OUTCOME}"
@@ -114,8 +120,14 @@ runs:
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
         BU_STATUS: ${{ inputs.bu_status }}
+        VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
       run: |
         set -euo pipefail
+
+        # Se a validateção falhou, o summary já foi escrito pelo validate-inputs; não duplicar.
+        if [ "${VALIDATE_OUTCOME}" = "failure" ]; then
+          exit 0
+        fi
 
         status_icon() {
           local status="$1"
@@ -129,7 +141,7 @@ runs:
         }
 
         has_failure="false"
-        for s in "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
+        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
           if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
             has_failure="true"
             break

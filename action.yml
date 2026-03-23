@@ -264,3 +264,4 @@ runs:
         pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
         bu_status: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}
+        validate_outcome: ${{ steps.validate.outcome || 'success' }}

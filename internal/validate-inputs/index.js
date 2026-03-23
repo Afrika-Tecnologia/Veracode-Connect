@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 const {
     ENABLE_SCA,
     SCA_TOKEN,
@@ -51,6 +53,36 @@ if (erros.length > 0) {
     }
     console.log("============================================");
     console.log("::endgroup::");
+
+    const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+    if (summaryFile) {
+        const lines = [
+            '---',
+            '',
+            '## 🛡️ Veracode Connect — Resumo Final',
+            '',
+            '> ❌ **Build travado** — Validação de inputs falhou antes de qualquer scan',
+            '',
+            '### ❌ Inputs inválidos ou ausentes',
+            '',
+            ...erros.map(e => `- ❌ ${e}`),
+            '',
+            '| Scan | Status |',
+            '|---|---|',
+            '| Veracode SCA | ⏭️ Skipped |',
+            '| Veracode IaC/Secrets | ⏭️ Skipped |',
+            '| Bantuu Baseline Flow | ⏭️ Skipped |',
+            '| Pipeline Scan | ⏭️ Skipped |',
+            '| Upload & Scan | ⏭️ Skipped |',
+            '| Business Unit | ⏭️ Skipped |',
+            '',
+            '---',
+            '',
+            '*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*',
+        ].join('\n');
+        fs.appendFileSync(summaryFile, lines);
+    }
+
     process.exit(1);
 }
 

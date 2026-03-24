@@ -31,6 +31,10 @@ inputs:
     description: 'Nome da policy a ser usada no scan do Veracode.'
     required: false
     default: ''
+  artifact_suffix:
+    description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
+    required: false
+    default: ''
 
 outputs:
   has_baseline:
@@ -171,11 +175,25 @@ runs:
         json_output_file: 'results.json'
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
 
+    - name: Calcular nome do artefato Pipeline Scan
+      id: artifact_name
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      shell: bash
+      env:
+        SUFFIX: ${{ inputs.artifact_suffix }}
+      run: |
+        set -euo pipefail
+        if [ -n "${SUFFIX}" ]; then
+          echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+        else
+          echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Upload artefato Pipeline Scan
       if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: pipescan-results
+        name: ${{ steps.artifact_name.outputs.name }}
         path: |
           results.json
           filtered_results.json

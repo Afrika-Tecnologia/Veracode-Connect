@@ -5,6 +5,10 @@ inputs:
   veracode_sca_token:
     description: 'Token de API do Veracode SCA (mapeado para SRCCLR_API_TOKEN).'
     required: true
+  artifact_suffix:
+    description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
+    required: false
+    default: ''
 
 outputs:
   sca_status:
@@ -50,11 +54,24 @@ runs:
           echo "sca_status=success" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Calcular nome do artefato SCA
+      id: artifact_name
+      shell: bash
+      env:
+        SUFFIX: ${{ inputs.artifact_suffix }}
+      run: |
+        set -euo pipefail
+        if [ -n "${SUFFIX}" ]; then
+          echo "name=sca-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+        else
+          echo "name=sca-results" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Upload artefato SCA
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: sca-results
+        name: ${{ steps.artifact_name.outputs.name }}
         path: |
           veracode_sca.log
         if-no-files-found: warn

@@ -136,6 +136,14 @@ runs:
           echo "enable_bu=false" >> "$GITHUB_OUTPUT"
         fi
 
+    # ── 0b. Gerar ID único para artefatos desta execução ─────────────
+    - name: Gerar ID único de scan
+      id: scan_id_gen
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "scan_id=${{ github.run_id }}-${{ github.run_attempt }}-${RANDOM}" >> "$GITHUB_OUTPUT"
+
     # ── 1. Validar inputs ────────────────────────────────────────────
     - name: Validar inputs
       id: validate
@@ -163,6 +171,7 @@ runs:
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-sca@v1
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
+        artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 3. Veracode IaC / Secrets ────────────────────────────────────
     - name: Veracode IaC / Secrets
@@ -172,6 +181,7 @@ runs:
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
+        artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
     - name: Preparar scan file
@@ -203,6 +213,7 @@ runs:
         policy_fail: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 6b. Pipeline Scan sem Bantuu (apenas quando baseline desativado) ─
     - name: Pipeline Scan (sem Bantuu)
@@ -215,6 +226,7 @@ runs:
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
         policy_fail: ${{ inputs.policy_fail }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 6c. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)

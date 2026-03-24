@@ -8,6 +8,10 @@ inputs:
   veracode_api_key:
     description: 'Key da API do Veracode (VKEY).'
     required: true
+  artifact_suffix:
+    description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -93,11 +97,25 @@ runs:
         fi
         echo "::endgroup::"
 
+    - name: Calcular nome do artefato IaC
+      id: artifact_name
+      if: always()
+      shell: bash
+      env:
+        SUFFIX: ${{ inputs.artifact_suffix }}
+      run: |
+        set -euo pipefail
+        if [ -n "${SUFFIX}" ]; then
+          echo "name=iac-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+        else
+          echo "name=iac-results" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Upload artefato IaC
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: iac-results
+        name: ${{ steps.artifact_name.outputs.name }}
         path: |
           iac-results
         if-no-files-found: warn

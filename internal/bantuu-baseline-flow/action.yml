@@ -85,7 +85,6 @@ runs:
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Bantuu retornou HTTP ${HTTP_STATUS} ao consultar baseline. Continuando sem baseline."
-          echo "::warning::Resposta do Bantuu: $(cat "${RESPONSE_FILE}" 2>/dev/null || echo '(vazia)')"
           echo '{}' > "${RESPONSE_FILE}"
         fi
 
@@ -156,7 +155,6 @@ runs:
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Falha ao enviar resultados com baseline para o Bantuu (HTTP ${HTTP_STATUS}). O job continua."
-          echo "::warning::Resposta do Bantuu: $(cat /tmp/bantuu-upload-response.txt 2>/dev/null || echo '(vazia)')"
         fi
         rm -f /tmp/bantuu-upload-response.txt
         echo "::endgroup::"

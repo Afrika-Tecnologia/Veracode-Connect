@@ -6,6 +6,17 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.1.25] - 2026-03-24
+
+### Fixed
+
+- Corrigido erro `409 Conflict` ao fazer upload de artefatos em workflows com múltiplos jobs paralelos ou execuções sequenciais da action no mesmo workflow run (cenário monolito). Os nomes dos artefatos internos (`pipescan-results`, `sca-results`, `iac-results`) agora recebem um sufixo único gerado por execução (`{run_id}-{run_attempt}-{RANDOM}`), eliminando colisões de nome no GitHub Actions.
+- Removidas mensagens de `::warning::` redundantes nos logs de resposta do Bantuu que duplicavam informações já exibidas nos steps de erro.
+
+### Changed
+
+- Novo input opcional `artifact_suffix` adicionado às sub-actions `bantuu-baseline-flow`, `pipeline-only`, `veracode-sca` e `veracode-iac`. Quando vazio (uso standalone), o comportamento é idêntico ao anterior (nomes originais preservados).
+
 ## [1.1.11] - 2026-02-25
 
 ### Changed

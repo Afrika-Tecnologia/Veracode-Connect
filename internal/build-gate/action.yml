@@ -123,9 +123,11 @@ runs:
         VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary Final"
 
         # Se a validateção falhou, o summary já foi escrito pelo validate-inputs; não duplicar.
         if [ "${VALIDATE_OUTCOME}" = "failure" ]; then
+          echo "::endgroup::"
           exit 0
         fi
 
@@ -179,3 +181,4 @@ runs:
           echo ""
           echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

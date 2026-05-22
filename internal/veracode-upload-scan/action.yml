@@ -12,9 +12,9 @@ inputs:
     description: 'Repositório org/repo usado como appname no Veracode.'
     required: true
   veracode_sandbox:
-    description: 'Define se o Upload & Scan deve usar sandbox (true) ou o app principal (false).'
+    description: 'Sandbox do Upload & Scan: true, false ou vazio (auto — default branch sem sandbox, demais branches com sandbox).'
     required: false
-    default: 'false'
+    default: ''
   filepath:
     description: 'Caminho do arquivo .zip a ser enviado para o Veracode (mesmo artefato do Pipeline Scan).'
     required: true
@@ -22,18 +22,24 @@ inputs:
     description: 'Nome do app no Veracode.'
     required: false
     default: '${{ github.repository }}'
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
 
 runs:
   using: 'composite'
   steps:
-    - name: Calcular nome do sandbox
+    - name: Calcular nome do sandbox e URL do repositório
       id: vars
       shell: bash
       env:
-        ENABLE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        SANDBOX_INPUT: ${{ inputs.veracode_sandbox }}
         HEAD_REF: ${{ github.head_ref }}
         REF_NAME: ${{ github.ref_name }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         APP_NAME: ${{ inputs.veracode_appname }}
+        REPOSITORY_FULL_NAME: ${{ inputs.repository_full_name }}
       run: |
         set -euo pipefail
 
@@ -43,14 +49,46 @@ runs:
           branch="unknown"
         fi
 
+        default_branch="${DEFAULT_BRANCH:-main}"
+
+        if [ -n "${SANDBOX_INPUT}" ] && [ "${SANDBOX_INPUT}" != "true" ] && [ "${SANDBOX_INPUT}" != "false" ]; then
+          echo "::error::veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch)."
+          echo "::endgroup::"
+          exit 1
+        fi
+
+        if [ "${SANDBOX_INPUT}" = "true" ]; then
+          enable_sandbox="true"
+          sandbox_mode="explicit"
+        elif [ "${SANDBOX_INPUT}" = "false" ]; then
+          enable_sandbox="false"
+          sandbox_mode="explicit"
+        else
+          sandbox_mode="auto"
+          if [ "${branch}" = "${default_branch}" ]; then
+            enable_sandbox="false"
+          else
+            enable_sandbox="true"
+          fi
+        fi
+
         sandbox_name="${branch} - ${APP_NAME}"
         sandbox_name="$(printf '%s' "${sandbox_name}" | cut -c1-80)"
 
-        if [ "${ENABLE_SANDBOX}" != "true" ]; then
+        if [ "${enable_sandbox}" != "true" ]; then
           sandbox_name=""
         fi
 
+        git_repository_url="${GITHUB_SERVER_URL}/${REPOSITORY_FULL_NAME}"
+        git_repository_url="${git_repository_url%.git}"
+
         echo "sandbox_name=${sandbox_name}" >> "$GITHUB_OUTPUT"
+        echo "enable_sandbox=${enable_sandbox}" >> "$GITHUB_OUTPUT"
+        echo "sandbox_mode=${sandbox_mode}" >> "$GITHUB_OUTPUT"
+        echo "git_repository_url=${git_repository_url}" >> "$GITHUB_OUTPUT"
+        echo "Branch: ${branch} (default: ${default_branch})"
+        echo "Sandbox: ${enable_sandbox} (modo: ${sandbox_mode})"
+        echo "Git Repository URL: ${git_repository_url}"
         echo "::endgroup::"
 
     - name: Resolver filepath absoluto
@@ -80,18 +118,20 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/veracode-uploadandscan-action@ddca86b1d1d45639d1c414003f3495f71851cfe2 # 0.2.11
+      uses: veracode/uploadandscan-action@b0228329f03f9787b2550ba76d64d0d4c5a2bb7f # v0.2.1
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         appname: '${{ inputs.veracode_appname }}'
-        createprofile: true
+        createprofile: 'true'
         filepath: ${{ steps.resolve_filepath.outputs.filepath }}
         version: 'Scan via Veracode Connect: ${{ github.server_url }}/${{ inputs.repository_full_name }} - ${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}'
-        createsandbox: ${{ inputs.veracode_sandbox }}
+        createsandbox: ${{ steps.vars.outputs.enable_sandbox }}
         sandboxname: ${{ steps.vars.outputs.sandbox_name }}
-        deleteincompletescan: 2
-        scanallnonfataltoplevelmodules: true
+        deleteincompletescan: 'true'
+        failbuild: 'false'
+        gitRepositoryUrl: ${{ steps.vars.outputs.git_repository_url }}
+        platformType: ${{ inputs.platform_type }}
 
     - name: Gerar Summary do Upload & Scan
       if: always()
@@ -100,10 +140,13 @@ runs:
         UPLOAD_OUTCOME: ${{ steps.upload_and_scan.outcome }}
         APP_NAME: ${{ inputs.veracode_appname }}
         SANDBOX_NAME: ${{ steps.vars.outputs.sandbox_name }}
-        ENABLE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        ENABLE_SANDBOX: ${{ steps.vars.outputs.enable_sandbox }}
+        SANDBOX_MODE: ${{ steps.vars.outputs.sandbox_mode }}
         FILEPATH: ${{ steps.resolve_filepath.outputs.filepath }}
+        GIT_REPOSITORY_URL: ${{ steps.vars.outputs.git_repository_url }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do Upload & Scan"
 
         {
           echo "### 📤 Veracode Upload & Scan"
@@ -119,10 +162,11 @@ runs:
           echo "| Propriedade | Valor |"
           echo "|---|---|"
           echo "| App Name | \`${APP_NAME}\` |"
+          echo "| Git Repository URL | \`${GIT_REPOSITORY_URL}\` |"
           if [ "${ENABLE_SANDBOX}" = "true" ]; then
-            echo "| Sandbox | \`${SANDBOX_NAME}\` |"
+            echo "| Sandbox | \`${SANDBOX_NAME}\` (modo: ${SANDBOX_MODE}) |"
           else
-            echo "| Sandbox | Desativado (scan no app principal) |"
+            echo "| Sandbox | Desativado — app principal (modo: ${SANDBOX_MODE}) |"
           fi
           echo "| Artefato | \`${FILE_NAME}\` |"
           echo "| Tamanho | ${FILE_SIZE} |"
@@ -130,3 +174,4 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

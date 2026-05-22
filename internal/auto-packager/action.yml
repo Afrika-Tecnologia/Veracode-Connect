@@ -120,17 +120,21 @@ runs:
           echo "scan_file=${TARGET}" >> "$GITHUB_OUTPUT"
           echo "::endgroup::"
         else
+          echo "::group::Preparar scan file (arquivo informado)"
           if [ -z "${INPUT_SCAN_FILE}" ]; then
             echo "::error::scan_file não foi fornecido e enable_auto_packager está 'false'."
+            echo "::endgroup::"
             exit 1
           fi
 
           if [ ! -f "${INPUT_SCAN_FILE}" ]; then
             echo "::error::Arquivo '${INPUT_SCAN_FILE}' não encontrado."
+            echo "::endgroup::"
             exit 1
           fi
 
           echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+          echo "::endgroup::"
         fi
 
     - name: Fallback ZIP (zip-release)
@@ -159,11 +163,14 @@ runs:
         PREP_FILE: ${{ steps.prepare.outputs.scan_file }}
         FALL_FILE: ${{ steps.fallback_output.outputs.scan_file }}
       run: |
+        set -euo pipefail
+        echo "::group::Consolidar saída do scan file"
         if [ -n "${FALL_FILE:-}" ]; then
           echo "scan_file=${FALL_FILE}" >> "$GITHUB_OUTPUT"
         else
           echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Gerar Summary do Auto Packager
       if: inputs.enable_auto_packager == 'true'
@@ -173,6 +180,7 @@ runs:
         NEEDS_FALLBACK: ${{ steps.prepare.outputs.needs_fallback }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do Auto Packager"
 
         {
           echo "### 📦 Auto Packager"
@@ -199,3 +207,4 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

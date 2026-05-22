@@ -23,6 +23,14 @@ inputs:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
     default: ''
+  create_issues:
+    description: 'Importa flaws do Pipeline Scan como issues no GitHub (true/false).'
+    required: false
+    default: 'false'
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
 
 outputs:
   pipeline_status:
@@ -39,10 +47,36 @@ runs:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         file: ${{ inputs.scan_file }}
+        token: ${{ github.token }}
         fail_build: ${{ inputs.policy_fail }}
         json_output: 'true'
         json_output_file: 'results.json'
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Verificar filtered_results para import de issues
+      id: check_filtered_results
+      if: inputs.create_issues == 'true' && steps.pipeline_only.outcome != 'skipped'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Verificar filtered_results para import de issues"
+        if [ -f "filtered_results.json" ]; then
+          echo "has_filtered=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
+          echo "has_filtered=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Importar flaws do Pipeline Scan como issues
+      id: pipeline_issues
+      if: inputs.create_issues == 'true' && steps.check_filtered_results.outputs.has_filtered == 'true'
+      uses: veracode/veracode-flaws-to-issues@6429a56d612e9357a059b685d694ab74c7272eb7 # v2.2.25
+      with:
+        scan-results-json: filtered_results.json
+        github-token: ${{ github.token }}
+        fail_build: 'false'
 
     - name: Calcular nome do artefato Pipeline Scan
       id: artifact_name
@@ -52,11 +86,13 @@ runs:
         SUFFIX: ${{ inputs.artifact_suffix }}
       run: |
         set -euo pipefail
+        echo "::group::Calcular nome do artefato Pipeline Scan"
         if [ -n "${SUFFIX}" ]; then
           echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
         else
           echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
       if: steps.pipeline_only.outcome != 'skipped'
@@ -76,11 +112,13 @@ runs:
         PIPELINE_OUTCOME: ${{ steps.pipeline_only.outcome }}
       run: |
         set -euo pipefail
+        echo "::group::Definir status do Pipeline Scan"
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_without_bantuu" >> "$GITHUB_OUTPUT"
         else
           echo "pipeline_status=scan_completed_without_bantuu" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
       if: steps.pipeline_only.outcome != 'skipped'
@@ -114,12 +152,18 @@ runs:
       shell: bash
       env:
         PIPELINE_OUTCOME: ${{ steps.pipeline_only.outcome }}
+        CREATE_ISSUES: ${{ inputs.create_issues }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do Pipeline Scan"
 
         {
           echo "### 🔬 Veracode Pipeline Scan"
           echo ""
+          if [ "${CREATE_ISSUES}" = "true" ]; then
+            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
+            echo ""
+          fi
 
           if [ -f "results.json" ]; then
             TOTAL=$(jq '.findings | length' results.json 2>/dev/null || echo "0")
@@ -162,3 +206,4 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

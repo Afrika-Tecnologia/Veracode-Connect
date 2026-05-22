@@ -1,5 +1,5 @@
 name: 'Veracode SCA'
-description: 'Roda o Veracode Software Composition Analysis (SCA) e publica os resultados como artefato.'
+description: 'Roda o Veracode Software Composition Analysis (SCA) via action oficial e publica os resultados como artefato.'
 
 inputs:
   veracode_sca_token:
@@ -9,63 +9,89 @@ inputs:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
     default: ''
+  create_issues:
+    description: 'Cria issues no GitHub para vulnerabilidades SCA encontradas (true/false).'
+    required: false
+    default: 'false'
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
 
 outputs:
   sca_status:
     description: 'Resultado do SCA (success | warning).'
     value: ${{ steps.run_sca.outputs.sca_status }}
+  scan_url:
+    description: 'URL do relatório SCA no portal Veracode.'
+    value: ${{ steps.veracode_sca_run.outputs.scan-url }}
 
 runs:
   using: 'composite'
   steps:
     - name: Rodar Veracode SCA
-      id: run_sca
-      shell: bash
+      id: veracode_sca_run
+      uses: veracode/veracode-sca@7b5de7a4042eb7a6cbfe30fc1e6c731092decf81 # v2.1.18
       env:
         SRCCLR_API_TOKEN: ${{ inputs.veracode_sca_token }}
+      with:
+        github_token: ${{ github.token }}
+        create-issues: ${{ inputs.create_issues }}
+        allow-dirty: 'true'
+        recursive: 'true'
+        update_advisor: 'true'
+        platformType: ${{ inputs.platform_type }}
+        breakBuildOnPolicyFindings: 'false'
+
+    - name: Definir status do SCA
+      id: run_sca
+      if: always()
+      shell: bash
+      env:
+        SCA_OUTCOME: ${{ steps.veracode_sca_run.outcome }}
       run: |
         set -euo pipefail
-
-        echo "::group::Veracode SCA"
-        set +e
-        curl -fsSL --connect-timeout 30 --max-time 120 --retry 3 --retry-delay 5 https://sca-downloads.veracode.com/ci.sh > ci.sh
-        CURL_EXIT="${PIPESTATUS[0]}"
-
-        if [ "${CURL_EXIT}" -ne 0 ]; then
-          echo "::error::Falha ao baixar o script SCA do Veracode (curl exit ${CURL_EXIT})."
-          exit 1
-        fi
-
-        # Verificação simples de tamanho (script não pode ser vazio/muito pequeno)
-        if [ ! -s ci.sh ] || [ $(wc -c < ci.sh) -lt 1000 ]; then
-          echo "::error::Script ci.sh baixado é inválido ou muito pequeno."
-          exit 1
-        fi
-
-        bash ci.sh -- scan --allow-dirty 2>&1 | tee veracode_sca.log
-        bash_exit="${PIPESTATUS[0]}"
-        set -e
-        echo "::endgroup::"
-
-        if [ "${bash_exit}" -ne 0 ]; then
-          echo "::warning::Veracode SCA retornou exit code ${bash_exit} (o job continua)."
+        echo "::group::Definir status do SCA"
+        if [ "${SCA_OUTCOME}" = "failure" ]; then
+          echo "::warning::Veracode SCA retornou falha (o job continua; trava final via build-gate)."
           echo "sca_status=warning" >> "$GITHUB_OUTPUT"
         else
           echo "sca_status=success" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
+
+    - name: Normalizar artefatos SCA
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Normalizar artefatos SCA"
+        if [ -f "scaResults.txt" ]; then
+          cp -f scaResults.txt veracode_sca.log
+          echo "Artefato textual normalizado: veracode_sca.log"
+        elif [ -f "scaResults.json" ]; then
+          cp -f scaResults.json veracode_sca.log
+          echo "Artefato JSON copiado para veracode_sca.log (referência)"
+        else
+          echo "::warning::Nenhum scaResults.txt/json encontrado após o scan SCA."
+        fi
+        echo "::endgroup::"
 
     - name: Calcular nome do artefato SCA
       id: artifact_name
+      if: always()
       shell: bash
       env:
         SUFFIX: ${{ inputs.artifact_suffix }}
       run: |
         set -euo pipefail
+        echo "::group::Calcular nome do artefato SCA"
         if [ -n "${SUFFIX}" ]; then
           echo "name=sca-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
         else
           echo "name=sca-results" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Upload artefato SCA
       if: always()
@@ -74,6 +100,8 @@ runs:
         name: ${{ steps.artifact_name.outputs.name }}
         path: |
           veracode_sca.log
+          scaResults.txt
+          scaResults.json
         if-no-files-found: warn
         retention-days: 3
 
@@ -82,23 +110,44 @@ runs:
       shell: bash
       env:
         SCA_STATUS: ${{ steps.run_sca.outputs.sca_status }}
+        SCAN_URL: ${{ steps.veracode_sca_run.outputs.scan-url }}
+        CREATE_ISSUES: ${{ inputs.create_issues }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do SCA"
 
         {
           echo "### 🔍 Veracode SCA (Software Composition Analysis)"
           echo ""
 
-          if [ -f "veracode_sca.log" ]; then
-            # Extrair métricas do log do SCA (formato tabular com espaços)
-            VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_LOW=$(grep -oiP 'Low\s+Risk\s+Vulnerabilities\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+          if [ -n "${SCAN_URL:-}" ]; then
+            echo "> 🔗 [Relatório completo no Veracode](${SCAN_URL})"
+            echo ""
+          fi
+
+          if [ "${CREATE_ISSUES}" = "true" ]; then
+            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\`)"
+          else
+            echo "> 📝 Issues GitHub: desabilitado"
+          fi
+          echo ""
+
+          SCA_LOG=""
+          if [ -f "scaResults.txt" ]; then
+            SCA_LOG="scaResults.txt"
+          elif [ -f "veracode_sca.log" ]; then
+            SCA_LOG="veracode_sca.log"
+          fi
+
+          if [ -n "${SCA_LOG}" ]; then
+            VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_LOW=$(grep -oiP 'Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
             VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} ))
-            LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
-            VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' veracode_sca.log 2>/dev/null | head -1 || echo "0")
+            LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
@@ -114,15 +163,14 @@ runs:
             echo "| Bibliotecas transitivas | ${TRANSITIVE_LIBS} |"
             echo ""
 
-            # Detalhes das vulnerabilidades (linhas CVE-* e NO-CVE do log)
-            VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null || echo "0")
+            VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' "${SCA_LOG}" 2>/dev/null || echo "0")
             if [ "${VULN_LINES}" -gt 0 ] 2>/dev/null; then
               echo "<details><summary>📋 Detalhes das vulnerabilidades (${VULN_LINES})</summary>"
               echo ""
               echo "| # | Severidade | CVE | Descrição | Biblioteca |"
               echo "|---|---|---|---|---|"
 
-              grep -P '^\s*(CVE-\S+|NO-CVE)\s+' veracode_sca.log 2>/dev/null | awk -F'  +' '{
+              grep -P '^\s*(CVE-\S+|NO-CVE)\s+' "${SCA_LOG}" 2>/dev/null | awk -F'  +' '{
                 gsub(/^[ \t]+/, "", $0);
                 cve=$1; sev=$2; desc=$3; lib=$4;
                 gsub(/^[ \t]+|[ \t]+$/, "", cve);
@@ -140,9 +188,15 @@ runs:
               echo ""
               echo "</details>"
             fi
+          elif [ -f "scaResults.json" ]; then
+            TOTAL=$(jq '[.. | objects | select(has("vulnerability"))] | length' scaResults.json 2>/dev/null || echo "0")
+            echo "> Resultado em JSON (\`scaResults.json\`). Total aproximado de entradas: **${TOTAL}**"
           else
-            echo "> ⚠️ Log do SCA não encontrado."
+            echo "> ⚠️ Nenhum artefato de resultado SCA encontrado."
           fi
 
           echo ""
+          echo "| Status interno | \`${SCA_STATUS}\` |"
+          echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

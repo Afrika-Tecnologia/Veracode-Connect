@@ -6,6 +6,22 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-22
+
+### Changed
+
+- Upload & Scan migrado de `veracode/veracode-uploadandscan-action` (Docker/Java CLI) para `veracode/uploadandscan-action` (Node.js). O perfil Veracode passa a receber `gitRepositoryUrl` (`{server_url}/{org/repo}`, sem sufixo `.git`) na criação automática do app (`createprofile: true`).
+- `veracode_sandbox` com default vazio (auto): branch default do repositório → scan no app principal; demais branches → sandbox. Valores explícitos `'true'` / `'false'` continuam sobrescrevendo o auto.
+- Logs padronizados com `::group::` / `::endgroup::` em todos os steps shell das sub-actions e do orquestrador, deixando a saída do GitHub Actions mais organizada e colapsável.
+- SCA migrado de `curl` + `ci.sh` para `veracode/veracode-sca@v2.1.18` (`allow-dirty`, `recursive` e `update_advisor` ativos por padrão).
+- Novo input `create_issues` (default `'false'`): SCA usa `create-issues` da action oficial; Pipeline Scan usa `veracode/veracode-flaws-to-issues` com `filtered_results.json` (a action de Pipeline Scan não possui `create-issues` nativo).
+- Detecção de `platformType` (`CLOUD`/`ENTERPRISE`) centralizada em `internal/resolve-platform-type` e reutilizada em SCA, Pipeline Scan e Upload & Scan.
+
+### Added
+
+- Nova sub-action `internal/resolve-platform-type` para detectar GitHub.com vs GHES.
+- Validação antecipada quando `create_issues: 'true'`: Issues habilitadas no repositório (`has_issues`) e permissão `issues: write` no workflow (falha antes dos scans, com mensagens orientativas).
+
 ## [1.1.25] - 2026-03-24
 
 ### Fixed

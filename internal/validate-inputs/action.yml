@@ -45,6 +45,10 @@ inputs:
   veracode_api_key:
     description: 'Key da API do Veracode.'
     required: true
+  create_issues:
+    description: 'Cria/importa issues no GitHub (true/false).'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -66,6 +70,10 @@ runs:
         BU_NAME: ${{ inputs.veracode_business_unit }}
         VID: ${{ inputs.veracode_api_id }}
         VKEY: ${{ inputs.veracode_api_key }}
+        CREATE_ISSUES: ${{ inputs.create_issues }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

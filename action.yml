@@ -1,5 +1,5 @@
 name: 'Veracode Connect'
-description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu. Requer permissions: contents: read'
+description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu. Requer permissions: contents: read; com create_issues: true também issues: write'
 author: 'Afrika-Tecnologia'
 branding:
   icon: 'shield'
@@ -47,9 +47,9 @@ inputs:
     description: 'Key da API do Veracode.'
     required: true
   veracode_sandbox:
-    description: 'Define se o Upload & Scan deve usar sandbox (true) ou o app principal (false).'
+    description: 'Upload & Scan: sandbox (true), app principal (false) ou omitido/vazio (auto — default branch sem sandbox, demais branches com sandbox).'
     required: false
-    default: 'true'
+    default: ''
   scan_file:
     description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager está desativado.'
     required: false
@@ -86,6 +86,10 @@ inputs:
     description: 'Nome da policy a ser usada no scan do Veracode.'
     required: false
     default: ''
+  create_issues:
+    description: 'Cria/importa issues no GitHub para findings do SCA (create-issues) e do Pipeline Scan (veracode-flaws-to-issues). Default false.'
+    required: false
+    default: 'false'
 
 outputs:
   has_baseline:
@@ -130,11 +134,18 @@ runs:
         FLAG_B: ${{ inputs.enable_set_business_unit }}
       run: |
         set -euo pipefail
+        echo "::group::Resolver flag de Business Unit"
         if [ "${FLAG_A}" = "true" ] || [ "${FLAG_B}" = "true" ]; then
           echo "enable_bu=true" >> "$GITHUB_OUTPUT"
         else
           echo "enable_bu=false" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
+
+    # ── 0a. Resolver platform type (GitHub.com vs GHES) ───────────────
+    - name: Resolver platform type
+      id: resolve_platform
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-platform-type@v1
 
     # ── 0b. Gerar ID único para artefatos desta execução ─────────────
     - name: Gerar ID único de scan
@@ -142,7 +153,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Gerar ID único de scan"
         echo "scan_id=${{ github.run_id }}-${{ github.run_attempt }}-${RANDOM}" >> "$GITHUB_OUTPUT"
+        echo "::endgroup::"
 
     # ── 1. Validar inputs ────────────────────────────────────────────
     - name: Validar inputs
@@ -163,6 +176,7 @@ runs:
         veracode_business_unit: ${{ inputs.veracode_business_unit }}
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
+        create_issues: ${{ inputs.create_issues }}
 
     # ── 2. Veracode SCA ──────────────────────────────────────────────
     - name: Veracode SCA
@@ -172,6 +186,8 @@ runs:
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
+        create_issues: ${{ inputs.create_issues }}
+        platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 3. Veracode IaC / Secrets ────────────────────────────────────
     - name: Veracode IaC / Secrets
@@ -214,6 +230,8 @@ runs:
         fail_on_severity: ${{ inputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
+        create_issues: ${{ inputs.create_issues }}
+        platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 6b. Pipeline Scan sem Bantuu (apenas quando baseline desativado) ─
     - name: Pipeline Scan (sem Bantuu)
@@ -227,6 +245,8 @@ runs:
         policy_fail: ${{ inputs.policy_fail }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
+        create_issues: ${{ inputs.create_issues }}
+        platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 6c. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)
@@ -235,7 +255,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Pipeline Scan desativado"
         echo "pipeline_status=pipeline_scan_disabled" >> "$GITHUB_OUTPUT"
+        echo "::endgroup::"
 
     # ── 7. Upload & Scan ─────────────────────────────────────────────
     - name: Veracode Upload & Scan
@@ -249,6 +271,7 @@ runs:
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
         veracode_appname: ${{ inputs.veracode_appname }}
+        platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 8. Business Unit ─────────────────────────────────────────────
     - name: Vincular Business Unit

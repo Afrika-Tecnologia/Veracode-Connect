@@ -35,6 +35,14 @@ inputs:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
     default: ''
+  create_issues:
+    description: 'Importa flaws do Pipeline Scan como issues no GitHub (true/false).'
+    required: false
+    default: 'false'
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
 
 outputs:
   has_baseline:
@@ -107,7 +115,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Criar baseline local a partir do Bantuu"
         jq '.results' baseline-response.json > baseline.json
+        echo "::endgroup::"
 
     - name: Rodar Veracode Pipeline Scan com baseline
       id: pipeline_with_baseline
@@ -118,12 +128,14 @@ runs:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         file: ${{ inputs.scan_file }}
+        token: ${{ github.token }}
         baseline_file: 'baseline.json'
         fail_build: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
         json_output: 'true'
         json_output_file: 'results.json'
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        platformType: ${{ inputs.platform_type }}
 
     - name: Enviar resultados do scan com baseline para o Bantuu
       id: upload_baseline_results
@@ -168,10 +180,12 @@ runs:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
         file: ${{ inputs.scan_file }}
+        token: ${{ github.token }}
         fail_build: ${{ inputs.policy_fail }}
         json_output: 'true'
         json_output_file: 'results.json'
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        platformType: ${{ inputs.platform_type }}
 
     - name: Calcular nome do artefato Pipeline Scan
       id: artifact_name
@@ -181,11 +195,13 @@ runs:
         SUFFIX: ${{ inputs.artifact_suffix }}
       run: |
         set -euo pipefail
+        echo "::group::Calcular nome do artefato Pipeline Scan"
         if [ -n "${SUFFIX}" ]; then
           echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
         else
           echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
       if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
@@ -245,11 +261,13 @@ runs:
         OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
       run: |
         set -euo pipefail
+        echo "::group::Definir status do Pipeline Scan (com baseline)"
         if [ "${OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
         else
           echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Definir status (sem baseline, baseline enviado)
       id: pipeline_status_without_baseline
@@ -259,11 +277,13 @@ runs:
         OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
       run: |
         set -euo pipefail
+        echo "::group::Definir status do Pipeline Scan (sem baseline)"
         if [ "${OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
         else
           echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
       if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
@@ -301,6 +321,30 @@ runs:
         fi
         echo "::endgroup::"
 
+    - name: Verificar filtered_results para import de issues
+      id: check_filtered_results
+      if: inputs.create_issues == 'true' && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Verificar filtered_results para import de issues"
+        if [ -f "filtered_results.json" ]; then
+          echo "has_filtered=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
+          echo "has_filtered=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Importar flaws do Pipeline Scan como issues
+      id: pipeline_issues
+      if: inputs.create_issues == 'true' && steps.check_filtered_results.outputs.has_filtered == 'true'
+      uses: veracode/veracode-flaws-to-issues@6429a56d612e9357a059b685d694ab74c7272eb7 # v2.2.25
+      with:
+        scan-results-json: filtered_results.json
+        github-token: ${{ github.token }}
+        fail_build: 'false'
+
     - name: Gerar Summary do Baseline Pipeline Scan
       if: always() && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
       shell: bash
@@ -308,8 +352,10 @@ runs:
         HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
         WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
         WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+        CREATE_ISSUES: ${{ inputs.create_issues }}
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do Baseline Pipeline Scan"
 
         # Determinar outcome efetivo
         OUTCOME="skipped"
@@ -328,6 +374,9 @@ runs:
             echo "> 📁 Baseline encontrado no Bantuu — scan executado **com baseline**"
           else
             echo "> 🆕 Sem baseline no Bantuu — scan executado **sem baseline** (baseline enviado após scan)"
+          fi
+          if [ "${CREATE_ISSUES}" = "true" ]; then
+            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
           fi
           echo ""
 
@@ -381,3 +430,4 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

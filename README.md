@@ -27,6 +27,8 @@ Os logs ficam agrupados no console (`::group::/::endgroup::`).
 
 Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 
+Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (Settings → General → Features → Issues) e o workflow **precisa** declarar `permissions: issues: write` no **job ou workflow** que chama esta action (composite actions **não** podem definir permissions). A validação inicial falha cedo com instruções se algum pré-requisito estiver ausente.
+
 | Input | Obrigatorio | Default | Notas |
 |---|---:|---:|---|
 | `veracode_api_id` | sim | - | VID do Veracode. |
@@ -40,9 +42,10 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 | `fail_build` | nao | `'true'` | Se `'true'`, trava a esteira quando qualquer scan falhar. |
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
 | `veracode_policy_name` | nao | `''` | Nome da policy a ser usada no scan do Veracode. |
+| `create_issues` | nao | `'false'` | Cria issues no repositório: SCA (`veracode-sca` → `create-issues`) e Pipeline Scan (`veracode-flaws-to-issues`). Requer `issues: write` no workflow. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
-| `veracode_sandbox` | nao | `'true'` | Se `'true'`, cria/usa sandbox; senao usa o app principal. |
-| `enable_sca` | nao | `'false'` | Ativa SCA. |
+| `veracode_sandbox` | nao | *(vazio — auto)* | Omitido: branch default → app principal; outras branches → sandbox. `'true'`/`'false'` forçam o modo. |
+| `enable_sca` | nao | `'false'` | Ativa SCA (via `veracode/veracode-sca`). |
 | `veracode_sca_token` | nao* | - | Obrigatorio na pratica quando `enable_sca: 'true'`. |
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
 | `enable_business_unit` | nao | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (apos Upload & Scan). |
@@ -65,18 +68,33 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 
 ## Artefatos (sempre publicados quando o modulo roda)
 
-- `sca-results`: `veracode_sca.log`
+- `sca-results`: `veracode_sca.log`, `scaResults.txt` ou `scaResults.json` (conforme `create_issues`)
 - `iac-results`: pasta `iac-results/` com `results.json`, `results.txt` e SBOMs (se gerados)
 - `pipescan-results`: `results.json` e `filtered_results.json` (se existir)
 
+## SCA — comportamento fixo
+
+- Action upstream: `veracode/veracode-sca@v2.1.18`
+- `allow-dirty: true`, `recursive: true`, `update_advisor: true`
+- `breakBuildOnPolicyFindings: false` (falha vira `sca_status=warning`; trava final via `build-gate`)
+- `create_issues: 'false'` (default) → artefato textual (`scaResults.txt`)
+- `create_issues: 'true'` → a action SCA cria **issues direto no repositório** para vulnerabilidades encontradas (`create-issues: true`, saída JSON)
+- `platformType`: auto (`CLOUD` em github.com, `ENTERPRISE` em GHES)
+
+## Pipeline Scan — create issues
+
+A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues`. Com `create_issues: 'true'`, após o scan o Veracode Connect roda `veracode/veracode-flaws-to-issues` usando `filtered_results.json` (se existir), importando flaws como **issues no repositório**.
+
 ## Upload & Scan (static) - comportamento fixo
 
-- `appname = org/repo`
-- `createprofile: true`
-- nao espera o scan finalizar (`scantimeout: 0`)
-- sempre ativa: `scanallnonfataltoplevelmodules`, `includenewmodules`, `deleteincompletescan: 2`
-- `sandboxname` (quando `veracode_sandbox: 'true'`): `{branch}-{org-repo}`
-- `version`: `Scan from Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
+- `appname` = input `veracode_appname` (default `${{ github.repository }}`)
+- `createprofile: true` + `gitRepositoryUrl` = `{server_url}/{org/repo}` (sem `.git`)
+- nao espera o scan finalizar (submit assincrono; `failbuild: false` — trava final via `build-gate`)
+- `deleteincompletescan: true`
+- sandbox (quando ativo): auto por branch (default branch → app principal; demais → sandbox) ou `'true'`/`'false'` explicito
+- `sandboxname` (com sandbox): `{branch} - {appname}` (ate 80 chars)
+- `version`: `Scan via Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
+- `platformType`: auto (`CLOUD` em github.com, `ENTERPRISE` em GHES)
 
 ## Exemplos
 

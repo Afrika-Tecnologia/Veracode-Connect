@@ -36,6 +36,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Definir status IaC/Secrets"
         if [ "${{ steps.iac_scan.outcome }}" = "success" ]; then
           echo "iac_status=success" >> "$GITHUB_OUTPUT"
         elif [ "${{ steps.iac_scan.outcome }}" = "failure" ]; then
@@ -43,6 +44,7 @@ runs:
         else
           echo "iac_status=skipped" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Coletar arquivos de resultado do IaC
       if: always()
@@ -105,11 +107,13 @@ runs:
         SUFFIX: ${{ inputs.artifact_suffix }}
       run: |
         set -euo pipefail
+        echo "::group::Calcular nome do artefato IaC"
         if [ -n "${SUFFIX}" ]; then
           echo "name=iac-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
         else
           echo "name=iac-results" >> "$GITHUB_OUTPUT"
         fi
+        echo "::endgroup::"
 
     - name: Upload artefato IaC
       if: always()
@@ -126,6 +130,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        echo "::group::Gerar Summary do IaC/Secrets"
 
         {
           echo "### 🛡️ Veracode IaC / Secrets"
@@ -213,3 +218,4 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

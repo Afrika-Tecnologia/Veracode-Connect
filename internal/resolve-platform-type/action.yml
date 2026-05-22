@@ -1,0 +1,27 @@
+name: 'Resolver platform type'
+description: 'Detecta CLOUD (github.com) ou ENTERPRISE (GHES) a partir de github.server_url.'
+
+outputs:
+  platform_type:
+    description: 'CLOUD ou ENTERPRISE.'
+    value: ${{ steps.resolve.outputs.platform_type }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolver platform type (GitHub)
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "::group::Resolver platform type (GitHub)"
+        if [ "${GITHUB_SERVER_URL}" = "https://github.com" ]; then
+          platform_type="CLOUD"
+        else
+          platform_type="ENTERPRISE"
+        fi
+
+        echo "platform_type=${platform_type}" >> "$GITHUB_OUTPUT"
+        echo "Platform Type: ${platform_type} (${GITHUB_SERVER_URL})"
+        echo "::endgroup::"

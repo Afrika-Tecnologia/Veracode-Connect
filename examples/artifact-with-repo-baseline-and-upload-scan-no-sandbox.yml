@@ -1,0 +1,59 @@
+name: Security Scan (Artefato/scan_file + Repo Baseline + Upload & Scan - No Sandbox)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build / package scan file (app.zip)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y zip
+          rm -f app.zip
+          zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
+
+      - name: Upload scan file
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: veracode-scan-file
+          path: app.zip
+          if-no-files-found: error
+
+  security:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download scan file
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: veracode-scan-file
+          path: veracode-artifact
+
+      - name: Repo Baseline + Upload & Scan (app principal)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          baseline_mode: 'repo'
+          baseline_org: ${{ vars.BASELINE_ORG }}
+          baseline_github_app_id: ${{ secrets.BASELINE_GITHUB_APP_ID }}
+          baseline_github_app_private_key: ${{ secrets.BASELINE_GITHUB_APP_PRIVATE_KEY }}
+          baseline_github_app_installation_id: ${{ secrets.BASELINE_GITHUB_APP_INSTALLATION_ID }}
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'false'
+          scan_file: veracode-artifact/app.zip
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'false'
+          policy_fail: 'false'

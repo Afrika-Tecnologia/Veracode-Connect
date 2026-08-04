@@ -15,25 +15,29 @@ inputs:
     required: false
     default: 'skipped'
   baseline_outcome:
-    description: 'Outcome do Bantuu Baseline Flow.'
+    description: 'Outcome do Portal Afrika Baseline Flow.'
+    required: false
+    default: 'skipped'
+  repo_baseline_outcome:
+    description: 'Outcome do Repo Baseline Flow.'
     required: false
     default: 'skipped'
   pipeline_outcome:
-    description: 'Outcome do Pipeline Scan.'
+    description: 'Outcome do Pipeline Scan (sem provedor de baseline).'
     required: false
     default: 'skipped'
   upload_outcome:
     description: 'Outcome do Upload & Scan.'
     required: false
     default: 'skipped'
-  bu_status:
-    description: 'Status do vínculo de Business Unit.'
-    required: false
-    default: 'skipped'
   validate_outcome:
     description: 'Outcome do step de validação de inputs (success/failure).'
     required: false
     default: 'success'
+  baseline_mode:
+    description: 'Modo de baseline resolvido (none | portal_afrika | repo).'
+    required: false
+    default: 'none'
 
 runs:
   using: 'composite'
@@ -45,9 +49,9 @@ runs:
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
+        REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
-        BU_STATUS: ${{ inputs.bu_status }}
         VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
       run: |
         set -euo pipefail
@@ -63,11 +67,13 @@ runs:
         check_status() {
           local name="$1"
           local status="$2"
+          # Só exibe módulos que realmente rodaram (não skipped)
+          if [ "${status}" = "skipped" ]; then
+            return 0
+          fi
           if [[ "${status}" == "failure" || "${status}" == "failed" || "${status}" == "scan_failed"* ]]; then
             echo "  ❌ ${name}: ${status}"
             falhas+=("${name}")
-          elif [ "${status}" = "skipped" ]; then
-            echo "  ⏭️  ${name}: skipped"
           elif [ "${status}" = "warning" ]; then
             echo "  ⚠️  ${name}: warning"
             alertas+=("${name}")
@@ -76,13 +82,18 @@ runs:
           fi
         }
 
-        check_status "Validação de Inputs" "${VALIDATE_OUTCOME}"
+        # Validação: só destaca quando falhou (success é implícito se chegou aqui com módulos ativos)
+        if [ "${VALIDATE_OUTCOME}" = "failure" ] || [ "${VALIDATE_OUTCOME}" = "failed" ]; then
+          echo "  ❌ Validação de Inputs: ${VALIDATE_OUTCOME}"
+          falhas+=("Validação de Inputs")
+        fi
+
         check_status "Veracode SCA" "${SCA_STATUS}"
         check_status "Veracode IaC/Secrets" "${IAC_OUTCOME}"
-        check_status "Bantuu Baseline Flow" "${BASELINE_OUTCOME}"
+        check_status "Portal Afrika Baseline" "${BASELINE_OUTCOME}"
+        check_status "Repo Baseline" "${REPO_BASELINE_OUTCOME}"
         check_status "Pipeline Scan" "${PIPELINE_OUTCOME}"
         check_status "Upload & Scan" "${UPLOAD_OUTCOME}"
-        check_status "Business Unit" "${BU_STATUS}"
 
         echo "============================================"
 
@@ -117,15 +128,14 @@ runs:
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
+        REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
-        BU_STATUS: ${{ inputs.bu_status }}
         VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary Final"
 
-        # Se a validateção falhou, o summary já foi escrito pelo validate-inputs; não duplicar.
         if [ "${VALIDATE_OUTCOME}" = "failure" ]; then
           echo "::endgroup::"
           exit 0
@@ -142,8 +152,17 @@ runs:
           esac
         }
 
+        append_row_if_active() {
+          local name="$1"
+          local status="$2"
+          if [ "${status}" = "skipped" ] || [ -z "${status}" ]; then
+            return 0
+          fi
+          echo "| ${name} | $(status_icon "${status}") |"
+        }
+
         has_failure="false"
-        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
+        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${REPO_BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
           if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
             has_failure="true"
             break
@@ -163,18 +182,18 @@ runs:
               echo "> ⚠️ **Falhas detectadas** mas build **não travado** (\`fail_build=false\`)"
             fi
           else
-            echo "> ✅ **Todos os checks passaram com sucesso**"
+            echo "> ✅ **Todos os checks ativos passaram com sucesso**"
           fi
           echo ""
 
           echo "| Scan | Status |"
           echo "|---|---|"
-          echo "| Veracode SCA | $(status_icon "${SCA_STATUS}") |"
-          echo "| Veracode IaC/Secrets | $(status_icon "${IAC_OUTCOME}") |"
-          echo "| Bantuu Baseline Flow | $(status_icon "${BASELINE_OUTCOME}") |"
-          echo "| Pipeline Scan | $(status_icon "${PIPELINE_OUTCOME}") |"
-          echo "| Upload & Scan | $(status_icon "${UPLOAD_OUTCOME}") |"
-          echo "| Business Unit | $(status_icon "${BU_STATUS}") |"
+          append_row_if_active "Veracode SCA" "${SCA_STATUS}"
+          append_row_if_active "Veracode IaC/Secrets" "${IAC_OUTCOME}"
+          append_row_if_active "Portal Afrika Baseline" "${BASELINE_OUTCOME}"
+          append_row_if_active "Repo Baseline" "${REPO_BASELINE_OUTCOME}"
+          append_row_if_active "Pipeline Scan" "${PIPELINE_OUTCOME}"
+          append_row_if_active "Upload & Scan" "${UPLOAD_OUTCOME}"
 
           echo ""
           echo "---"

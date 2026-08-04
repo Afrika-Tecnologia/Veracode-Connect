@@ -6,7 +6,11 @@ Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.
 
 Versoes suportadas:
 
-- `v1` (ultima tag `v1.1.2` publicada)
+- `v1` (ultima tag `v1.3.0` publicada)
+
+## Baseline via repositorio (GitHub App)
+
+Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório fixo `Veracode-Connect-Baseline-Repo`. Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo.
 
 ## Reportando vulnerabilidades
 

@@ -31,7 +31,7 @@ runs:
   steps:
     - name: Rodar Veracode SCA
       id: veracode_sca_run
-      uses: veracode/veracode-sca@7b5de7a4042eb7a6cbfe30fc1e6c731092decf81 # v2.1.18
+      uses: veracode/veracode-sca@01bdc0cbd6b4990e93519deedc5140e5ff48b98e # v2.1.19
       env:
         SRCCLR_API_TOKEN: ${{ inputs.veracode_sca_token }}
       with:
@@ -95,7 +95,7 @@ runs:
 
     - name: Upload artefato SCA
       if: always()
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: ${{ steps.artifact_name.outputs.name }}
         path: |

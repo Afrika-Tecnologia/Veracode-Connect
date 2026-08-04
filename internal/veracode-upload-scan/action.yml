@@ -118,7 +118,7 @@ runs:
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/uploadandscan-action@b0228329f03f9787b2550ba76d64d0d4c5a2bb7f # v0.2.1
+      uses: veracode/uploadandscan-action@b61c06d463061efe5ec58f2029f0bbcfa2717a19 # v0.2.2
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}

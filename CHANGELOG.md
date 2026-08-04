@@ -6,6 +6,38 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-03
+
+### Added
+
+- Novo provedor de baseline via repositório GitHub (`baseline_mode: 'repo'`), mutuamente exclusivo com Portal Afrika:
+  - Sub-action `internal/repo-baseline-flow` (check → Pipeline Scan ± baseline → seed write-once).
+  - Layout `{org-do-app}/{repo-do-app}/baseline.json` no repositório fixo `Veracode-Connect-Baseline-Repo` (a org em `baseline_org` deve conter esse repo).
+  - Auth por GitHub App (`baseline_github_app_*`) com fallback PAT (`baseline_github_token`).
+  - Validação antecipada: se o repo de baseline não existir ou o token não tiver acesso, o pipeline falha antes dos scans.
+- Input `baseline_mode` (`none` | `portal_afrika` | `repo`, default `none`) e output `baseline_mode`.
+- Exemplos `autopackager-with-repo-baseline*.yml` e `artifact-with-repo-baseline*.yml` (espelhando as combinações SCA/IaC/Upload do baseline Portal Afrika).
+
+### Removed
+
+- Removido o input `enable_baseline`. Use só `baseline_mode` (`none` por default; setar `portal_afrika` ou `repo` para ativar baseline).
+- Removido o input `baseline_repo_name` (nome do repo de baseline é fixo: `Veracode-Connect-Baseline-Repo`).
+- Removido completamente o módulo de Business Unit (`internal/veracode-business-unit`), incluindo inputs (`enable_business_unit`, `enable_set_business_unit`, `veracode_business_unit`), outputs (`business_unit_name`, `business_unit_guid`, `set_business_unit_status`), validações, build-gate e o exemplo `autopackager-with-baseline-sca-iac-upload-bu.yml`.
+
+### Changed
+
+- Renomeação Bantuu → **Portal Afrika**: inputs `portal_afrika_api_key` / `portal_afrika_base_url`, `baseline_mode: portal_afrika`, sub-action `internal/portal-afrika-baseline-flow` (URL default permanece `https://www.bantuu.io` temporariamente).
+- Build-gate / job summary: exibe apenas módulos que rodaram (omite entradas `skipped`).
+- Default de `baseline_mode` é `none` (Pipeline Scan sem provedor de baseline, a menos que você ative explicitamente).
+- Dependências Veracode atualizadas para as últimas releases, todas pinadas por commit SHA:
+  - `veracode/Veracode-pipeline-scan-action` `v1.0.20` → `v1.0.23`
+  - `veracode/veracode-sca` `v2.1.18` → `v2.1.19`
+  - `veracode/container_iac_secrets_scanning` `v1.0.7` → `v1.0.8`
+  - `veracode/uploadandscan-action` `v0.2.1` → `v0.2.2`
+  - `veracode/veracode-flaws-to-issues` `v2.2.25` → `v2.2.26`
+- Veracode CLI (Auto Packager) `2.46.0` → `2.51.2`
+- Workflows e exemplos: actions externas (`checkout`, `upload-artifact`, `download-artifact`, `action-gh-release`) pinadas por commit SHA.
+
 ## [1.2.0] - 2026-05-22
 
 ### Changed
@@ -27,11 +59,11 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Fixed
 
 - Corrigido erro `409 Conflict` ao fazer upload de artefatos em workflows com múltiplos jobs paralelos ou execuções sequenciais da action no mesmo workflow run (cenário monolito). Os nomes dos artefatos internos (`pipescan-results`, `sca-results`, `iac-results`) agora recebem um sufixo único gerado por execução (`{run_id}-{run_attempt}-{RANDOM}`), eliminando colisões de nome no GitHub Actions.
-- Removidas mensagens de `::warning::` redundantes nos logs de resposta do Bantuu que duplicavam informações já exibidas nos steps de erro.
+- Removidas mensagens de `::warning::` redundantes nos logs de resposta do Portal Afrika que duplicavam informações já exibidas nos steps de erro.
 
 ### Changed
 
-- Novo input opcional `artifact_suffix` adicionado às sub-actions `bantuu-baseline-flow`, `pipeline-only`, `veracode-sca` e `veracode-iac`. Quando vazio (uso standalone), o comportamento é idêntico ao anterior (nomes originais preservados).
+- Novo input opcional `artifact_suffix` adicionado às sub-actions `portal-afrika-baseline-flow`, `pipeline-only`, `veracode-sca` e `veracode-iac`. Quando vazio (uso standalone), o comportamento é idêntico ao anterior (nomes originais preservados).
 
 ## [1.1.11] - 2026-02-25
 
@@ -74,7 +106,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Refs internas de sub-actions alteradas de `@v1.1` para `@v1` (consistencia com major version tag).
 - Veracode CLI (Auto Packager) pinada na versao `3.4.0`.
 - `::group::` adicionado em todas as sub-actions para logs organizados.
-- `curl` para Bantuu agora usa `--connect-timeout 30 --max-time 120`.
+- `curl` para Portal Afrika agora usa `--connect-timeout 30 --max-time 120`.
 - `set-business-unit.js`: HMAC auth regenerado dentro do loop de retry; paginacao de BUs reduzida de 200 para 20 paginas; validacao de virgula removida (duplicada, feita no validate-inputs).
 - `continue-on-error` adicionado no Upload & Scan e Baseline Flow (resultados verificados na trava de build final).
 - Condicoes `always()` substituidas por verificacoes de outcome (evita steps desnecessarios).
@@ -116,7 +148,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Fixed
 
-- Corrigido a propagação do input `bantuu_base_url` que estava sendo sobrescrito pelo valor default na sub-action.
+- Corrigido a propagação do input `portal_afrika_base_url` que estava sendo sobrescrito pelo valor default na sub-action.
 
 ## [1.0.27] - 2026-02-10
 
@@ -128,7 +160,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Melhoria na segurança: uso de variáveis de ambiente para secrets em vez de interpolação no shell.
 - Melhoria no tratamento de erros: `policy_fail` agora é verificado corretamente mesmo com `continue-on-error`.
 - Pinned version: `veracode-uploadandscan-action` fixado na versão `0.2.4` para estabilidade.
-- Novo passo no fluxo de baseline: envio de resultados de scan com baseline para o endpoint de histórico do Bantuu.
+- Novo passo no fluxo de baseline: envio de resultados de scan com baseline para o endpoint de histórico do Portal Afrika.
 
 ## [1.0.26] - 2026-01-07
 
@@ -180,13 +212,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Added
 
 - README com lista de exemplos por cenario e links clicaveis.
-- Exemplos de workflows cobrindo combinacoes de SCA, IaC, Baseline Bantuu, Upload & Scan e uso de `scan_file` (artefato) ou Auto Packager.
+- Exemplos de workflows cobrindo combinacoes de SCA, IaC, Baseline Portal Afrika, Upload & Scan e uso de `scan_file` (artefato) ou Auto Packager.
 
 ## [1.0.17] - 2026-01-07
 
 ### Changed
 
-- Logs: adiciona grupos no console (`::group::/::endgroup::`) para SCA, Auto Packager e Bantuu baseline (check/upload).
+- Logs: adiciona grupos no console (`::group::/::endgroup::`) para SCA, Auto Packager e Portal Afrika baseline (check/upload).
 - Auto Packager: fallback do `zip` fica em modo quiet para reduzir poluicao no log.
 
 ## [1.0.14] - 2026-01-07
@@ -226,8 +258,8 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Added
 
-- Adicionado input `enable_baseline` para ativar/desativar o uso do baseline do Bantuu.
-- Modularizacao da Action em sub-actions internas (`internal/resolve-repo`, `internal/bantuu-baseline-flow`, `internal/pipeline-only`, `internal/auto-packager`).
+- Adicionado input `enable_baseline` para ativar/desativar o uso do baseline do Portal Afrika.
+- Modularizacao da Action em sub-actions internas (`internal/resolve-repo`, `internal/portal-afrika-baseline-flow`, `internal/pipeline-only`, `internal/auto-packager`).
 - Suporte ao Veracode Auto Packager via `enable_auto_packager`.
 - Adicionado suporte opcional a SCA (`enable_sca`, `veracode_sca_token`) e IaC (`enable_iac`).
 - Adicionado suporte opcional a Upload & Scan (`enable_upload_scan`, `veracode_sandbox`).
@@ -237,7 +269,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Added
 
-- Padronizar a URL base do Bantuu para `https://www.bantuu.io`.
+- Padronizar a URL base do Portal Afrika para `https://www.bantuu.io`.
 - Atualizar README com secao de creditos para o mantenedor.
 
 ## [1.0.2] - 2025-12-12
@@ -252,7 +284,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Added
 
 - Adicionar workflow automatico de release (`.github/workflows/release.yml`).
-- Mover o workflow de exemplo para `examples/veracode-bantuu-example.yml`.
+- Mover o workflow de exemplo para `examples/veracode-portal_afrika-example.yml`.
 - Adicionar arquivos `SECURITY.md` e `CHANGELOG.md`.
 
 ## [1.0.0] - 2025-12-12
@@ -261,5 +293,5 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 - Versao inicial da Action Veracode Connect.
 - Integracao com Veracode Pipeline Scan.
-- Consulta e criacao de baseline no Bantuu a partir do `results.json`.
+- Consulta e criacao de baseline no Portal Afrika a partir do `results.json`.
 

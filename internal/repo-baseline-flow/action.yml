@@ -1,0 +1,368 @@
+name: 'Repo baseline flow'
+description: 'Consulta baseline no repositório GitHub, roda Pipeline Scan com ou sem baseline e grava baseline.json uma única vez (write-once).'
+
+inputs:
+  baseline_org:
+    description: 'Organização dona do repositório de baseline (deve conter Veracode-Connect-Baseline-Repo).'
+    required: true
+  baseline_github_app_id:
+    description: 'GitHub App ID.'
+    required: false
+    default: ''
+  baseline_github_app_private_key:
+    description: 'Private key PEM do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_app_installation_id:
+    description: 'Installation ID do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_token:
+    description: 'PAT fallback para Contents API.'
+    required: false
+    default: ''
+  repository_full_name:
+    description: 'Repositório org/repo sendo scaneado (chave do baseline).'
+    required: true
+  veracode_api_id:
+    description: 'ID da API do Veracode.'
+    required: true
+  veracode_api_key:
+    description: 'Key da API do Veracode.'
+    required: true
+  scan_file:
+    description: 'Arquivo compactado enviado ao Pipeline Scan.'
+    required: true
+  policy_fail:
+    description: 'Define se o scan deve quebrar o build por policy (true/false).'
+    required: false
+    default: 'false'
+  fail_on_severity:
+    description: 'Severidades que fazem o scan falhar quando há baseline.'
+    required: false
+  veracode_policy_name:
+    description: 'Nome da policy a ser usada no scan do Veracode.'
+    required: false
+    default: ''
+  artifact_suffix:
+    description: 'Sufixo único para o nome do artefato.'
+    required: false
+    default: ''
+  create_issues:
+    description: 'Importa flaws do Pipeline Scan como issues no GitHub (true/false).'
+    required: false
+    default: 'false'
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
+
+outputs:
+  has_baseline:
+    description: 'true/false indicando se o repo de baseline já possui baseline.json para o app.'
+    value: ${{ steps.check_baseline.outputs.has_baseline }}
+  pipeline_status:
+    description: 'Resumo do caminho seguido: com baseline ou sem baseline (com seed).'
+    value: ${{ steps.pipeline_status_with_baseline.outputs.pipeline_status || steps.pipeline_status_without_baseline.outputs.pipeline_status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Instalar jq (se necessario)
+      id: ensure_jq
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Instalar jq"
+        if ! command -v jq >/dev/null 2>&1; then
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+        else
+          echo "jq já instalado: $(jq --version)"
+        fi
+        echo "::endgroup::"
+
+    - name: Consultar baseline no repositório
+      id: check_baseline
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ inputs.repository_full_name }}
+        BASELINE_OUT_FILE: baseline.json
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        GITHUB_API_URL: ${{ github.api_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Repo baseline (consulta)"
+        node "$GITHUB_ACTION_PATH/github-baseline.js" get-baseline
+        echo "::endgroup::"
+
+    - name: Rodar Veracode Pipeline Scan com baseline
+      id: pipeline_with_baseline
+      if: steps.check_baseline.outputs.has_baseline == 'true'
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ inputs.scan_file }}
+        token: ${{ github.token }}
+        baseline_file: 'baseline.json'
+        fail_build: ${{ inputs.policy_fail }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        json_output: 'true'
+        json_output_file: 'results.json'
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Rodar Veracode Pipeline Scan sem baseline
+      id: pipeline_without_baseline
+      if: steps.check_baseline.outputs.has_baseline == 'false'
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ inputs.scan_file }}
+        token: ${{ github.token }}
+        fail_build: ${{ inputs.policy_fail }}
+        json_output: 'true'
+        json_output_file: 'results.json'
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Calcular nome do artefato Pipeline Scan
+      id: artifact_name
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      shell: bash
+      env:
+        SUFFIX: ${{ inputs.artifact_suffix }}
+      run: |
+        set -euo pipefail
+        echo "::group::Calcular nome do artefato Pipeline Scan"
+        if [ -n "${SUFFIX}" ]; then
+          echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+        else
+          echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Upload artefato Pipeline Scan
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: ${{ steps.artifact_name.outputs.name }}
+        path: |
+          results.json
+          filtered_results.json
+        if-no-files-found: warn
+        retention-days: 3
+
+    - name: Gravar baseline no repositório (write-once)
+      id: seed_baseline
+      if: steps.check_baseline.outputs.has_baseline == 'false'
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ inputs.repository_full_name }}
+        RESULTS_FILE: results.json
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        GITHUB_API_URL: ${{ github.api_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Repo baseline (seed write-once)"
+        if [ ! -f "results.json" ]; then
+          echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::endgroup::"
+          exit 1
+        fi
+        node "$GITHUB_ACTION_PATH/github-baseline.js" put-baseline
+        echo "::endgroup::"
+
+    - name: Definir status (com baseline)
+      id: pipeline_status_with_baseline
+      if: steps.check_baseline.outputs.has_baseline == 'true'
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
+      run: |
+        set -euo pipefail
+        echo "::group::Definir status do Pipeline Scan (com baseline)"
+        if [ "${OUTCOME}" = "failure" ]; then
+          echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
+        else
+          echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Definir status (sem baseline, baseline seeded)
+      id: pipeline_status_without_baseline
+      if: steps.check_baseline.outputs.has_baseline == 'false'
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+      run: |
+        set -euo pipefail
+        echo "::group::Definir status do Pipeline Scan (sem baseline)"
+        if [ "${OUTCOME}" = "failure" ]; then
+          echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+        else
+          echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Verificar resultado do Pipeline Scan (policy_fail)
+      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      shell: bash
+      env:
+        POLICY_FAIL: ${{ inputs.policy_fail }}
+        WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
+        WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+      run: |
+        set -euo pipefail
+        echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
+        if [ ! -f "results.json" ]; then
+          echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::endgroup::"
+          exit 1
+        fi
+
+        outcome="skipped"
+        for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
+          if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
+            outcome="${o}"
+            break
+          fi
+        done
+
+        if [ "${outcome}" = "failure" ]; then
+          if [ "${POLICY_FAIL}" = "true" ]; then
+            echo "::error::Pipeline Scan falhou e policy_fail=true."
+            echo "::endgroup::"
+            exit 1
+          else
+            echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+          fi
+        fi
+        echo "::endgroup::"
+
+    - name: Verificar filtered_results para import de issues
+      id: check_filtered_results
+      if: inputs.create_issues == 'true' && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Verificar filtered_results para import de issues"
+        if [ -f "filtered_results.json" ]; then
+          echo "has_filtered=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
+          echo "has_filtered=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "::endgroup::"
+
+    - name: Importar flaws do Pipeline Scan como issues
+      id: pipeline_issues
+      if: inputs.create_issues == 'true' && steps.check_filtered_results.outputs.has_filtered == 'true'
+      uses: veracode/veracode-flaws-to-issues@9261309141b9a0237063aa495800cd05558fffb6 # v2.2.26
+      with:
+        scan-results-json: filtered_results.json
+        github-token: ${{ github.token }}
+        fail_build: 'false'
+
+    - name: Gerar Summary do Repo Baseline Pipeline Scan
+      if: always() && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
+      shell: bash
+      env:
+        HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
+        WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
+        WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+        CREATE_ISSUES: ${{ inputs.create_issues }}
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        SCAN_REPOSITORY: ${{ inputs.repository_full_name }}
+      run: |
+        set -euo pipefail
+        echo "::group::Gerar Summary do Repo Baseline Pipeline Scan"
+
+        OUTCOME="skipped"
+        for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
+          if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
+            OUTCOME="${o}"
+            break
+          fi
+        done
+
+        {
+          echo "### 🔬 Veracode Pipeline Scan (Repo Baseline)"
+          echo ""
+          echo "> 📦 Store: \`${BASELINE_ORG}/Veracode-Connect-Baseline-Repo/${SCAN_REPOSITORY}/baseline.json\`"
+          echo ""
+
+          if [ "${HAS_BASELINE}" = "true" ]; then
+            echo "> 📁 Baseline encontrado no repositório — scan executado **com baseline** (write-once, não alterado)"
+          else
+            echo "> 🆕 Sem baseline no repositório — scan executado **sem baseline** (baseline.json gravado após o scan)"
+          fi
+          if [ "${CREATE_ISSUES}" = "true" ]; then
+            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
+          fi
+          echo ""
+
+          if [ -f "results.json" ]; then
+            TOTAL=$(jq '.findings | length' results.json 2>/dev/null || echo "0")
+            VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' results.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' results.json 2>/dev/null || echo "0")
+            LOW=$(jq '[.findings[] | select(.severity <= 2)] | length' results.json 2>/dev/null || echo "0")
+
+            echo "| Severidade | Quantidade |"
+            echo "|---|---|"
+            echo "| 🔴 Very High | ${VERY_HIGH} |"
+            echo "| 🟠 High | ${HIGH} |"
+            echo "| 🟡 Medium | ${MEDIUM} |"
+            echo "| 🔵 Low / Very Low | ${LOW} |"
+            echo "| **Total** | **${TOTAL}** |"
+            echo ""
+
+            if [ -f "filtered_results.json" ] && [ "${HAS_BASELINE}" = "true" ]; then
+              FILTERED_TOTAL=$(jq '.findings | length' filtered_results.json 2>/dev/null || echo "0")
+              if [ "${FILTERED_TOTAL}" != "0" ] && [ "${FILTERED_TOTAL}" != "null" ]; then
+                echo "> 🆕 **${FILTERED_TOTAL}** vulnerabilidades novas (não presentes no baseline)"
+                echo ""
+              fi
+            fi
+
+            if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
+              echo "<details><summary>📋 Detalhes das vulnerabilidades (${TOTAL})</summary>"
+              echo ""
+              echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
+              echo "|---|---|---|---|---|---|"
+
+              jq -r '.findings | sort_by(-.severity) | to_entries[] |
+                def sev_icon:
+                  if . == 5 then "🔴 Very High"
+                  elif . == 4 then "🟠 High"
+                  elif . == 3 then "🟡 Medium"
+                  elif . == 2 then "🔵 Low"
+                  elif . == 1 then "⚪ Very Low"
+                  else "ℹ️ Info" end;
+                "| \(.key + 1) | \(.value.severity | sev_icon) | CWE-\(.value.cwe_id) | \(.value.title // "N/A") | \(.value.files.source_file.file // "N/A") | \(.value.files.source_file.line // "N/A") |"' results.json 2>/dev/null || echo "| - | - | - | Erro ao parsear | - | - |"
+
+              echo ""
+              echo "</details>"
+            fi
+          else
+            echo "> ⚠️ Arquivo results.json não encontrado."
+          fi
+
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"
+        echo "::endgroup::"

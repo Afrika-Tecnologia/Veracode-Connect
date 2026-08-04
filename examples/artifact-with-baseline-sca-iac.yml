@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Build / package scan file (app.zip)
         run: |
@@ -23,7 +23,7 @@ jobs:
           zip -rq app.zip . -x ".git/*" ".github/*" "node_modules/*" "*/node_modules/*"
 
       - name: Upload scan file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: veracode-scan-file
           path: app.zip
@@ -34,10 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download scan file
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: veracode-scan-file
           path: veracode-artifact
@@ -45,12 +45,12 @@ jobs:
       - name: Baseline + SCA + IaC (scan_file)
         uses: Afrika-Tecnologia/Veracode-Connect@v1
         with:
-          bantuu_api_key: ${{ secrets.BANTUU_API_KEY }}
+          portal_afrika_api_key: ${{ secrets.PORTAL_AFRIKA_API_KEY }}
+          baseline_mode: 'portal_afrika'
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
           enable_auto_packager: 'false'
           scan_file: veracode-artifact/app.zip
-          enable_baseline: 'true'
           enable_upload_scan: 'false'
           policy_fail: 'false'
           enable_sca: 'true'

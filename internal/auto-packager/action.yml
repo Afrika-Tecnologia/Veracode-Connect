@@ -12,7 +12,7 @@ inputs:
   cli_version:
     description: 'Versao da Veracode CLI a ser baixada.'
     required: false
-    default: '2.46.0'
+    default: '2.51.2'
   cli_cache_key_prefix:
     description: 'Prefixo para a chave de cache da Veracode CLI.'
     required: false
@@ -29,7 +29,7 @@ runs:
     - name: Configurar Cache da Veracode CLI
       id: cli_cache
       if: inputs.enable_auto_packager == 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ github.workspace }}/veracode
         key: ${{ inputs.cli_cache_key_prefix }}-${{ inputs.cli_version }}-${{ runner.os }}
@@ -139,7 +139,7 @@ runs:
 
     - name: Fallback ZIP (zip-release)
       if: steps.prepare.outputs.needs_fallback == 'true'
-      uses: TheDoctor0/zip-release@09336613be18a8208dfa66bd57efafd9e2685657 # v0.7.6
+      uses: TheDoctor0/zip-release@b57d897cb5d60cb78b51a507f63fa184cfe35554 # 0.7.6
       with:
         type: 'zip'
         filename: 'app.zip'

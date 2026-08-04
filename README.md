@@ -1,6 +1,6 @@
-# Veracode Connect
+﻿# Veracode Connect
 
-GitHub Action facilitadora para implementar o Veracode no seu repositorio, com suporte opcional ao baseline via Bantuu.
+GitHub Action facilitadora para implementar o Veracode no seu repositorio, com suporte opcional ao baseline via Portal Afrika ou repositorio GitHub.
 
 Uso (exemplo rapido):
 
@@ -15,11 +15,10 @@ Uso (exemplo rapido):
 3) Define o `.zip` do scan:
    - `enable_auto_packager: 'true'` -> tenta Auto Packager (com fallback para `app.zip`)
    - `enable_auto_packager: 'false'` -> usa o `scan_file` que voce fornecer
-4) (Opcional) Baseline Bantuu (`enable_baseline: 'true'`) — roda o Pipeline Scan integrado ao Bantuu
-5) (Opcional) Pipeline Scan sem Bantuu (`enable_pipelinescan: 'true'` + `enable_baseline: 'false'`)
+4) (Opcional) Baseline (`baseline_mode: 'portal_afrika'` | `'repo'`) — Pipeline Scan com provedor de baseline
+5) (Opcional) Pipeline Scan sem baseline (`baseline_mode: 'none'` + `enable_pipelinescan: 'true'`)
 6) (Opcional) Upload & Scan (static) por ultimo (`enable_upload_scan: 'true'`)
-7) (Opcional) Set Business Unit via REST (rodando somente apos Upload & Scan) (`enable_business_unit: 'true'`)
-8) **Trava de Build** — step final que verifica todos os resultados (`fail_build: 'true'`)
+7) **Trava de Build** — step final que verifica todos os resultados (`fail_build: 'true'`)
 
 Os logs ficam agrupados no console (`::group::/::endgroup::`).
 
@@ -35,9 +34,15 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `veracode_api_key` | sim | - | VKEY do Veracode. |
 | `enable_auto_packager` | nao | `'false'` | Se `'true'`, tenta gerar `app.zip` automaticamente; senao usa `scan_file`. |
 | `scan_file` | nao* | - | Obrigatorio na pratica quando `enable_auto_packager: 'false'`. |
-| `enable_pipelinescan` | nao | `'true'` | Desative para rodar so Upload & Scan. |
-| `enable_baseline` | nao | `'true'` | Usa baseline Bantuu (roda Pipeline Scan integrado ao Bantuu). |
-| `bantuu_api_key` | nao* | - | Obrigatorio na pratica quando `enable_baseline: 'true'`. |
+| `enable_pipelinescan` | nao | `'true'` | Usado quando `baseline_mode: 'none'`. Desative para rodar so Upload & Scan. |
+| `baseline_mode` | nao | `'none'` | `none` \| `portal_afrika` \| `repo`. |
+| `portal_afrika_api_key` | nao* | - | Obrigatorio quando `baseline_mode: 'portal_afrika'`. |
+| `portal_afrika_base_url` | nao | `https://www.bantuu.io` | Sem barra final. |
+| `baseline_org` | nao* | - | Obrigatorio quando `baseline_mode: 'repo'`. A org deve ter o repo fixo `Veracode-Connect-Baseline-Repo`. |
+| `baseline_github_app_id` | nao* | - | GitHub App ID (modo `repo`). |
+| `baseline_github_app_private_key` | nao* | - | Private key PEM do App (modo `repo`). |
+| `baseline_github_app_installation_id` | nao* | - | Installation ID do App (modo `repo`). |
+| `baseline_github_token` | nao* | - | PAT fallback (modo `repo`). |
 | `policy_fail` | nao | `'false'` | Controla `fail_build` do Pipeline Scan. |
 | `fail_build` | nao | `'true'` | Se `'true'`, trava a esteira quando qualquer scan falhar. |
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
@@ -48,20 +53,16 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `enable_sca` | nao | `'false'` | Ativa SCA (via `veracode/veracode-sca`). |
 | `veracode_sca_token` | nao* | - | Obrigatorio na pratica quando `enable_sca: 'true'`. |
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
-| `enable_business_unit` | nao | `'false'` | Se `'true'`, vincula o app a UMA Business Unit via REST (apos Upload & Scan). |
-| `veracode_business_unit` | nao | `''` | Nome da BU (ex.: `BU TI`). Se contiver virgula, a action falha. |
 | `veracode_appname` | nao | `${{ github.repository }}` | Nome do app no Veracode. |
 
 ## Outputs
 
 | Output | Descricao |
 |---|---|
+| `baseline_mode` | Modo resolvido: `none` \| `portal_afrika` \| `repo`. |
 | `has_baseline` | `'true'/'false'` indicando se existe baseline para o repo. |
-| `pipeline_status` | Um de: `scan_completed_with_baseline`, `scan_completed_without_baseline_and_uploaded`, `scan_completed_without_bantuu`, `pipeline_scan_disabled`. |
+| `pipeline_status` | Um de: `scan_completed_with_baseline`, `scan_completed_without_baseline_and_uploaded`, `scan_completed_without_portal_afrika`, `scan_failed_with_baseline`, `scan_failed_without_baseline_and_uploaded`, `scan_failed_without_portal_afrika`, `pipeline_scan_disabled`. |
 | `repository_full_name` | `org/repo` (a partir de `github.repository`). |
-| `business_unit_name` | Nome da BU aplicada. |
-| `business_unit_guid` | GUID da BU aplicada. |
-| `set_business_unit_status` | `skipped` \| `success` \| `failed`. |
 | `sca_status` | Resultado do SCA: `success` \| `warning` \| `skipped`. |
 | `iac_status` | Resultado do IaC: `success` \| `failure` \| `skipped`. |
 | `upload_scan_status` | Resultado do Upload & Scan: `success` \| `failure` \| `skipped`. |
@@ -74,7 +75,7 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 
 ## SCA — comportamento fixo
 
-- Action upstream: `veracode/veracode-sca@v2.1.18`
+- Action upstream: `veracode/veracode-sca@v2.1.19`
 - `allow-dirty: true`, `recursive: true`, `update_advisor: true`
 - `breakBuildOnPolicyFindings: false` (falha vira `sca_status=warning`; trava final via `build-gate`)
 - `create_issues: 'false'` (default) → artefato textual (`scaResults.txt`)
@@ -96,6 +97,19 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 - `version`: `Scan via Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
 - `platformType`: auto (`CLOUD` em github.com, `ENTERPRISE` em GHES)
 
+## Dependencias upstream (pinadas por SHA)
+
+Todas as actions externas usadas pelo Veracode Connect sao pinadas por **commit SHA** (nao por tag flutuante):
+
+| Capability | Action | Versao |
+|---|---|---|
+| Pipeline Scan | `veracode/Veracode-pipeline-scan-action` | v1.0.23 |
+| SCA | `veracode/veracode-sca` | v2.1.19 |
+| IaC/Secrets | `veracode/container_iac_secrets_scanning` | v1.0.8 |
+| Upload & Scan (SAST) | `veracode/uploadandscan-action` | v0.2.2 |
+| Flaws → Issues | `veracode/veracode-flaws-to-issues` | v2.2.26 |
+| Auto Packager CLI | Veracode CLI | 2.51.2 |
+
 ## Exemplos
 
 Escolha um exemplo e copie para `.github/workflows/`.
@@ -103,19 +117,26 @@ Escolha um exemplo e copie para `.github/workflows/`.
 ### Mais completo (para testar tudo)
 
 - SCA + IaC + Auto Packager + Baseline + Upload & Scan -> [abrir](examples/autopackager-with-baseline-sca-iac-upload.yml)
-- SCA + IaC + Auto Packager + Baseline + Upload & Scan + Business Unit -> [abrir](examples/autopackager-with-baseline-sca-iac-upload-bu.yml)
+- SCA + IaC + Auto Packager + Repo Baseline + Upload & Scan -> [abrir](examples/autopackager-with-repo-baseline-sca-iac-upload.yml)
 
 ### Autopackager (gera o `.zip` automaticamente)
 
 - Auto Packager + Baseline -> [abrir](examples/autopackager-with-baseline.yml)
+- Auto Packager + Repo Baseline -> [abrir](examples/autopackager-with-repo-baseline.yml)
 - Auto Packager + Pipeline Scan -> [abrir](examples/autopackager-without-baseline.yml)
 - Auto Packager + Baseline + Upload & Scan -> [abrir](examples/autopackager-with-baseline-and-upload-scan.yml)
+- Auto Packager + Repo Baseline + Upload & Scan -> [abrir](examples/autopackager-with-repo-baseline-and-upload-scan.yml)
 - Auto Packager + Pipeline Scan + Upload & Scan -> [abrir](examples/autopackager-without-baseline-and-upload-scan.yml)
 - Auto Packager + Baseline + SCA -> [abrir](examples/autopackager-with-baseline-sca.yml)
+- Auto Packager + Repo Baseline + SCA -> [abrir](examples/autopackager-with-repo-baseline-sca.yml)
 - Auto Packager + Baseline + IaC -> [abrir](examples/autopackager-with-baseline-iac.yml)
+- Auto Packager + Repo Baseline + IaC -> [abrir](examples/autopackager-with-repo-baseline-iac.yml)
 - Auto Packager + Baseline + SCA + IaC -> [abrir](examples/autopackager-with-baseline-sca-iac.yml)
+- Auto Packager + Repo Baseline + SCA + IaC -> [abrir](examples/autopackager-with-repo-baseline-sca-iac.yml)
 - Auto Packager + Baseline + SCA + Upload & Scan -> [abrir](examples/autopackager-with-baseline-sca-upload.yml)
+- Auto Packager + Repo Baseline + SCA + Upload & Scan -> [abrir](examples/autopackager-with-repo-baseline-sca-upload.yml)
 - Auto Packager + Baseline + IaC + Upload & Scan -> [abrir](examples/autopackager-with-baseline-iac-upload.yml)
+- Auto Packager + Repo Baseline + IaC + Upload & Scan -> [abrir](examples/autopackager-with-repo-baseline-iac-upload.yml)
 - Auto Packager + Pipeline Scan + SCA -> [abrir](examples/autopackager-without-baseline-sca.yml)
 - Auto Packager + Pipeline Scan + SCA + Upload & Scan -> [abrir](examples/autopackager-without-baseline-sca-upload.yml)
 - Auto Packager + Pipeline Scan + IaC + Upload & Scan -> [abrir](examples/autopackager-without-baseline-iac-upload.yml)
@@ -124,17 +145,27 @@ Escolha um exemplo e copie para `.github/workflows/`.
 ### scan_file (consome o artefato do seu build)
 
 - scan_file + Baseline -> [abrir](examples/artifact-with-baseline.yml)
+- scan_file + Repo Baseline -> [abrir](examples/artifact-with-repo-baseline.yml)
 - scan_file + Pipeline Scan -> [abrir](examples/artifact-without-baseline.yml)
 - scan_file + Baseline + Upload & Scan -> [abrir](examples/artifact-with-baseline-and-upload-scan.yml)
+- scan_file + Repo Baseline + Upload & Scan -> [abrir](examples/artifact-with-repo-baseline-and-upload-scan.yml)
 - scan_file + Baseline + Upload & Scan (app principal) -> [abrir](examples/artifact-with-baseline-and-upload-scan-no-sandbox.yml)
+- scan_file + Repo Baseline + Upload & Scan (app principal) -> [abrir](examples/artifact-with-repo-baseline-and-upload-scan-no-sandbox.yml)
 - scan_file + Baseline + fail_on_severity -> [abrir](examples/artifact-with-baseline-fail-on-severity.yml)
+- scan_file + Repo Baseline + fail_on_severity -> [abrir](examples/artifact-with-repo-baseline-fail-on-severity.yml)
 - scan_file + Pipeline Scan + Upload & Scan -> [abrir](examples/artifact-without-baseline-and-upload-scan.yml)
 - scan_file + Baseline + SCA -> [abrir](examples/artifact-with-baseline-sca.yml)
+- scan_file + Repo Baseline + SCA -> [abrir](examples/artifact-with-repo-baseline-sca.yml)
 - scan_file + Baseline + IaC -> [abrir](examples/artifact-with-baseline-iac.yml)
+- scan_file + Repo Baseline + IaC -> [abrir](examples/artifact-with-repo-baseline-iac.yml)
 - scan_file + Baseline + SCA + IaC -> [abrir](examples/artifact-with-baseline-sca-iac.yml)
+- scan_file + Repo Baseline + SCA + IaC -> [abrir](examples/artifact-with-repo-baseline-sca-iac.yml)
 - scan_file + Baseline + SCA + Upload & Scan -> [abrir](examples/artifact-with-baseline-sca-upload.yml)
+- scan_file + Repo Baseline + SCA + Upload & Scan -> [abrir](examples/artifact-with-repo-baseline-sca-upload.yml)
 - scan_file + Baseline + IaC + Upload & Scan -> [abrir](examples/artifact-with-baseline-iac-upload.yml)
+- scan_file + Repo Baseline + IaC + Upload & Scan -> [abrir](examples/artifact-with-repo-baseline-iac-upload.yml)
 - scan_file + Baseline + SCA + IaC + Upload & Scan -> [abrir](examples/artifact-with-baseline-sca-iac-upload.yml)
+- scan_file + Repo Baseline + SCA + IaC + Upload & Scan -> [abrir](examples/artifact-with-repo-baseline-sca-iac-upload.yml)
 - scan_file + Pipeline Scan + SCA -> [abrir](examples/artifact-without-baseline-sca.yml)
 - scan_file + Pipeline Scan + IaC -> [abrir](examples/artifact-without-baseline-iac.yml)
 - scan_file + Pipeline Scan + SCA + IaC -> [abrir](examples/artifact-without-baseline-sca-iac.yml)

@@ -1,4 +1,4 @@
-name: 'Validar inputs'
+﻿name: 'Validar inputs'
 description: 'Valida combinacoes de inputs obrigatorios condicionais antes de executar qualquer scan.'
 
 inputs:
@@ -14,14 +14,15 @@ inputs:
   enable_pipelinescan:
     description: 'Pipeline Scan ativo (true/false).'
     required: true
-  enable_baseline:
-    description: 'Baseline Bantuu ativo (true/false).'
-    required: true
-  bantuu_api_key:
-    description: 'API Key do Bantuu.'
+  baseline_mode:
+    description: 'Provedor de baseline: none | portal_afrika | repo.'
     required: false
-  bantuu_base_url:
-    description: 'URL base do Bantuu.'
+    default: 'none'
+  portal_afrika_api_key:
+    description: 'API Key do Portal Afrika.'
+    required: false
+  portal_afrika_base_url:
+    description: 'URL base do Portal Afrika.'
     required: false
     default: ''
   enable_auto_packager:
@@ -33,12 +34,6 @@ inputs:
   enable_upload_scan:
     description: 'Upload & Scan ativo (true/false).'
     required: true
-  enable_business_unit:
-    description: 'Vinculo de Business Unit ativo (true/false).'
-    required: true
-  veracode_business_unit:
-    description: 'Nome da Business Unit.'
-    required: false
   veracode_api_id:
     description: 'ID da API do Veracode.'
     required: true
@@ -49,31 +44,63 @@ inputs:
     description: 'Cria/importa issues no GitHub (true/false).'
     required: false
     default: 'false'
+  baseline_org:
+    description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo fixo Veracode-Connect-Baseline-Repo.'
+    required: false
+    default: ''
+  baseline_github_app_id:
+    description: 'GitHub App ID para acessar o repo de baseline.'
+    required: false
+    default: ''
+  baseline_github_app_private_key:
+    description: 'Private key PEM do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_app_installation_id:
+    description: 'Installation ID do GitHub App na org do baseline.'
+    required: false
+    default: ''
+  baseline_github_token:
+    description: 'PAT fallback para o repo de baseline.'
+    required: false
+    default: ''
+
+outputs:
+  baseline_mode:
+    description: 'Modo de baseline resolvido (none | portal_afrika | repo).'
+    value: ${{ steps.validate.outputs.baseline_mode }}
+  baseline_org:
+    description: 'Org do baseline (modo repo).'
+    value: ${{ steps.validate.outputs.baseline_org }}
 
 runs:
   using: 'composite'
   steps:
     - name: Validar inputs condicionais
+      id: validate
       shell: bash
       env:
         ENABLE_SCA: ${{ inputs.enable_sca }}
         SCA_TOKEN: ${{ inputs.veracode_sca_token }}
         ENABLE_IAC: ${{ inputs.enable_iac }}
         ENABLE_PIPELINE: ${{ inputs.enable_pipelinescan }}
-        ENABLE_BASELINE: ${{ inputs.enable_baseline }}
-        BANTUU_KEY: ${{ inputs.bantuu_api_key }}
-        BANTUU_URL: ${{ inputs.bantuu_base_url }}
+        BASELINE_MODE: ${{ inputs.baseline_mode }}
+        PORTAL_AFRIKA_KEY: ${{ inputs.portal_afrika_api_key }}
+        PORTAL_AFRIKA_URL: ${{ inputs.portal_afrika_base_url }}
         ENABLE_AUTO_PACKAGER: ${{ inputs.enable_auto_packager }}
         SCAN_FILE: ${{ inputs.scan_file }}
         ENABLE_UPLOAD: ${{ inputs.enable_upload_scan }}
-        ENABLE_BU: ${{ inputs.enable_business_unit }}
-        BU_NAME: ${{ inputs.veracode_business_unit }}
         VID: ${{ inputs.veracode_api_id }}
         VKEY: ${{ inputs.veracode_api_key }}
         CREATE_ISSUES: ${{ inputs.create_issues }}
         GITHUB_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

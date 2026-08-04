@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Pipeline Scan + SCA + IaC + Upload & Scan sem Baseline (Auto Packager)
         uses: Afrika-Tecnologia/Veracode-Connect@v1
@@ -20,7 +20,7 @@ jobs:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
           enable_auto_packager: 'true'
-          enable_baseline: 'false'
+          baseline_mode: 'none'
           enable_pipelinescan: 'true'
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'

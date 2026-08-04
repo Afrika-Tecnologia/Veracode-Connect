@@ -1,16 +1,16 @@
-name: 'Veracode Connect'
-description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com suporte opcional a baseline via Bantuu. Requer permissions: contents: read; com create_issues: true também issues: write'
+﻿name: 'Veracode Connect'
+description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com baseline via Portal Afrika ou repositório GitHub. Requer permissions: contents: read; com create_issues: true também issues: write'
 author: 'Afrika-Tecnologia'
 branding:
   icon: 'shield'
   color: 'purple'
 
 inputs:
-  bantuu_api_key:
-    description: 'API Key usada no header X-API-Key do Bantuu (GET baseline e POST upload).'
+  portal_afrika_api_key:
+    description: 'API Key usada no header X-API-Key do Portal Afrika (GET baseline e POST upload).'
     required: false
-  bantuu_base_url:
-    description: 'URL base do Bantuu (sem barra final).'
+  portal_afrika_base_url:
+    description: 'URL base do Portal Afrika (sem barra final).'
     required: false
     default: 'https://www.bantuu.io'
   enable_sca:
@@ -25,17 +25,37 @@ inputs:
     required: false
     default: 'false'
   enable_pipelinescan:
-    description: 'Ativa/desativa o Veracode Pipeline Scan (true/false).'
+    description: 'Ativa/desativa o Veracode Pipeline Scan quando baseline_mode=none (true/false).'
     required: false
     default: 'true'
   enable_upload_scan:
     description: 'Ativa/desativa o Veracode Upload & Scan (true/false).'
     required: false
     default: 'false'
-  enable_baseline:
-    description: 'Ativa/desativa o fluxo de baseline do Bantuu (true/false).'
+  baseline_mode:
+    description: 'Provedor de baseline: none | portal_afrika (Portal Afrika) | repo. Default none (Pipeline Scan sem baseline provider).'
     required: false
-    default: 'true'
+    default: 'none'
+  baseline_org:
+    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo fixo Veracode-Connect-Baseline-Repo.'
+    required: false
+    default: ''
+  baseline_github_app_id:
+    description: 'GitHub App ID (modo repo). Preferencial ao PAT.'
+    required: false
+    default: ''
+  baseline_github_app_private_key:
+    description: 'Private key PEM do GitHub App (modo repo).'
+    required: false
+    default: ''
+  baseline_github_app_installation_id:
+    description: 'Installation ID do GitHub App na org do baseline (modo repo).'
+    required: false
+    default: ''
+  baseline_github_token:
+    description: 'PAT fallback com contents:read/write no repo de baseline (modo repo).'
+    required: false
+    default: ''
   enable_auto_packager:
     description: 'Ativa/desativa o uso do Veracode Auto Packager antes do scan (true/false).'
     required: false
@@ -68,20 +88,6 @@ inputs:
     description: 'Nome do app no Veracode.'
     required: false
     default: '${{ github.repository }}'
-
-  # Business Unit (aceita nomes legados para backward compat)
-  enable_set_business_unit:
-    description: '(Legado) Alias para enable_business_unit.'
-    required: false
-    default: 'false'
-  enable_business_unit:
-    description: 'Ativa/desativa o vínculo automático do app a UMA Business Unit via REST (true/false).'
-    required: false
-    default: 'false'
-  veracode_business_unit:
-    description: 'Nome da Business Unit única a ser atribuída ao app (ex.: "BU TI").'
-    required: false
-    default: ''
   veracode_policy_name:
     description: 'Nome da policy a ser usada no scan do Veracode.'
     required: false
@@ -92,26 +98,18 @@ inputs:
     default: 'false'
 
 outputs:
+  baseline_mode:
+    description: 'Modo de baseline resolvido (none | portal_afrika | repo).'
+    value: ${{ steps.validate.outputs.baseline_mode || 'none' }}
   has_baseline:
-    description: 'true/false indicando se o Bantuu possui baseline para o repositório.'
-    value: ${{ steps.baseline_flow.outputs.has_baseline || 'false' }}
+    description: 'true/false indicando se existe baseline para o repositório (Portal Afrika ou repo).'
+    value: ${{ steps.baseline_flow.outputs.has_baseline || steps.repo_baseline_flow.outputs.has_baseline || 'false' }}
   pipeline_status:
-    description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload), apenas scan ou pipeline desativado.'
-    value: ${{ steps.baseline_flow.outputs.pipeline_status || steps.pipeline_only.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
+    description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload/seed), apenas scan ou pipeline desativado.'
+    value: ${{ steps.baseline_flow.outputs.pipeline_status || steps.repo_baseline_flow.outputs.pipeline_status || steps.pipeline_only.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
   repository_full_name:
-    description: 'Repositório org/repo usado para consultar e enviar baseline ao Bantuu.'
+    description: 'Repositório org/repo usado para baseline e Upload & Scan.'
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
-
-  business_unit_name:
-    description: 'Nome da Business Unit aplicada.'
-    value: ${{ steps.business_unit.outputs.business_unit_name || '' }}
-  business_unit_guid:
-    description: 'GUID da Business Unit aplicada.'
-    value: ${{ steps.business_unit.outputs.business_unit_guid || '' }}
-  set_business_unit_status:
-    description: 'Status do passo de vínculo de BU (success | skipped | failed).'
-    value: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}
-
   sca_status:
     description: 'Resultado do Veracode SCA (success | warning | skipped).'
     value: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
@@ -125,23 +123,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    # ── Resolver flag de BU (backward compat) ────────────────────────
-    - name: Resolver flag de Business Unit
-      id: resolve_bu_flag
-      shell: bash
-      env:
-        FLAG_A: ${{ inputs.enable_business_unit }}
-        FLAG_B: ${{ inputs.enable_set_business_unit }}
-      run: |
-        set -euo pipefail
-        echo "::group::Resolver flag de Business Unit"
-        if [ "${FLAG_A}" = "true" ] || [ "${FLAG_B}" = "true" ]; then
-          echo "enable_bu=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "enable_bu=false" >> "$GITHUB_OUTPUT"
-        fi
-        echo "::endgroup::"
-
     # ── 0a. Resolver platform type (GitHub.com vs GHES) ───────────────
     - name: Resolver platform type
       id: resolve_platform
@@ -166,17 +147,20 @@ runs:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         enable_iac: ${{ inputs.enable_iac }}
         enable_pipelinescan: ${{ inputs.enable_pipelinescan }}
-        enable_baseline: ${{ inputs.enable_baseline }}
-        bantuu_api_key: ${{ inputs.bantuu_api_key }}
-        bantuu_base_url: ${{ inputs.bantuu_base_url }}
+        baseline_mode: ${{ inputs.baseline_mode }}
+        portal_afrika_api_key: ${{ inputs.portal_afrika_api_key }}
+        portal_afrika_base_url: ${{ inputs.portal_afrika_base_url }}
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
         enable_upload_scan: ${{ inputs.enable_upload_scan }}
-        enable_business_unit: ${{ steps.resolve_bu_flag.outputs.enable_bu }}
-        veracode_business_unit: ${{ inputs.veracode_business_unit }}
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         create_issues: ${{ inputs.create_issues }}
+        baseline_org: ${{ inputs.baseline_org }}
+        baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
+        baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
+        baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
+        baseline_github_token: ${{ inputs.baseline_github_token }}
 
     # ── 2. Veracode SCA ──────────────────────────────────────────────
     - name: Veracode SCA
@@ -202,7 +186,7 @@ runs:
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
     - name: Preparar scan file
       id: prepare_scan_file
-      if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || inputs.enable_baseline == 'true')
+      if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || steps.validate.outputs.baseline_mode == 'portal_afrika' || steps.validate.outputs.baseline_mode == 'repo')
       uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
@@ -214,14 +198,14 @@ runs:
       if: success() || failure()
       uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
 
-    # ── 6a. Bantuu baseline flow (quando baseline ativo) ─────────────
-    - name: Bantuu baseline flow
+    # ── 6a. Portal Afrika Baseline Flow ─────────────────────────────────────
+    - name: Portal Afrika Baseline Flow
       id: baseline_flow
-      if: inputs.enable_baseline == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/bantuu-baseline-flow@v1
+      if: steps.validate.outputs.baseline_mode == 'portal_afrika'
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/portal-afrika-baseline-flow@v1
       with:
-        bantuu_api_key: ${{ inputs.bantuu_api_key }}
-        bantuu_base_url: ${{ inputs.bantuu_base_url }}
+        portal_afrika_api_key: ${{ inputs.portal_afrika_api_key }}
+        portal_afrika_base_url: ${{ inputs.portal_afrika_base_url }}
         repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -233,10 +217,32 @@ runs:
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
-    # ── 6b. Pipeline Scan sem Bantuu (apenas quando baseline desativado) ─
-    - name: Pipeline Scan (sem Bantuu)
+    # ── 6b. Repo baseline flow ───────────────────────────────────────
+    - name: Repo baseline flow
+      id: repo_baseline_flow
+      if: steps.validate.outputs.baseline_mode == 'repo'
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1
+      with:
+        baseline_org: ${{ inputs.baseline_org }}
+        baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
+        baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
+        baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
+        baseline_github_token: ${{ inputs.baseline_github_token }}
+        repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
+        veracode_api_id: ${{ inputs.veracode_api_id }}
+        veracode_api_key: ${{ inputs.veracode_api_key }}
+        scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        policy_fail: ${{ inputs.policy_fail }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
+        create_issues: ${{ inputs.create_issues }}
+        platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
+
+    # ── 6c. Pipeline Scan sem baseline provider ──────────────────────
+    - name: Pipeline Scan (sem baseline provider)
       id: pipeline_only
-      if: inputs.enable_baseline != 'true' && inputs.enable_pipelinescan == 'true'
+      if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
@@ -248,10 +254,10 @@ runs:
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
-    # ── 6c. Pipeline desativado ──────────────────────────────────────
+    # ── 6d. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)
       id: pipeline_disabled_status
-      if: inputs.enable_baseline != 'true' && inputs.enable_pipelinescan != 'true'
+      if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan != 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -273,21 +279,7 @@ runs:
         veracode_appname: ${{ inputs.veracode_appname }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
-    # ── 8. Business Unit ─────────────────────────────────────────────
-    - name: Vincular Business Unit
-      id: business_unit
-      if: (success() || failure()) && steps.resolve_bu_flag.outputs.enable_bu == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-business-unit@v1
-      with:
-        enable_business_unit: ${{ steps.resolve_bu_flag.outputs.enable_bu }}
-        veracode_business_unit: ${{ inputs.veracode_business_unit }}
-        veracode_api_id: ${{ inputs.veracode_api_id }}
-        veracode_api_key: ${{ inputs.veracode_api_key }}
-        veracode_app_name: ${{ inputs.veracode_appname }}
-        enable_upload_scan: ${{ inputs.enable_upload_scan }}
-        upload_and_scan_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
-
-    # ── 9. Trava de Build (step final obrigatório) ───────────────────
+    # ── 8. Trava de Build (step final obrigatório) ───────────────────
     - name: Trava de Build (verificação final)
       if: always()
       uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
@@ -296,7 +288,8 @@ runs:
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
         iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
         baseline_outcome: ${{ steps.baseline_flow.outcome || 'skipped' }}
+        repo_baseline_outcome: ${{ steps.repo_baseline_flow.outcome || 'skipped' }}
         pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
-        bu_status: ${{ steps.business_unit.outputs.set_business_unit_status || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
+        baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}

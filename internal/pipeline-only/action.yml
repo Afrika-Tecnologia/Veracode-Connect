@@ -1,5 +1,5 @@
-name: 'Veracode Pipeline Scan (sem Bantuu)'
-description: 'Roda apenas o Veracode Pipeline Scan sem integrar com o Bantuu e publica resultados.'
+name: 'Veracode Pipeline Scan (sem Portal Afrika)'
+description: 'Roda apenas o Veracode Pipeline Scan sem integrar com o Portal Afrika e publica resultados.'
 
 inputs:
   veracode_api_id:
@@ -34,7 +34,7 @@ inputs:
 
 outputs:
   pipeline_status:
-    description: 'Resumo do caminho seguido para o scan sem Bantuu.'
+    description: 'Resumo do caminho seguido para o scan sem Portal Afrika.'
     value: ${{ steps.pipeline_status.outputs.pipeline_status }}
 
 runs:
@@ -42,7 +42,7 @@ runs:
   steps:
     - name: Rodar Veracode Pipeline Scan
       id: pipeline_only
-      uses: veracode/Veracode-pipeline-scan-action@d7c19ef9f6584f1a729ce0a3ae106e5a6840548e # v1.0.20
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -72,7 +72,7 @@ runs:
     - name: Importar flaws do Pipeline Scan como issues
       id: pipeline_issues
       if: inputs.create_issues == 'true' && steps.check_filtered_results.outputs.has_filtered == 'true'
-      uses: veracode/veracode-flaws-to-issues@6429a56d612e9357a059b685d694ab74c7272eb7 # v2.2.25
+      uses: veracode/veracode-flaws-to-issues@9261309141b9a0237063aa495800cd05558fffb6 # v2.2.26
       with:
         scan-results-json: filtered_results.json
         github-token: ${{ github.token }}
@@ -96,7 +96,7 @@ runs:
 
     - name: Upload artefato Pipeline Scan
       if: steps.pipeline_only.outcome != 'skipped'
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: ${{ steps.artifact_name.outputs.name }}
         path: |
@@ -114,9 +114,9 @@ runs:
         set -euo pipefail
         echo "::group::Definir status do Pipeline Scan"
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
-          echo "pipeline_status=scan_failed_without_bantuu" >> "$GITHUB_OUTPUT"
+          echo "pipeline_status=scan_failed_without_portal_afrika" >> "$GITHUB_OUTPUT"
         else
-          echo "pipeline_status=scan_completed_without_bantuu" >> "$GITHUB_OUTPUT"
+          echo "pipeline_status=scan_completed_without_portal_afrika" >> "$GITHUB_OUTPUT"
         fi
         echo "::endgroup::"
 

@@ -1,4 +1,4 @@
-﻿name: 'Veracode Connect'
+name: 'Veracode Connect'
 description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com baseline via Portal Afrika ou repositório GitHub. Requer permissions: contents: read; com create_issues: true também issues: write'
 author: 'Afrika-Tecnologia'
 branding:
@@ -37,7 +37,7 @@ inputs:
     required: false
     default: 'none'
   baseline_org:
-    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo fixo Veracode-Connect-Baseline-Repo.'
+    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo fixo Afrika-Veracode-Connect-Baseline.'
     required: false
     default: ''
   baseline_github_app_id:

@@ -10,7 +10,7 @@ Versoes suportadas:
 
 ## Baseline via repositorio (GitHub App)
 
-Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório fixo `Veracode-Connect-Baseline-Repo`. Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo.
+Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório fixo `Afrika-Veracode-Connect-Baseline`. Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo.
 
 ## Reportando vulnerabilidades
 

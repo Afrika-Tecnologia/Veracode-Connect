@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const {
     resolveAccessToken,
     assertBaselineRepoExists,
@@ -75,7 +75,7 @@ if (resolvedBaselineMode === 'repo') {
 
     if (!baselineOrg) {
         erros.push(
-            "baseline_mode=repo requer baseline_org. A organização informada deve conter o repositório fixo 'Veracode-Connect-Baseline-Repo'."
+            "baseline_mode=repo requer baseline_org. A organização informada deve conter o repositório fixo 'Afrika-Veracode-Connect-Baseline'."
         );
     }
 
@@ -252,7 +252,7 @@ async function validateRepoBaselinePreconditions() {
 
     console.log("::group::Validar repositório de baseline (existência + acesso)");
     const baselineOrg = (BASELINE_ORG || '').trim();
-    const baselineRepoName = 'Veracode-Connect-Baseline-Repo';
+    const baselineRepoName = 'Afrika-Veracode-Connect-Baseline';
 
     try {
         const token = await resolveAccessToken();

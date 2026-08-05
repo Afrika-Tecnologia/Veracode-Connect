@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-05
+
+### Changed
+
+- Nome fixo do repositório de baseline alterado de `Veracode-Connect-Baseline-Repo` para `Afrika-Veracode-Connect-Baseline`. A org em `baseline_org` deve conter o repo `Afrika-Veracode-Connect-Baseline` (README, SECURITY e validações atualizados).
+
 ## [1.3.0] - 2026-08-03
 
 ### Added

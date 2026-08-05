@@ -3,7 +3,7 @@ description: 'Consulta baseline no repositório GitHub, roda Pipeline Scan com o
 
 inputs:
   baseline_org:
-    description: 'Organização dona do repositório de baseline (deve conter Veracode-Connect-Baseline-Repo).'
+    description: 'Organização dona do repositório de baseline (deve conter Afrika-Veracode-Connect-Baseline).'
     required: true
   baseline_github_app_id:
     description: 'GitHub App ID.'
@@ -303,7 +303,7 @@ runs:
         {
           echo "### 🔬 Veracode Pipeline Scan (Repo Baseline)"
           echo ""
-          echo "> 📦 Store: \`${BASELINE_ORG}/Veracode-Connect-Baseline-Repo/${SCAN_REPOSITORY}/baseline.json\`"
+          echo "> 📦 Store: \`${BASELINE_ORG}/Afrika-Veracode-Connect-Baseline/${SCAN_REPOSITORY}/baseline.json\`"
           echo ""
 
           if [ "${HAS_BASELINE}" = "true" ]; then

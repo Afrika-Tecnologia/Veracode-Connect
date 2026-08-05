@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 /** Nome fixo do repositório de baseline (não configurável pelo consumidor). */
-const FIXED_BASELINE_REPO_NAME = 'Veracode-Connect-Baseline-Repo';
+const FIXED_BASELINE_REPO_NAME = 'Afrika-Veracode-Connect-Baseline';
 
 function setOutput(name, value) {
     const out = process.env.GITHUB_OUTPUT;
@@ -298,7 +298,7 @@ async function main() {
 
     if (!baselineOrg) {
         throw new Error(
-            "baseline_org é obrigatório. A organização deve conter o repositório fixo 'Veracode-Connect-Baseline-Repo'."
+            "baseline_org é obrigatório. A organização deve conter o repositório fixo 'Afrika-Veracode-Connect-Baseline'."
         );
     }
 

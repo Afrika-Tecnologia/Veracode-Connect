@@ -1,4 +1,4 @@
-﻿# Veracode Connect
+# Veracode Connect
 
 GitHub Action facilitadora para implementar o Veracode no seu repositorio, com suporte opcional ao baseline via Portal Afrika ou repositorio GitHub.
 
@@ -38,7 +38,7 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `baseline_mode` | nao | `'none'` | `none` \| `portal_afrika` \| `repo`. |
 | `portal_afrika_api_key` | nao* | - | Obrigatorio quando `baseline_mode: 'portal_afrika'`. |
 | `portal_afrika_base_url` | nao | `https://www.bantuu.io` | Sem barra final. |
-| `baseline_org` | nao* | - | Obrigatorio quando `baseline_mode: 'repo'`. A org deve ter o repo fixo `Veracode-Connect-Baseline-Repo`. |
+| `baseline_org` | nao* | - | Obrigatorio quando `baseline_mode: 'repo'`. A org deve ter o repo fixo `Afrika-Veracode-Connect-Baseline`. |
 | `baseline_github_app_id` | nao* | - | GitHub App ID (modo `repo`). |
 | `baseline_github_app_private_key` | nao* | - | Private key PEM do App (modo `repo`). |
 | `baseline_github_app_installation_id` | nao* | - | Installation ID do App (modo `repo`). |
@@ -59,7 +59,7 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 
 Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub como store de baseline (alternativa ao Portal Afrika).
 
-O nome do repositório de store é **fixo**: `Veracode-Connect-Baseline-Repo`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
+O nome do repositório de store é **fixo**: `Afrika-Veracode-Connect-Baseline`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
 
 Auth (escolha uma):
 
@@ -72,7 +72,7 @@ Se o App estiver incompleto e o PAT estiver preenchido, a action usa o PAT com w
 
 ### Permissões do GitHub App (recomendado)
 
-Crie um GitHub App na org (ou conta) que possui `Veracode-Connect-Baseline-Repo`. Na criação, configure:
+Crie um GitHub App na org (ou conta) que possui `Afrika-Veracode-Connect-Baseline`. Na criação, configure:
 
 **Repository permissions** (somente estas são necessárias):
 
@@ -87,20 +87,20 @@ Depois:
 
 1. Gere e baixe a **private key** (PEM) → secret `BASELINE_GITHUB_APP_PRIVATE_KEY`.
 2. Anote o **App ID** → secret `BASELINE_GITHUB_APP_ID`.
-3. Instale o App na org do baseline, restringindo a instalação ao repositório `Veracode-Connect-Baseline-Repo` (ou à org, se preferir).
+3. Instale o App na org do baseline, restringindo a instalação ao repositório `Afrika-Veracode-Connect-Baseline` (ou à org, se preferir).
 4. Anote o **Installation ID** (URL da instalação ou API) → secret `BASELINE_GITHUB_APP_INSTALLATION_ID`.
 5. Defina `baseline_org` (variável/input) com a org dona do repo de baseline.
 
 ### Permissões do PAT (fallback)
 
-Use só se não puder usar GitHub App. O token precisa acessar **apenas** `Veracode-Connect-Baseline-Repo` com leitura e escrita de conteúdo.
+Use só se não puder usar GitHub App. O token precisa acessar **apenas** `Afrika-Veracode-Connect-Baseline` com leitura e escrita de conteúdo.
 
 **Fine-grained PAT** (preferível ao classic):
 
 | Configuração | Valor |
 |---|---|
-| Resource owner | Org (ou user) dona de `Veracode-Connect-Baseline-Repo` |
-| Repository access | Only select repositories → `Veracode-Connect-Baseline-Repo` |
+| Resource owner | Org (ou user) dona de `Afrika-Veracode-Connect-Baseline` |
+| Repository access | Only select repositories → `Afrika-Veracode-Connect-Baseline` |
 | Permissions → Contents | **Read and write** |
 | Permissions → Metadata | Read-only (automático) |
 
@@ -130,28 +130,6 @@ permissions:
 ```
 
 O App/PAT de baseline **não** substitui `issues: write` — a criação de issues usa o `GITHUB_TOKEN` do workflow no repo da aplicação.
-
-### Exemplo mínimo (GitHub App)
-
-```yml
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Afrika-Tecnologia/Veracode-Connect@v1
-        with:
-          baseline_mode: 'repo'
-          baseline_org: ${{ vars.BASELINE_ORG }}
-          baseline_github_app_id: ${{ secrets.BASELINE_GITHUB_APP_ID }}
-          baseline_github_app_private_key: ${{ secrets.BASELINE_GITHUB_APP_PRIVATE_KEY }}
-          baseline_github_app_installation_id: ${{ secrets.BASELINE_GITHUB_APP_INSTALLATION_ID }}
-          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
-          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
-          enable_auto_packager: 'true'
-```
 
 ## Outputs
 

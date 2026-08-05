@@ -1,4 +1,4 @@
-﻿name: 'Validar inputs'
+name: 'Validar inputs'
 description: 'Valida combinacoes de inputs obrigatorios condicionais antes de executar qualquer scan.'
 
 inputs:
@@ -45,7 +45,7 @@ inputs:
     required: false
     default: 'false'
   baseline_org:
-    description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo fixo Veracode-Connect-Baseline-Repo.'
+    description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo fixo Afrika-Veracode-Connect-Baseline.'
     required: false
     default: ''
   baseline_github_app_id:

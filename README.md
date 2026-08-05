@@ -55,6 +55,104 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
 | `veracode_appname` | nao | `${{ github.repository }}` | Nome do app no Veracode. |
 
+## Repo Baseline (`baseline_mode: 'repo'`)
+
+Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub como store de baseline (alternativa ao Portal Afrika).
+
+O nome do repositório de store é **fixo**: `Veracode-Connect-Baseline-Repo`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
+
+Auth (escolha uma):
+
+| Preferência | Inputs |
+|---|---|
+| **GitHub App** (recomendado) | `baseline_github_app_id` + `baseline_github_app_private_key` + `baseline_github_app_installation_id` |
+| **PAT** (fallback) | `baseline_github_token` |
+
+Se o App estiver incompleto e o PAT estiver preenchido, a action usa o PAT com warning. A validação falha cedo se o repo de baseline não existir ou se o token não tiver acesso.
+
+### Permissões do GitHub App (recomendado)
+
+Crie um GitHub App na org (ou conta) que possui `Veracode-Connect-Baseline-Repo`. Na criação, configure:
+
+**Repository permissions** (somente estas são necessárias):
+
+| Permissão | Nível | Motivo |
+|---|---|---|
+| **Contents** | **Read and write** | Ler `baseline.json` e gravar o seed write-once via Contents API |
+| **Metadata** | Read-only | Exigida automaticamente pelo GitHub ao conceder Contents |
+
+Demais permissões (Issues, Pull requests, Actions, etc.) podem ficar em **No access**.
+
+Depois:
+
+1. Gere e baixe a **private key** (PEM) → secret `BASELINE_GITHUB_APP_PRIVATE_KEY`.
+2. Anote o **App ID** → secret `BASELINE_GITHUB_APP_ID`.
+3. Instale o App na org do baseline, restringindo a instalação ao repositório `Veracode-Connect-Baseline-Repo` (ou à org, se preferir).
+4. Anote o **Installation ID** (URL da instalação ou API) → secret `BASELINE_GITHUB_APP_INSTALLATION_ID`.
+5. Defina `baseline_org` (variável/input) com a org dona do repo de baseline.
+
+### Permissões do PAT (fallback)
+
+Use só se não puder usar GitHub App. O token precisa acessar **apenas** `Veracode-Connect-Baseline-Repo` com leitura e escrita de conteúdo.
+
+**Fine-grained PAT** (preferível ao classic):
+
+| Configuração | Valor |
+|---|---|
+| Resource owner | Org (ou user) dona de `Veracode-Connect-Baseline-Repo` |
+| Repository access | Only select repositories → `Veracode-Connect-Baseline-Repo` |
+| Permissions → Contents | **Read and write** |
+| Permissions → Metadata | Read-only (automático) |
+
+**Classic PAT** (legado):
+
+| Scope | Motivo |
+|---|---|
+| `repo` | Acesso completo a repositórios privados (necessário para Contents API no repo privado de baseline) |
+
+Armazene em `BASELINE_GITHUB_TOKEN` e passe em `baseline_github_token`. Evite PAT de usuário humano de longo prazo; prefira App ou fine-grained com escopo mínimo.
+
+### Permissões do workflow (`GITHUB_TOKEN`)
+
+Independente do App/PAT de baseline, o **job** que chama a action precisa declarar permissions do `GITHUB_TOKEN` (composite actions não podem definir isso):
+
+```yml
+permissions:
+  contents: read   # mínimo (checkout / ações internas)
+```
+
+Com `create_issues: 'true'` (issues no **repositório sendo scaneado**, não no store de baseline):
+
+```yml
+permissions:
+  contents: read
+  issues: write
+```
+
+O App/PAT de baseline **não** substitui `issues: write` — a criação de issues usa o `GITHUB_TOKEN` do workflow no repo da aplicação.
+
+### Exemplo mínimo (GitHub App)
+
+```yml
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          baseline_mode: 'repo'
+          baseline_org: ${{ vars.BASELINE_ORG }}
+          baseline_github_app_id: ${{ secrets.BASELINE_GITHUB_APP_ID }}
+          baseline_github_app_private_key: ${{ secrets.BASELINE_GITHUB_APP_PRIVATE_KEY }}
+          baseline_github_app_installation_id: ${{ secrets.BASELINE_GITHUB_APP_INSTALLATION_ID }}
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'true'
+```
+
 ## Outputs
 
 | Output | Descricao |

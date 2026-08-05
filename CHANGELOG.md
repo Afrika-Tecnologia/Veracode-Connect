@@ -38,6 +38,10 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Veracode CLI (Auto Packager) `2.46.0` → `2.51.2`
 - Workflows e exemplos: actions externas (`checkout`, `upload-artifact`, `download-artifact`, `action-gh-release`) pinadas por commit SHA.
 
+### Documentation
+
+- README: seção dedicada ao Repo Baseline (`baseline_mode: 'repo'`) com permissões do GitHub App (Contents: Read and write), PAT (fine-grained/classic) e `GITHUB_TOKEN` do workflow.
+
 ## [1.2.0] - 2026-05-22
 
 ### Changed

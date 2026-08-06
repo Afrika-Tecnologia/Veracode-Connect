@@ -1,9 +1,11 @@
 # Script para automatizar o processo de release e tagging da Action (Versao Windows PowerShell)
 # Uso: .\.github\scripts\release.ps1 -Version 1.1.7
+#      .\.github\scripts\release.ps1 -Version 1.1.7 -Confirm   # sem prompt (CI/automacao)
 
 param (
     [Parameter(Mandatory = $true)]
-    [string]$Version
+    [string]$Version,
+    [switch]$Confirm
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,10 +31,12 @@ Write-Host "  - $TagMinor (movida para apontar para este commit)"
 Write-Host "  - $TagMajor (movida para apontar para este commit)"
 Write-Host ""
 
-$Confirm = Read-Host "Confirma? (y/N)"
-if ($Confirm -notmatch '^[Yy]$') {
-    Write-Host "Cancelado." -ForegroundColor Yellow
-    exit 1
+if (-not $Confirm) {
+    $Resposta = Read-Host "Confirma? (y/N)"
+    if ($Resposta -notmatch '^[Yy]$') {
+        Write-Host "Cancelado." -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 # Garante que estamos na main atualizada

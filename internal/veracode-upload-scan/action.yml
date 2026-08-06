@@ -86,9 +86,13 @@ runs:
         echo "enable_sandbox=${enable_sandbox}" >> "$GITHUB_OUTPUT"
         echo "sandbox_mode=${sandbox_mode}" >> "$GITHUB_OUTPUT"
         echo "git_repository_url=${git_repository_url}" >> "$GITHUB_OUTPUT"
-        echo "Branch: ${branch} (default: ${default_branch})"
-        echo "Sandbox: ${enable_sandbox} (modo: ${sandbox_mode})"
-        echo "Git Repository URL: ${git_repository_url}"
+        echo "Preparação do Upload & Scan concluída com sucesso."
+        echo "Branch: \"${branch}\" (default: \"${default_branch}\")"
+        echo "Sandbox habilitado: \"${enable_sandbox}\" (modo: \"${sandbox_mode}\")"
+        if [ -n "${sandbox_name}" ]; then
+          echo "Nome do sandbox: \"${sandbox_name}\""
+        fi
+        echo "URL do repositório Git: \"${git_repository_url}\""
         echo "::endgroup::"
 
     - name: Resolver filepath absoluto
@@ -107,13 +111,13 @@ runs:
         fi
 
         if [ ! -f "${ABS_PATH}" ]; then
-          echo "::error::Arquivo não encontrado: ${ABS_PATH}"
+          echo "::error::Falha ao resolver filepath: arquivo não encontrado: ${ABS_PATH}"
           echo "::endgroup::"
           exit 1
         fi
 
         echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
-        echo "Filepath resolvido: ${ABS_PATH}"
+        echo "Filepath absoluto resolvido com sucesso: \"${ABS_PATH}\""
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan
@@ -174,4 +178,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do Upload & Scan gerado com sucesso."
         echo "::endgroup::"

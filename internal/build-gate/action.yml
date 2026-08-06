@@ -116,7 +116,7 @@ runs:
           fi
         else
           echo ""
-          echo "Processo de verificação concluído sem falhas."
+          echo "Verificação final concluída com sucesso: nenhum módulo ativo falhou."
         fi
         echo "::endgroup::"
 
@@ -200,4 +200,5 @@ runs:
           echo ""
           echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary final do build-gate gerado com sucesso."
         echo "::endgroup::"

@@ -48,8 +48,9 @@ runs:
           echo "::group::Preparar scan file (Auto Packager)"
 
           if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::warning::Auto Packager está ativo, mas scan_file foi fornecido. Usando scan_file informado: ${INPUT_SCAN_FILE}"
+            echo "::warning::Auto Packager está ativo, mas scan_file foi fornecido. Usando o arquivo informado em vez de empacotar."
             echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+            echo "Scan file definido com sucesso: \"${INPUT_SCAN_FILE}\" (Auto Packager ignorado — arquivo já informado)"
             echo "::endgroup::"
             exit 0
           fi
@@ -68,7 +69,7 @@ runs:
             VERACODE_CMD="${PWD}/veracode"
             echo "${PWD}" >> "$GITHUB_PATH"
           else
-            echo "::error::Veracode CLI foi instalada mas o binário 'veracode' não foi encontrado no PATH/workspace."
+            echo "::error::Falha ao preparar o scan file: Veracode CLI instalada, mas o binário 'veracode' não foi encontrado no PATH/workspace."
             echo "::endgroup::"
             exit 1
           fi
@@ -97,6 +98,7 @@ runs:
             if [ ${#zips[@]} -eq 0 ]; then
               echo "::warning::Nenhum arquivo .zip gerado pela Veracode CLI. Acionando fallback (TheDoctor0/zip-release)."
               echo "needs_fallback=true" >> "$GITHUB_OUTPUT"
+              echo "Auto Packager não gerou zip — fallback será usado."
               echo "::endgroup::"
               exit 0
             fi
@@ -104,7 +106,7 @@ runs:
           fi
 
           if [ ! -f "${ZIP_FILE}" ]; then
-            echo "::error::Arquivo '${ZIP_FILE}' não encontrado após o Auto Packager."
+            echo "::error::Falha no Auto Packager: arquivo '${ZIP_FILE}' não encontrado após o empacotamento."
             echo "::endgroup::"
             exit 1
           fi
@@ -115,25 +117,26 @@ runs:
             cp "${ZIP_FILE}" "${TARGET}"
           fi
 
-          echo "Criado app.zip:"
-          ls -lh "${TARGET}" || true
           echo "scan_file=${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "Scan file preparado com sucesso via Auto Packager: \"${TARGET}\" (origem: ${ZIP_FILE})"
+          ls -lh "${TARGET}" || true
           echo "::endgroup::"
         else
           echo "::group::Preparar scan file (arquivo informado)"
           if [ -z "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::scan_file não foi fornecido e enable_auto_packager está 'false'."
+            echo "::error::Falha ao preparar o scan file: scan_file não foi fornecido e enable_auto_packager está 'false'."
             echo "::endgroup::"
             exit 1
           fi
 
           if [ ! -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::Arquivo '${INPUT_SCAN_FILE}' não encontrado."
+            echo "::error::Falha ao preparar o scan file: arquivo '${INPUT_SCAN_FILE}' não encontrado."
             echo "::endgroup::"
             exit 1
           fi
 
           echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+          echo "Scan file informado validado com sucesso: \"${INPUT_SCAN_FILE}\""
           echo "::endgroup::"
         fi
 
@@ -150,9 +153,14 @@ runs:
       shell: bash
       run: |
         echo "::group::Concluir Fallback ZIP"
-        echo "Criado app.zip via TheDoctor0/zip-release (fallback):"
-        ls -lh app.zip || true
+        if [ ! -f "app.zip" ]; then
+          echo "::error::Falha no fallback ZIP: app.zip não foi criado pelo zip-release."
+          echo "::endgroup::"
+          exit 1
+        fi
         echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
+        echo "Fallback ZIP concluído com sucesso: \"app.zip\" (via TheDoctor0/zip-release)"
+        ls -lh app.zip || true
         echo "::endgroup::"
       id: fallback_output
 
@@ -167,8 +175,10 @@ runs:
         echo "::group::Consolidar saída do scan file"
         if [ -n "${FALL_FILE:-}" ]; then
           echo "scan_file=${FALL_FILE}" >> "$GITHUB_OUTPUT"
+          echo "Scan file consolidado com sucesso: \"${FALL_FILE}\" (origem: fallback ZIP)"
         else
           echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
+          echo "Scan file consolidado com sucesso: \"${PREP_FILE}\""
         fi
         echo "::endgroup::"
 
@@ -207,4 +217,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do Auto Packager gerado com sucesso."
         echo "::endgroup::"

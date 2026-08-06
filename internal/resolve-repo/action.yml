@@ -19,11 +19,11 @@ runs:
         REPO="${GITHUB_REPOSITORY:-}"
 
         if [ -z "${REPO}" ]; then
-          echo "::error::github.repository não está definido no contexto."
+          echo "::error::Falha ao resolver o repositório: github.repository não está definido no contexto."
           echo "::endgroup::"
           exit 1
         fi
 
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
-        echo "Repositório: ${REPO}"
+        echo "Nome do repositório resolvido com sucesso: \"${REPO}\""
         echo "::endgroup::"

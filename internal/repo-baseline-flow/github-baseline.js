@@ -16,12 +16,17 @@ const path = require('path');
 /** Nome fixo do repositório de baseline (não configurável pelo consumidor). */
 const FIXED_BASELINE_REPO_NAME = 'Afrika-Veracode-Connect-Baseline';
 
+/** Identidade usada nos commits de seed (Contents API author/committer). */
+const BASELINE_COMMIT_IDENTITY = {
+    name: '[BOT] Afrika-Veracode-Connect-Baseline',
+    email: 'veracode.connect@afrikatech.com.br'
+};
+
 function setOutput(name, value) {
     const out = process.env.GITHUB_OUTPUT;
     if (out) {
         fs.appendFileSync(out, `${name}=${value}\n`);
     }
-    process.stdout.write(`${name}=${value}\n`);
 }
 
 function githubApiBase() {
@@ -183,6 +188,9 @@ async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
     if (response.status === 404) {
         setOutput('has_baseline', 'false');
+        console.log(
+            `Consulta de baseline concluída: baseline não encontrado em ${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}.`
+        );
         return { hasBaseline: false };
     }
     if (!response.ok) {
@@ -198,6 +206,10 @@ async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     const decoded = Buffer.from(String(json.content).replace(/\n/g, ''), 'base64').toString('utf8');
     fs.writeFileSync(outFile, decoded, 'utf8');
     setOutput('has_baseline', 'true');
+    console.log(
+        `Consulta de baseline concluída com sucesso: baseline encontrado em ${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}.`
+    );
+    console.log(`Arquivo local gravado: "${outFile}"`);
     return { hasBaseline: true, sha: json.sha };
 }
 
@@ -216,9 +228,14 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
         headers: { Authorization: `Bearer ${token}` }
     });
     if (existing.response.status === 200) {
-        console.log(`::warning::Baseline já existe em ${baselineOrg}/${baselineRepoName}/${relativePath}. Write-once: não será sobrescrito.`);
+        console.log(
+            `::warning::Baseline já existe em ${baselineOrg}/${baselineRepoName}/${relativePath}. Write-once: não será sobrescrito.`
+        );
         setOutput('baseline_seeded', 'false');
         setOutput('baseline_already_exists', 'true');
+        console.log(
+            `Gravação de baseline ignorada com sucesso (write-once): arquivo já existia em ${baselineOrg}/${baselineRepoName}/${relativePath}.`
+        );
         return { seeded: false, alreadyExists: true };
     }
     if (existing.response.status !== 404) {
@@ -227,10 +244,13 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
         );
     }
 
+    const appName = String(scanRepository).split('/')[1] || scanRepository;
     const raw = fs.readFileSync(resultsFile);
     const body = {
-        message: `baseline: seed ${scanRepository}`,
-        content: raw.toString('base64')
+        message: `Baseline criado para a aplicação "${appName}" (${scanRepository})`,
+        content: raw.toString('base64'),
+        author: BASELINE_COMMIT_IDENTITY,
+        committer: BASELINE_COMMIT_IDENTITY
     };
 
     const { response, text } = await fetchJson(url, {
@@ -244,9 +264,14 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
     // Race: another job created it first
     if (response.status === 409 || response.status === 422) {
-        console.log(`::warning::Baseline já existia no momento do seed (HTTP ${response.status}). Write-once: mantido o arquivo existente.`);
+        console.log(
+            `::warning::Baseline já existia no momento do seed (HTTP ${response.status}). Write-once: mantido o arquivo existente.`
+        );
         setOutput('baseline_seeded', 'false');
         setOutput('baseline_already_exists', 'true');
+        console.log(
+            `Gravação de baseline ignorada (corrida write-once): mantido o arquivo existente em ${baselineOrg}/${baselineRepoName}/${relativePath}.`
+        );
         return { seeded: false, alreadyExists: true };
     }
 
@@ -256,9 +281,14 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
         );
     }
 
-    console.log(`Baseline criado (write-once): ${baselineOrg}/${baselineRepoName}/${relativePath}`);
     setOutput('baseline_seeded', 'true');
     setOutput('baseline_already_exists', 'false');
+    console.log(
+        `Baseline gravado com sucesso (write-once): ${baselineOrg}/${baselineRepoName}/${relativePath}`
+    );
+    console.log(
+        `Commit autor/committer: "${BASELINE_COMMIT_IDENTITY.name}" <${BASELINE_COMMIT_IDENTITY.email}>`
+    );
     return { seeded: true, alreadyExists: false };
 }
 
@@ -285,8 +315,8 @@ async function main() {
         // For composite steps that need the token in env without logging: write to a local file
         const tokenFile = process.env.TOKEN_FILE || path.join(process.cwd(), '.baseline-github-token');
         fs.writeFileSync(tokenFile, token, { encoding: 'utf8', mode: 0o600 });
-        process.stdout.write(`token_source=${source}\n`);
-        process.stdout.write(`token_file=${tokenFile}\n`);
+        process.stdout.write(`Autenticação resolvida com sucesso via: "${source}"\n`);
+        process.stdout.write(`Arquivo de token escrito em: "${tokenFile}"\n`);
         if (out) {
             fs.appendFileSync(out, `token_file=${tokenFile}\n`);
         }
@@ -294,7 +324,7 @@ async function main() {
     }
 
     const { token, source } = await resolveAccessToken();
-    process.stdout.write(`Auth via ${source}\n`);
+    console.log(`Autenticação no GitHub concluída com sucesso via: "${source}"`);
 
     if (!baselineOrg) {
         throw new Error(
@@ -304,7 +334,9 @@ async function main() {
 
     if (command === 'check-repo') {
         await checkRepoExists(token, baselineOrg, baselineRepoName);
-        console.log(`Repositório de baseline confirmado: ${baselineOrg}/${baselineRepoName}`);
+        console.log(
+            `Repositório de baseline confirmado com sucesso: "${baselineOrg}/${baselineRepoName}"`
+        );
         return;
     }
 
@@ -342,5 +374,7 @@ module.exports = {
     baselineContentPath,
     createAppJwt,
     normalizePem,
-    githubApiBase
+    githubApiBase,
+    BASELINE_COMMIT_IDENTITY,
+    FIXED_BASELINE_REPO_NAME
 };

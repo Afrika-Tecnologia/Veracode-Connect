@@ -1,18 +1,23 @@
 #!/bin/bash
 
 # Script para automatizar o processo de release e tagging da Action
-# Uso: ./release.sh <versao>
+# Uso: ./release.sh <versao> [--yes]
 # Exemplo: ./release.sh 1.1.6
+#          ./release.sh 1.1.6 --yes   # sem prompt (CI/automacao)
 
 set -euo pipefail
 
 if [ -z "${1:-}" ]; then
-  echo "Uso: $0 <versao>"
+  echo "Uso: $0 <versao> [--yes]"
   echo "Exemplo: $0 1.1.6"
   exit 1
 fi
 
 VERSION="$1"
+SKIP_CONFIRM=false
+if [ "${2:-}" = "--yes" ] || [ "${2:-}" = "-y" ]; then
+  SKIP_CONFIRM=true
+fi
 
 # Valida formato X.Y.Z
 if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -36,11 +41,13 @@ echo "  - ${TAG_MINOR} (movida para apontar para este commit)"
 echo "  - ${TAG_MAJOR} (movida para apontar para este commit)"
 echo ""
 
-read -p "Confirma? (y/N) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Cancelado."
-    exit 1
+if [ "${SKIP_CONFIRM}" != "true" ]; then
+  read -p "Confirma? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelado."
+      exit 1
+  fi
 fi
 
 # Garante que estamos na main atualizada

@@ -22,6 +22,8 @@ Este script facilita o processo de tagueamento de novas versões da Action, gara
     **Opção A: Windows (PowerShell)**
     ```powershell
     .\.github\scripts\release.ps1 -Version 1.1.6
+    # Sem prompt interativo (CI / automacao):
+    .\.github\scripts\release.ps1 -Version 1.1.6 -Confirm
     ```
 
     **Opção B: Linux / Mac / Git Bash**
@@ -31,10 +33,12 @@ Este script facilita o processo de tagueamento de novas versões da Action, gara
 
     # Rode o script
     ./.github/scripts/release.sh 1.1.6
+    # Sem prompt interativo (CI / automacao):
+    ./.github/scripts/release.sh 1.1.6 --yes
     ```
 
 3.  **Confirme:**
-    O script exibirá as tags que serão criadas/atualizadas. Digite `y` para confirmar.
+    O script exibirá as tags que serão criadas/atualizadas. Digite `y` para confirmar, ou use `-Confirm` / `--yes` para pular o prompt.
 
 ## O que o script faz?
 

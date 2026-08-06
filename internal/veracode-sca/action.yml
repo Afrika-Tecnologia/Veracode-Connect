@@ -55,8 +55,10 @@ runs:
         if [ "${SCA_OUTCOME}" = "failure" ]; then
           echo "::warning::Veracode SCA retornou falha (o job continua; trava final via build-gate)."
           echo "sca_status=warning" >> "$GITHUB_OUTPUT"
+          echo "Status do SCA definido: \"warning\" (scan falhou, job segue)"
         else
           echo "sca_status=success" >> "$GITHUB_OUTPUT"
+          echo "Status do SCA definido: \"success\""
         fi
         echo "::endgroup::"
 
@@ -68,12 +70,13 @@ runs:
         echo "::group::Normalizar artefatos SCA"
         if [ -f "scaResults.txt" ]; then
           cp -f scaResults.txt veracode_sca.log
-          echo "Artefato textual normalizado: veracode_sca.log"
+          echo "Artefato SCA normalizado com sucesso: \"veracode_sca.log\" (origem: scaResults.txt)"
         elif [ -f "scaResults.json" ]; then
           cp -f scaResults.json veracode_sca.log
-          echo "Artefato JSON copiado para veracode_sca.log (referência)"
+          echo "Artefato SCA normalizado com sucesso: \"veracode_sca.log\" (origem: scaResults.json)"
         else
           echo "::warning::Nenhum scaResults.txt/json encontrado após o scan SCA."
+          echo "Normalização de artefatos SCA: nenhum arquivo de resultado encontrado."
         fi
         echo "::endgroup::"
 
@@ -87,10 +90,12 @@ runs:
         set -euo pipefail
         echo "::group::Calcular nome do artefato SCA"
         if [ -n "${SUFFIX}" ]; then
-          echo "name=sca-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="sca-results-${SUFFIX}"
         else
-          echo "name=sca-results" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="sca-results"
         fi
+        echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+        echo "Nome do artefato SCA definido: \"${ARTIFACT_NAME}\""
         echo "::endgroup::"
 
     - name: Upload artefato SCA
@@ -199,4 +204,5 @@ runs:
           echo "| Status interno | \`${SCA_STATUS}\` |"
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do SCA gerado com sucesso."
         echo "::endgroup::"

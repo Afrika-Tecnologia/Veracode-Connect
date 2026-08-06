@@ -79,6 +79,8 @@ Crie um GitHub App na org (ou conta) que possui `Afrika-Veracode-Connect-Baselin
 | Permissão | Nível | Motivo |
 |---|---|---|
 | **Contents** | **Read and write** | Ler `baseline.json` e gravar o seed write-once via Contents API |
+
+O commit de seed usa autor/committer `[BOT] Afrika-Veracode-Connect-Baseline` (`veracode.connect@afrikatech.com.br`).
 | **Metadata** | Read-only | Exigida automaticamente pelo GitHub ao conceder Contents |
 
 Demais permissões (Issues, Pull requests, Actions, etc.) podem ficar em **No access**.

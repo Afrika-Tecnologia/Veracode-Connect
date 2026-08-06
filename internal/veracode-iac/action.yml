@@ -39,10 +39,13 @@ runs:
         echo "::group::Definir status IaC/Secrets"
         if [ "${{ steps.iac_scan.outcome }}" = "success" ]; then
           echo "iac_status=success" >> "$GITHUB_OUTPUT"
+          echo "Status do IaC/Secrets definido: \"success\""
         elif [ "${{ steps.iac_scan.outcome }}" = "failure" ]; then
           echo "iac_status=failure" >> "$GITHUB_OUTPUT"
+          echo "Status do IaC/Secrets definido: \"failure\""
         else
           echo "iac_status=skipped" >> "$GITHUB_OUTPUT"
+          echo "Status do IaC/Secrets definido: \"skipped\""
         fi
         echo "::endgroup::"
 
@@ -91,10 +94,11 @@ runs:
 
         if [ "${moved_any}" != "true" ]; then
           echo "::warning::Nenhum arquivo de resultado do IaC foi encontrado para coletar."
+          echo "Coleta de resultados IaC/Secrets: nenhum arquivo encontrado."
           echo "Listando arquivos .json no workspace (debug):"
           find "${GITHUB_WORKSPACE}" -maxdepth 3 -name '*.json' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -20 || true
         else
-          echo "Arquivos coletados em iac-results/:"
+          echo "Resultados IaC/Secrets coletados com sucesso em \"iac-results/\":"
           ls -la iac-results || true
         fi
         echo "::endgroup::"
@@ -109,10 +113,12 @@ runs:
         set -euo pipefail
         echo "::group::Calcular nome do artefato IaC"
         if [ -n "${SUFFIX}" ]; then
-          echo "name=iac-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="iac-results-${SUFFIX}"
         else
-          echo "name=iac-results" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="iac-results"
         fi
+        echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+        echo "Nome do artefato IaC definido: \"${ARTIFACT_NAME}\""
         echo "::endgroup::"
 
     - name: Upload artefato IaC
@@ -218,4 +224,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do IaC/Secrets gerado com sucesso."
         echo "::endgroup::"

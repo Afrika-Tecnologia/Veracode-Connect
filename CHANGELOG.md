@@ -6,6 +6,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-08-06
+
+### Changed
+
+- Logs dos groups (`::group::`) passam a exibir mensagens sucesso/falha com os valores gerados (ex.: ID de scan, platform type, status, nome de artefato, scan file, baseline), em vez de apenas dumps `chave=valor`.
+- Repo Baseline (seed write-once): autor/committer `[BOT] Afrika-Veracode-Connect-Baseline` / `veracode.connect@afrikatech.com.br`; mensagem do commit `Baseline criado para a aplicação "<repo>" (<org>/<repo>)` (antes `baseline: seed <org>/<repo>`).
+
 ## [1.3.1] - 2026-08-05
 
 ### Changed

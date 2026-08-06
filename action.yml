@@ -135,7 +135,9 @@ runs:
       run: |
         set -euo pipefail
         echo "::group::Gerar ID único de scan"
-        echo "scan_id=${{ github.run_id }}-${{ github.run_attempt }}-${RANDOM}" >> "$GITHUB_OUTPUT"
+        SCAN_ID="${{ github.run_id }}-${{ github.run_attempt }}-${RANDOM}"
+        echo "scan_id=${SCAN_ID}" >> "$GITHUB_OUTPUT"
+        echo "ID único de scan gerado: \"${SCAN_ID}\""
         echo "::endgroup::"
 
     # ── 1. Validar inputs ────────────────────────────────────────────
@@ -263,6 +265,8 @@ runs:
         set -euo pipefail
         echo "::group::Pipeline Scan desativado"
         echo "pipeline_status=pipeline_scan_disabled" >> "$GITHUB_OUTPUT"
+        echo "Pipeline Scan desativado (enable_pipelinescan != true e baseline_mode=none)."
+        echo "Status definido: \"pipeline_scan_disabled\""
         echo "::endgroup::"
 
     # ── 7. Upload & Scan ─────────────────────────────────────────────

@@ -63,9 +63,11 @@ runs:
         echo "::group::Verificar filtered_results para import de issues"
         if [ -f "filtered_results.json" ]; then
           echo "has_filtered=true" >> "$GITHUB_OUTPUT"
+          echo "Arquivo filtered_results.json encontrado — import de issues será executado."
         else
           echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
           echo "has_filtered=false" >> "$GITHUB_OUTPUT"
+          echo "Import de issues do Pipeline Scan: ignorado (arquivo ausente)."
         fi
         echo "::endgroup::"
 
@@ -88,10 +90,12 @@ runs:
         set -euo pipefail
         echo "::group::Calcular nome do artefato Pipeline Scan"
         if [ -n "${SUFFIX}" ]; then
-          echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="pipescan-results-${SUFFIX}"
         else
-          echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="pipescan-results"
         fi
+        echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+        echo "Nome do artefato Pipeline Scan definido: \"${ARTIFACT_NAME}\""
         echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
@@ -115,8 +119,10 @@ runs:
         echo "::group::Definir status do Pipeline Scan"
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_without_portal_afrika" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_failed_without_portal_afrika\""
         else
           echo "pipeline_status=scan_completed_without_portal_afrika" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_completed_without_portal_afrika\""
         fi
         echo "::endgroup::"
 
@@ -131,19 +137,22 @@ runs:
 
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ ! -f "results.json" ]; then
-          echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::error::Falha na verificação do Pipeline Scan: results.json não encontrado após o scan."
           echo "::endgroup::"
           exit 1
         fi
 
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "::error::Pipeline Scan falhou e policy_fail=true."
+            echo "::error::Pipeline Scan falhou e policy_fail=true — o job será interrompido."
             echo "::endgroup::"
             exit 1
           else
             echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+            echo "Verificação policy_fail concluída: falhas presentes, mas o job segue."
           fi
+        else
+          echo "Verificação policy_fail concluída com sucesso: Pipeline Scan sem falha de policy."
         fi
         echo "::endgroup::"
 
@@ -206,4 +215,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do Pipeline Scan gerado com sucesso."
         echo "::endgroup::"

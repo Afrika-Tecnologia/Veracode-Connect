@@ -65,8 +65,9 @@ runs:
         if ! command -v jq >/dev/null 2>&1; then
           sudo apt-get update -y
           sudo apt-get install -y jq
+          echo "jq instalado com sucesso: $(jq --version)"
         else
-          echo "jq já instalado: $(jq --version)"
+          echo "jq já disponível: $(jq --version) (instalação não necessária)"
         fi
         echo "::endgroup::"
 
@@ -106,7 +107,11 @@ runs:
         fi
 
         echo "has_baseline=${HAS_BASELINE}" >> "$GITHUB_OUTPUT"
-        echo "has_baseline=${HAS_BASELINE}"
+        if [ "${HAS_BASELINE}" = "true" ]; then
+          echo "Consulta de baseline no Portal Afrika concluída com sucesso: baseline encontrado para \"${REPOSITORY_FULL_NAME}\"."
+        else
+          echo "Consulta de baseline no Portal Afrika concluída: nenhum baseline para \"${REPOSITORY_FULL_NAME}\" (HTTP ${HTTP_STATUS})."
+        fi
         echo "::endgroup::"
 
     - name: Criar arquivo de baseline local a partir do Portal Afrika
@@ -117,6 +122,7 @@ runs:
         set -euo pipefail
         echo "::group::Criar baseline local a partir do Portal Afrika"
         jq '.results' baseline-response.json > baseline.json
+        echo "Baseline local criado com sucesso: \"baseline.json\""
         echo "::endgroup::"
 
     - name: Rodar Veracode Pipeline Scan com baseline
@@ -151,6 +157,7 @@ runs:
         echo "::group::Portal Afrika Baseline (upload resultado com baseline)"
         if [ ! -f "results.json" ]; then
           echo "::warning::results.json não encontrado após o Pipeline Scan com baseline. Pulando upload."
+          echo "Upload de resultado com baseline: ignorado (results.json ausente)."
           echo "::endgroup::"
           exit 0
         fi
@@ -167,6 +174,9 @@ runs:
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::Falha ao enviar resultados com baseline para o Portal Afrika (HTTP ${HTTP_STATUS}). O job continua."
+          echo "Upload de resultado com baseline: falhou (HTTP ${HTTP_STATUS}), job segue."
+        else
+          echo "Upload de resultado com baseline concluído com sucesso (HTTP ${HTTP_STATUS})."
         fi
         rm -f /tmp/portal-afrika-upload-response.txt
         echo "::endgroup::"
@@ -197,10 +207,12 @@ runs:
         set -euo pipefail
         echo "::group::Calcular nome do artefato Pipeline Scan"
         if [ -n "${SUFFIX}" ]; then
-          echo "name=pipescan-results-${SUFFIX}" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="pipescan-results-${SUFFIX}"
         else
-          echo "name=pipescan-results" >> "$GITHUB_OUTPUT"
+          ARTIFACT_NAME="pipescan-results"
         fi
+        echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+        echo "Nome do artefato Pipeline Scan definido: \"${ARTIFACT_NAME}\""
         echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
@@ -227,7 +239,7 @@ runs:
 
         echo "::group::Portal Afrika Baseline (upload)"
         if [ ! -f "results.json" ]; then
-          echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::error::Falha ao enviar baseline para o Portal Afrika: results.json não encontrado após o Pipeline Scan."
           echo "::endgroup::"
           exit 1
         fi
@@ -251,6 +263,7 @@ runs:
           exit 1
         fi
         rm -f /tmp/portal-afrika-upload-response.txt payload.json
+        echo "Novo baseline enviado ao Portal Afrika com sucesso (HTTP ${HTTP_STATUS}) para \"${REPOSITORY_FULL_NAME}\"."
         echo "::endgroup::"
 
     - name: Definir status (com baseline)
@@ -264,8 +277,10 @@ runs:
         echo "::group::Definir status do Pipeline Scan (com baseline)"
         if [ "${OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_failed_with_baseline\""
         else
           echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_completed_with_baseline\""
         fi
         echo "::endgroup::"
 
@@ -280,8 +295,10 @@ runs:
         echo "::group::Definir status do Pipeline Scan (sem baseline)"
         if [ "${OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_failed_without_baseline_and_uploaded\""
         else
           echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
+          echo "Status do Pipeline Scan definido: \"scan_completed_without_baseline_and_uploaded\""
         fi
         echo "::endgroup::"
 
@@ -297,7 +314,7 @@ runs:
 
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ ! -f "results.json" ]; then
-          echo "::error::results.json não encontrado após o Pipeline Scan."
+          echo "::error::Falha na verificação do Pipeline Scan: results.json não encontrado após o scan."
           echo "::endgroup::"
           exit 1
         fi
@@ -312,12 +329,15 @@ runs:
 
         if [ "${outcome}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "::error::Pipeline Scan falhou e policy_fail=true."
+            echo "::error::Pipeline Scan falhou e policy_fail=true — o job será interrompido."
             echo "::endgroup::"
             exit 1
           else
             echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+            echo "Verificação policy_fail concluída: falhas presentes, mas o job segue."
           fi
+        else
+          echo "Verificação policy_fail concluída com sucesso: Pipeline Scan sem falha de policy."
         fi
         echo "::endgroup::"
 
@@ -330,9 +350,11 @@ runs:
         echo "::group::Verificar filtered_results para import de issues"
         if [ -f "filtered_results.json" ]; then
           echo "has_filtered=true" >> "$GITHUB_OUTPUT"
+          echo "Arquivo filtered_results.json encontrado — import de issues será executado."
         else
           echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
           echo "has_filtered=false" >> "$GITHUB_OUTPUT"
+          echo "Import de issues do Pipeline Scan: ignorado (arquivo ausente)."
         fi
         echo "::endgroup::"
 
@@ -430,4 +452,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "Summary do Portal Afrika Baseline Pipeline Scan gerado com sucesso."
         echo "::endgroup::"

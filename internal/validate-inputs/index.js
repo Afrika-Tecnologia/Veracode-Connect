@@ -46,7 +46,7 @@ if (modeResult.error) {
 }
 const resolvedBaselineMode = modeResult.mode || 'none';
 setOutput('baseline_mode', resolvedBaselineMode);
-console.log(`baseline_mode resolvido: ${resolvedBaselineMode}`);
+console.log(`Modo de baseline resolvido: "${resolvedBaselineMode}"`);
 
 if (!VID) erros.push("veracode_api_id é obrigatório.");
 if (!VKEY) erros.push("veracode_api_key é obrigatório.");
@@ -197,7 +197,7 @@ async function validateCreateIssuesPreconditions() {
                     "No GitHub: Settings → General → Features → Issues."
                 );
             } else {
-                console.log("Issues habilitadas no repositório (has_issues=true).");
+                console.log("Issues habilitadas no repositório (has_issues=true) — verificação OK.");
                 repoMetadataOk = true;
             }
         }
@@ -233,7 +233,7 @@ async function validateCreateIssuesPreconditions() {
                 "Verifique as permissions do workflow."
             );
         } else {
-            console.log("Permissão issues: write confirmada para GITHUB_TOKEN.");
+            console.log("Permissão issues: write confirmada com sucesso para GITHUB_TOKEN.");
         }
     } catch (err) {
         erros.push(`create_issues=true: falha ao validar pré-requisitos — ${err?.message || String(err)}`);
@@ -257,7 +257,7 @@ async function validateRepoBaselinePreconditions() {
     try {
         const token = await resolveAccessToken();
         await assertBaselineRepoExists(token, baselineOrg, baselineRepoName);
-        console.log(`Repositório de baseline OK: ${baselineOrg}/${baselineRepoName}`);
+        console.log(`Repositório de baseline OK: "${baselineOrg}/${baselineRepoName}"`);
     } catch (err) {
         erros.push(err?.message || String(err));
     }
@@ -272,7 +272,7 @@ async function main() {
         failValidation();
     }
 
-    console.log("Todos os inputs validados com sucesso.");
+    console.log("Validação de inputs concluída com sucesso.");
     console.log("::endgroup::");
 }
 

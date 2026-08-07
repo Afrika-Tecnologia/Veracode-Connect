@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-08-06
+
+### Changed
+
+- Seed de baseline (Portal Afrika e Repo) só ocorre na `default_branch` do repositório. Em outras branches/PRs, sem baseline existente, o Pipeline Scan roda sem baseline e **não** grava/envia o seed (warning + summary). Status novos: `scan_completed_without_baseline` / `scan_failed_without_baseline`.
+
 ## [1.3.2] - 2026-08-06
 
 ### Changed

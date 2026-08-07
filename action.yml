@@ -105,7 +105,7 @@ outputs:
     description: 'true/false indicando se existe baseline para o repositório (Portal Afrika ou repo).'
     value: ${{ steps.baseline_flow.outputs.has_baseline || steps.repo_baseline_flow.outputs.has_baseline || 'false' }}
   pipeline_status:
-    description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload/seed), apenas scan ou pipeline desativado.'
+    description: 'Resumo do caminho seguido: com baseline, sem baseline (com upload/seed ou seed pulado fora da default_branch), apenas scan ou pipeline desativado.'
     value: ${{ steps.baseline_flow.outputs.pipeline_status || steps.repo_baseline_flow.outputs.pipeline_status || steps.pipeline_only.outputs.pipeline_status || steps.pipeline_disabled_status.outputs.pipeline_status }}
   repository_full_name:
     description: 'Repositório org/repo usado para baseline e Upload & Scan.'

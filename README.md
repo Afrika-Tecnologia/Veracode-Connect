@@ -55,6 +55,18 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
 | `veracode_appname` | nao | `${{ github.repository }}` | Nome do app no Veracode. |
 
+## Seed do baseline (`portal_afrika` e `repo`)
+
+O baseline é criado **somente na `default_branch`** do repositório (ex.: `main`):
+
+| Situação | Comportamento |
+|---|---|
+| Sem baseline + execução na `default_branch` | Pipeline Scan sem baseline e **grava/envia** o seed |
+| Sem baseline + execução em outra branch/PR | Pipeline Scan sem baseline; seed **não** é gravado (warning no log) |
+| Com baseline existente | Pipeline Scan **com** baseline (qualquer branch) |
+
+Assim o baseline reflete a linha principal, não a primeira feature branch que rodou o job.
+
 ## Repo Baseline (`baseline_mode: 'repo'`)
 
 Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub como store de baseline (alternativa ao Portal Afrika).
@@ -79,9 +91,9 @@ Crie um GitHub App na org (ou conta) que possui `Afrika-Veracode-Connect-Baselin
 | Permissão | Nível | Motivo |
 |---|---|---|
 | **Contents** | **Read and write** | Ler `baseline.json` e gravar o seed write-once via Contents API |
+| **Metadata** | Read-only | Exigida automaticamente pelo GitHub ao conceder Contents |
 
 O commit de seed usa autor/committer `[BOT] Afrika-Veracode-Connect-Baseline` (`veracode.connect@afrikatech.com.br`).
-| **Metadata** | Read-only | Exigida automaticamente pelo GitHub ao conceder Contents |
 
 Demais permissões (Issues, Pull requests, Actions, etc.) podem ficar em **No access**.
 
@@ -139,7 +151,7 @@ O App/PAT de baseline **não** substitui `issues: write` — a criação de issu
 |---|---|
 | `baseline_mode` | Modo resolvido: `none` \| `portal_afrika` \| `repo`. |
 | `has_baseline` | `'true'/'false'` indicando se existe baseline para o repo. |
-| `pipeline_status` | Um de: `scan_completed_with_baseline`, `scan_completed_without_baseline_and_uploaded`, `scan_completed_without_portal_afrika`, `scan_failed_with_baseline`, `scan_failed_without_baseline_and_uploaded`, `scan_failed_without_portal_afrika`, `pipeline_scan_disabled`. |
+| `pipeline_status` | Um de: `scan_completed_with_baseline`, `scan_completed_without_baseline_and_uploaded`, `scan_completed_without_baseline`, `scan_completed_without_portal_afrika`, `scan_failed_with_baseline`, `scan_failed_without_baseline_and_uploaded`, `scan_failed_without_baseline`, `scan_failed_without_portal_afrika`, `pipeline_scan_disabled`. |
 | `repository_full_name` | `org/repo` (a partir de `github.repository`). |
 | `sca_status` | Resultado do SCA: `success` \| `warning` \| `skipped`. |
 | `iac_status` | Resultado do IaC: `success` \| `failure` \| `skipped`. |

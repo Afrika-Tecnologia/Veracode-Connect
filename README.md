@@ -73,6 +73,8 @@ Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub co
 
 O nome do repositório de store é **fixo**: `Afrika-Veracode-Connect-Baseline`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
 
+O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed **não substitui** o README — cria um commit filho que adiciona `{org-do-app}/{repo-do-app}/baseline.json` na árvore existente. Caminhos diferentes não colidem (`README.md` ≠ `cogna-somos/test-node/baseline.json`).
+
 Auth (escolha uma):
 
 | Preferência | Inputs |
@@ -90,7 +92,7 @@ Crie um GitHub App na org (ou conta) que possui `Afrika-Veracode-Connect-Baselin
 
 | Permissão | Nível | Motivo |
 |---|---|---|
-| **Contents** | **Read and write** | Ler `baseline.json` e gravar o seed write-once via Contents API |
+| **Contents** | **Read and write** | Ler `baseline.json` e gravar o seed (Contents + Git Data API: blob/tree/commit/ref) |
 | **Metadata** | Read-only | Exigida automaticamente pelo GitHub ao conceder Contents |
 
 O commit de seed usa autor/committer `[BOT] Afrika-Veracode-Connect-Baseline` (`veracode.connect@afrikatech.com.br`).
@@ -104,6 +106,18 @@ Depois:
 3. Instale o App na org do baseline, restringindo a instalação ao repositório `Afrika-Veracode-Connect-Baseline` (ou à org, se preferir).
 4. Anote o **Installation ID** (URL da instalação ou API) → secret `BASELINE_GITHUB_APP_INSTALLATION_ID`.
 5. Defina `baseline_org` (variável/input) com a org dona do repo de baseline.
+
+### GitHub Enterprise (Cloud ou Server)
+
+O seed já usa `github.api_url` (github.com → `https://api.github.com`; GHES → `https://<host>/api/v3`). **O mesmo fluxo** grava o baseline em Cloud, GHEC e GHES — não há caminho separado. Permissões do App/PAT são as mesmas. O que costuma bloquear em Enterprise **não é o README**:
+
+| Ponto | O que observar |
+|---|---|
+| **Ruleset / branch protection** na `main` do store | Exigir PR, impedir push do App ou exigir commit assinado. O seed faz commit direto; se a regra não tiver bypass para o GitHub App, a API devolve 409/403/422 e o arquivo **não** é criado. Inclua o App na lista de bypass (ou não proteja a `main` desse repo). |
+| **SSO (SAML)** | PAT precisa estar autorizado no SSO da enterprise. GitHub App instalado na org já passa pelo SSO. |
+| **EMU (Enterprise Managed Users)** | Alguns tenants rejeitam committer com e-mail externo (`veracode.connect@afrikatech.com.br`). Se o commit for recusado, use PAT de uma conta da enterprise ou ajuste a política de identidade. |
+| **GHES (Server)** | O App tem que ser **criado e instalado na instância** (App ID/key de github.com não servem). Git Data API existe; versões antigas usam `/git/refs` em vez de `/git/ref` — a action tenta os dois. |
+| **IP allow list** | Runners hospedados precisam estar na allow list da org, senão a API falha com 403. |
 
 ### Permissões do PAT (fallback)
 

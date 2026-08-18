@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-08-18
+
+### Fixed
+
+- Repo Baseline: o seed deixa de usar `PUT` na Contents API (que devolvia HTTP 409 e era tratado como "arquivo já existe" mesmo com o repo só tendo `README.md`). Agora o seed cria um commit filho via Git Data API em cima do HEAD atual, preservando o README e gravando `{org}/{repo}/baseline.json`. 409 só é write-once se o GET confirmar o arquivo; senão há retry ou falha com o detalhe da API. Em GHES, a leitura do HEAD tenta `/git/ref` e faz fallback para `/git/refs`. O mesmo fluxo vale para github.com, GHEC e GHES.
+
 ## [1.3.4] - 2026-08-18
 
 ### Fixed

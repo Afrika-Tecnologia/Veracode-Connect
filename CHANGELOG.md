@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-08-18
+
+### Fixed
+
+- Upload & Scan: a `veracode/uploadandscan-action` (Node.js) faz `readdir` em `filepath` e falhava com `ENOTDIR` quando recebia o `.zip`. O artefato agora é copiado para um diretório isolado (`.veracode-upload/`) antes do envio.
+
 ## [1.3.3] - 2026-08-06
 
 ### Changed

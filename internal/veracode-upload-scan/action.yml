@@ -116,8 +116,17 @@ runs:
           exit 1
         fi
 
-        echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
+        # veracode/uploadandscan-action (Node.js) faz readdir() em filepath.
+        # Passar um .zip causa ENOTDIR. Isolar o artefato num diretório.
+        UPLOAD_DIR="${GITHUB_WORKSPACE}/.veracode-upload"
+        ARTIFACT_NAME="$(basename "${ABS_PATH}")"
+        mkdir -p "${UPLOAD_DIR}"
+        cp "${ABS_PATH}" "${UPLOAD_DIR}/${ARTIFACT_NAME}"
+
+        echo "filepath=${UPLOAD_DIR}" >> "$GITHUB_OUTPUT"
+        echo "artifact_path=${ABS_PATH}" >> "$GITHUB_OUTPUT"
         echo "Filepath absoluto resolvido com sucesso: \"${ABS_PATH}\""
+        echo "Diretório isolado para Upload & Scan: \"${UPLOAD_DIR}\""
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan
@@ -146,7 +155,7 @@ runs:
         SANDBOX_NAME: ${{ steps.vars.outputs.sandbox_name }}
         ENABLE_SANDBOX: ${{ steps.vars.outputs.enable_sandbox }}
         SANDBOX_MODE: ${{ steps.vars.outputs.sandbox_mode }}
-        FILEPATH: ${{ steps.resolve_filepath.outputs.filepath }}
+        FILEPATH: ${{ steps.resolve_filepath.outputs.artifact_path }}
         GIT_REPOSITORY_URL: ${{ steps.vars.outputs.git_repository_url }}
       run: |
         set -euo pipefail

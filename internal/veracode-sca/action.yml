@@ -31,7 +31,7 @@ runs:
   steps:
     - name: Rodar Veracode SCA
       id: veracode_sca_run
-      uses: veracode/veracode-sca@01bdc0cbd6b4990e93519deedc5140e5ff48b98e # v2.1.19
+      uses: veracode/veracode-sca@aeeb6aaa608a49195cab32c44b75db4f6a07a2df # v2.1.20
       env:
         SRCCLR_API_TOKEN: ${{ inputs.veracode_sca_token }}
       with:
@@ -53,12 +53,12 @@ runs:
         set -euo pipefail
         echo "::group::Definir status do SCA"
         if [ "${SCA_OUTCOME}" = "failure" ]; then
-          echo "::warning::Veracode SCA retornou falha (o job continua; trava final via build-gate)."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SCA_FAILED_CONTINUE)"
           echo "sca_status=warning" >> "$GITHUB_OUTPUT"
-          echo "Status do SCA definido: \"warning\" (scan falhou, job segue)"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_STATUS_SET "status=warning")"
         else
           echo "sca_status=success" >> "$GITHUB_OUTPUT"
-          echo "Status do SCA definido: \"success\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_STATUS_SET "status=success")"
         fi
         echo "::endgroup::"
 
@@ -70,12 +70,12 @@ runs:
         echo "::group::Normalizar artefatos SCA"
         if [ -f "scaResults.txt" ]; then
           cp -f scaResults.txt veracode_sca.log
-          echo "Artefato SCA normalizado com sucesso: \"veracode_sca.log\" (origem: scaResults.txt)"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_ARTIFACT_NORMALIZED "file=veracode_sca.log" "source=scaResults.txt")"
         elif [ -f "scaResults.json" ]; then
           cp -f scaResults.json veracode_sca.log
-          echo "Artefato SCA normalizado com sucesso: \"veracode_sca.log\" (origem: scaResults.json)"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_ARTIFACT_NORMALIZED "file=veracode_sca.log" "source=scaResults.json")"
         else
-          echo "::warning::Nenhum scaResults.txt/json encontrado após o scan SCA."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_SCA_RESULTS)"
           echo "Normalização de artefatos SCA: nenhum arquivo de resultado encontrado."
         fi
         echo "::endgroup::"
@@ -95,7 +95,7 @@ runs:
           ARTIFACT_NAME="sca-results"
         fi
         echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
-        echo "Nome do artefato SCA definido: \"${ARTIFACT_NAME}\""
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success ARTIFACT_NAME_SET "name=${ARTIFACT_NAME}")"
         echo "::endgroup::"
 
     - name: Upload artefato SCA

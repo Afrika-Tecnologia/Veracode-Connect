@@ -46,8 +46,8 @@ test('validate-inputs passa com credenciais corretas e baseline none', () => {
     });
     const stdout = result.stdout.toString();
     const stderr = result.stderr.toString();
-    assert.match(stdout, /Validação de inputs concluída com sucesso\./, `Falhou. Stdout: ${stdout}, Stderr: ${stderr}`);
-    assert.match(stdout, /Modo de baseline resolvido: "none"/);
+    assert.match(stdout, /validação=ok/, `Falhou. Stdout: ${stdout}, Stderr: ${stderr}`);
+    assert.match(stdout, /baseline_mode=none/);
 });
 
 test('validate-inputs falha quando baseline_mode=portal_afrika sem portal_afrika_api_key', () => {

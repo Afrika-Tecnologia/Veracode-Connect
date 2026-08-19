@@ -52,7 +52,7 @@ runs:
         default_branch="${DEFAULT_BRANCH:-main}"
 
         if [ -n "${SANDBOX_INPUT}" ] && [ "${SANDBOX_INPUT}" != "true" ] && [ "${SANDBOX_INPUT}" != "false" ]; then
-          echo "::error::veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch)."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SANDBOX_INVALID)"
           echo "::endgroup::"
           exit 1
         fi
@@ -86,9 +86,7 @@ runs:
         echo "enable_sandbox=${enable_sandbox}" >> "$GITHUB_OUTPUT"
         echo "sandbox_mode=${sandbox_mode}" >> "$GITHUB_OUTPUT"
         echo "git_repository_url=${git_repository_url}" >> "$GITHUB_OUTPUT"
-        echo "Preparação do Upload & Scan concluída com sucesso."
-        echo "Branch: \"${branch}\" (default: \"${default_branch}\")"
-        echo "Sandbox habilitado: \"${enable_sandbox}\" (modo: \"${sandbox_mode}\")"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PREP_OK "sandbox=${enable_sandbox}" "mode=${sandbox_mode}" "branch=${branch}")"
         if [ -n "${sandbox_name}" ]; then
           echo "Nome do sandbox: \"${sandbox_name}\""
         fi
@@ -111,7 +109,7 @@ runs:
         fi
 
         if [ ! -f "${ABS_PATH}" ]; then
-          echo "::error::Falha ao resolver filepath: arquivo não encontrado: ${ABS_PATH}"
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FILEPATH_NOT_FOUND "path=${ABS_PATH}")"
           echo "::endgroup::"
           exit 1
         fi
@@ -125,13 +123,12 @@ runs:
 
         echo "filepath=${UPLOAD_DIR}" >> "$GITHUB_OUTPUT"
         echo "artifact_path=${ABS_PATH}" >> "$GITHUB_OUTPUT"
-        echo "Filepath absoluto resolvido com sucesso: \"${ABS_PATH}\""
-        echo "Diretório isolado para Upload & Scan: \"${UPLOAD_DIR}\""
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ABS_PATH}" "dir=${UPLOAD_DIR}")"
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan
       id: upload_and_scan
-      uses: veracode/uploadandscan-action@b61c06d463061efe5ec58f2029f0bbcfa2717a19 # v0.2.2
+      uses: veracode/uploadandscan-action@d2deb5741e4216f9b3bcc0cd565c1716c6cc57d2 # v0.2.3
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}

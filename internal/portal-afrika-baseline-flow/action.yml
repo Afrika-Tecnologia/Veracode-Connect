@@ -55,22 +55,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Instalar jq (se necessario)
-      id: ensure_jq
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        echo "::group::Instalar jq"
-        if ! command -v jq >/dev/null 2>&1; then
-          sudo apt-get update -y
-          sudo apt-get install -y jq
-          echo "jq instalado com sucesso: $(jq --version)"
-        else
-          echo "jq já disponível: $(jq --version) (instalação não necessária)"
-        fi
-        echo "::endgroup::"
-
     - name: Consultar baseline no Portal Afrika
       id: check_baseline
       shell: bash
@@ -93,7 +77,7 @@ runs:
           "${PORTAL_AFRIKA_BASE_URL}/api/veracode/baseline?repositoryFullName=${REPO_ENCODED}")
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "::warning::Portal Afrika retornou HTTP ${HTTP_STATUS} ao consultar baseline. Continuando sem baseline."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning PORTAL_HTTP_ERROR "status=${HTTP_STATUS}")"
           echo '{}' > "${RESPONSE_FILE}"
         fi
 
@@ -108,9 +92,9 @@ runs:
 
         echo "has_baseline=${HAS_BASELINE}" >> "$GITHUB_OUTPUT"
         if [ "${HAS_BASELINE}" = "true" ]; then
-          echo "Consulta de baseline no Portal Afrika concluída com sucesso: baseline encontrado para \"${REPOSITORY_FULL_NAME}\"."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success BASELINE_FOUND "repo=${REPOSITORY_FULL_NAME}")"
         else
-          echo "Consulta de baseline no Portal Afrika concluída: nenhum baseline para \"${REPOSITORY_FULL_NAME}\" (HTTP ${HTTP_STATUS})."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success BASELINE_ABSENT "repo=${REPOSITORY_FULL_NAME}" "status=${HTTP_STATUS}")"
         fi
         echo "::endgroup::"
 
@@ -122,7 +106,7 @@ runs:
         set -euo pipefail
         echo "::group::Criar baseline local a partir do Portal Afrika"
         jq '.results' baseline-response.json > baseline.json
-        echo "Baseline local criado com sucesso: \"baseline.json\""
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success BASELINE_LOCAL_CREATED)"
         echo "::endgroup::"
 
     - name: Rodar Veracode Pipeline Scan com baseline
@@ -156,7 +140,7 @@ runs:
 
         echo "::group::Portal Afrika Baseline (upload resultado com baseline)"
         if [ ! -f "results.json" ]; then
-          echo "::warning::results.json não encontrado após o Pipeline Scan com baseline. Pulando upload."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning RESULTS_MISSING_UPLOAD)"
           echo "Upload de resultado com baseline: ignorado (results.json ausente)."
           echo "::endgroup::"
           exit 0
@@ -173,10 +157,10 @@ runs:
           --data-binary @results.json)
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "::warning::Falha ao enviar resultados com baseline para o Portal Afrika (HTTP ${HTTP_STATUS}). O job continua."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning UPLOAD_BASELINE_FAILED "status=${HTTP_STATUS}")"
           echo "Upload de resultado com baseline: falhou (HTTP ${HTTP_STATUS}), job segue."
         else
-          echo "Upload de resultado com baseline concluído com sucesso (HTTP ${HTTP_STATUS})."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success UPLOAD_RESULT_OK "status=${HTTP_STATUS}")"
         fi
         rm -f /tmp/portal-afrika-upload-response.txt
         echo "::endgroup::"
@@ -249,10 +233,10 @@ runs:
 
         if [ "${branch}" = "${default_branch}" ]; then
           echo "can_seed=true" >> "$GITHUB_OUTPUT"
-          echo "Seed de baseline elegível: branch atual \"${branch}\" é a default_branch."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SEED_ELIGIBLE "branch=${branch}")"
         else
           echo "can_seed=false" >> "$GITHUB_OUTPUT"
-          echo "::warning::Sem baseline e a execução não está na default_branch (\"${default_branch}\"). O Pipeline Scan segue sem baseline e o seed NÃO será enviado ao Portal Afrika. Rode na default_branch para criar o baseline."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_NOT_DEFAULT_BRANCH "default_branch=${default_branch}")"
           echo "Seed de baseline bloqueado: branch atual \"${branch}\" ≠ default \"${default_branch}\"."
         fi
         echo "::endgroup::"
@@ -270,7 +254,7 @@ runs:
 
         echo "::group::Portal Afrika Baseline (upload)"
         if [ ! -f "results.json" ]; then
-          echo "::error::Falha ao enviar baseline para o Portal Afrika: results.json não encontrado após o Pipeline Scan."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_SEED)"
           echo "::endgroup::"
           exit 1
         fi
@@ -287,14 +271,14 @@ runs:
           --data-binary @payload.json)
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
-          echo "::error::Falha ao enviar baseline para Portal Afrika (HTTP ${HTTP_STATUS}). Verifique as credenciais."
-          echo "::error::Resposta do Portal Afrika: $(cat /tmp/portal-afrika-upload-response.txt 2>/dev/null || echo '(vazia)')"
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SEED_UPLOAD_FAILED "status=${HTTP_STATUS}")"
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SEED_UPLOAD_RESPONSE "body=$(cat /tmp/portal-afrika-upload-response.txt 2>/dev/null || echo '(vazia)')")"
           rm -f /tmp/portal-afrika-upload-response.txt payload.json
           echo "::endgroup::"
           exit 1
         fi
         rm -f /tmp/portal-afrika-upload-response.txt payload.json
-        echo "Novo baseline enviado ao Portal Afrika com sucesso (HTTP ${HTTP_STATUS}) para \"${REPOSITORY_FULL_NAME}\"."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SEED_UPLOADED "status=${HTTP_STATUS}" "repo=${REPOSITORY_FULL_NAME}")"
         echo "::endgroup::"
 
     - name: Definir status (com baseline)
@@ -356,7 +340,7 @@ runs:
 
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ ! -f "results.json" ]; then
-          echo "::error::Falha na verificação do Pipeline Scan: results.json não encontrado após o scan."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_POLICY_CHECK)"
           echo "::endgroup::"
           exit 1
         fi
@@ -371,11 +355,11 @@ runs:
 
         if [ "${outcome}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "::error::Pipeline Scan falhou e policy_fail=true — o job será interrompido."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
             echo "::endgroup::"
             exit 1
           else
-            echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning POLICY_FAIL_FALSE)"
             echo "Verificação policy_fail concluída: falhas presentes, mas o job segue."
           fi
         else
@@ -394,7 +378,7 @@ runs:
           echo "has_filtered=true" >> "$GITHUB_OUTPUT"
           echo "Arquivo filtered_results.json encontrado — import de issues será executado."
         else
-          echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning FILTERED_RESULTS_MISSING)"
           echo "has_filtered=false" >> "$GITHUB_OUTPUT"
           echo "Import de issues do Pipeline Scan: ignorado (arquivo ausente)."
         fi

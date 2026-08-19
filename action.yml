@@ -123,6 +123,10 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    # ── 0. Verificar pré-requisitos de runtime (node, jq, curl, git) ──
+    - name: Verificar pré-requisitos de runtime
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/ensure-runtime@v1
+
     # ── 0a. Resolver platform type (GitHub.com vs GHES) ───────────────
     - name: Resolver platform type
       id: resolve_platform

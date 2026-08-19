@@ -65,7 +65,7 @@ runs:
           echo "has_filtered=true" >> "$GITHUB_OUTPUT"
           echo "Arquivo filtered_results.json encontrado — import de issues será executado."
         else
-          echo "::warning::filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado."
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning FILTERED_RESULTS_MISSING)"
           echo "has_filtered=false" >> "$GITHUB_OUTPUT"
           echo "Import de issues do Pipeline Scan: ignorado (arquivo ausente)."
         fi
@@ -119,10 +119,10 @@ runs:
         echo "::group::Definir status do Pipeline Scan"
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_without_portal_afrika" >> "$GITHUB_OUTPUT"
-          echo "Status do Pipeline Scan definido: \"scan_failed_without_portal_afrika\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_without_portal_afrika")"
         else
           echo "pipeline_status=scan_completed_without_portal_afrika" >> "$GITHUB_OUTPUT"
-          echo "Status do Pipeline Scan definido: \"scan_completed_without_portal_afrika\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_completed_without_portal_afrika")"
         fi
         echo "::endgroup::"
 
@@ -137,18 +137,18 @@ runs:
 
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ ! -f "results.json" ]; then
-          echo "::error::Falha na verificação do Pipeline Scan: results.json não encontrado após o scan."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_POLICY_CHECK)"
           echo "::endgroup::"
           exit 1
         fi
 
         if [ "${PIPELINE_OUTCOME}" = "failure" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "::error::Pipeline Scan falhou e policy_fail=true — o job será interrompido."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
             echo "::endgroup::"
             exit 1
           else
-            echo "::warning::Pipeline Scan reportou falhas, mas policy_fail=false (o job continua)."
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning POLICY_FAIL_FALSE)"
             echo "Verificação policy_fail concluída: falhas presentes, mas o job segue."
           fi
         else

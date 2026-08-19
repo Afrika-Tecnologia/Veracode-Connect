@@ -99,24 +99,24 @@ runs:
 
         if [ ${#alertas[@]} -gt 0 ]; then
           echo ""
-          echo "::warning::Os seguintes steps geraram alertas: ${alertas[*]}"
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning STEPS_WARNED "steps=${alertas[*]}")"
         fi
 
         if [ ${#falhas[@]} -gt 0 ]; then
           echo ""
-          echo "::error::Os seguintes steps falharam: ${falhas[*]}"
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error STEPS_FAILED "steps=${falhas[*]}")"
           echo ""
 
           if [ "${FAIL_BUILD}" = "true" ]; then
-            echo "::error::fail_build=true — Travando a esteira."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FAIL_BUILD_TRUE)"
             echo "::endgroup::"
             exit 1
           else
-            echo "::warning::fail_build=false — Falhas detectadas, mas o build NÃO será travado."
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning FAIL_BUILD_FALSE)"
           fi
         else
           echo ""
-          echo "Verificação final concluída com sucesso: nenhum módulo ativo falhou."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success ALL_PASSED)"
         fi
         echo "::endgroup::"
 

@@ -7,11 +7,17 @@ const {
     putBaseline,
     githubErrorDetail,
     isEmptyRepoConflict,
+    isRulesetViolation,
     baselineContentPath,
     githubApiBase
 } = require('./github-baseline.js');
+const { fail } = require('./messages.js');
 
 const originalFetch = global.fetch;
+
+const STORE_ORG = 'Afrika-Tecnologia';
+const STORE_REPO = 'Afrika-Veracode-Connect-Baseline';
+const SCAN_REPO = 'Afrika-Tecnologia/exemplo-app';
 
 function jsonResponse(status, body) {
     const text = JSON.stringify(body);
@@ -35,6 +41,7 @@ function mockGitData({
     emptyRepo = false,
     defaultBranch = 'main',
     patchStatuses = [200],
+    patchErrorMessage = 'Update is not a fast forward',
     fileExistsAfterPatch = false,
     singularRef404 = false
 }) {
@@ -88,7 +95,7 @@ function mockGitData({
             if (status >= 200 && status < 300) {
                 return jsonResponse(status, { object: { sha: 'new-commit-sha' } });
             }
-            return jsonResponse(status, { message: 'Update is not a fast forward' });
+            return jsonResponse(status, { message: patchErrorMessage });
         }
         if (method === 'GET' && u.includes('/repos/') && !u.includes('/git/') && !u.includes('/contents/')) {
             return jsonResponse(200, { default_branch: defaultBranch });
@@ -112,11 +119,11 @@ test('githubApiBase usa api.github.com no Cloud e /api/v3 no GHES', () => {
     process.env.GITHUB_SERVER_URL = 'https://github.com';
     assert.equal(githubApiBase(), 'https://api.github.com');
 
-    process.env.GITHUB_SERVER_URL = 'https://github.empresa.local';
-    assert.equal(githubApiBase(), 'https://github.empresa.local/api/v3');
+    process.env.GITHUB_SERVER_URL = 'https://ghes.example.com';
+    assert.equal(githubApiBase(), 'https://ghes.example.com/api/v3');
 
-    process.env.GITHUB_API_URL = 'https://github.empresa.local/api/v3';
-    assert.equal(githubApiBase(), 'https://github.empresa.local/api/v3');
+    process.env.GITHUB_API_URL = 'https://ghes.example.com/api/v3';
+    assert.equal(githubApiBase(), 'https://ghes.example.com/api/v3');
 
     process.env.GITHUB_API_URL = 'https://api.github.com';
     assert.equal(githubApiBase(), 'https://api.github.com');
@@ -134,10 +141,18 @@ test('isEmptyRepoConflict detecta repositório vazio', () => {
     assert.equal(isEmptyRepoConflict('is at aaa but expected bbb'), false);
 });
 
+test('isRulesetViolation detecta exigência de pull request', () => {
+    assert.equal(
+        isRulesetViolation('Repository rule violations found\nChanges must be made through a pull request.'),
+        true
+    );
+    assert.equal(isRulesetViolation('Update is not a fast forward'), false);
+});
+
 test('baselineContentPath monta org/repo/baseline.json', () => {
     assert.equal(
-        baselineContentPath('cogna-somos/test-node'),
-        'cogna-somos/test-node/baseline.json'
+        baselineContentPath('Afrika-Tecnologia/exemplo-app'),
+        'Afrika-Tecnologia/exemplo-app/baseline.json'
     );
 });
 
@@ -145,7 +160,7 @@ test('putBaseline ignora seed quando o arquivo já existe (GET 200)', async () =
     const { file } = writeResults();
     mockGitData({ fileExists: true });
 
-    const result = await putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file);
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, false);
     assert.equal(result.alreadyExists, true);
 });
@@ -154,7 +169,7 @@ test('putBaseline grava commit filho em cima do HEAD (README preservado)', async
     const { file } = writeResults();
     const calls = mockGitData({ fileExists: false, patchStatuses: [200] });
 
-    const result = await putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file);
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, true);
     assert.equal(result.alreadyExists, false);
     assert.ok(calls.some((c) => c.method === 'POST' && c.url.includes('/git/trees')));
@@ -170,7 +185,7 @@ test('putBaseline trata conflito como write-once só se o GET posterior achar o 
         patchStatuses: [422]
     });
 
-    const result = await putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file);
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, false);
     assert.equal(result.alreadyExists, true);
 });
@@ -184,7 +199,7 @@ test('putBaseline faz retry quando o fast-forward falha e o arquivo ainda não e
         patchStatuses: [422, 200]
     });
 
-    const result = await putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file);
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, true);
     assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
 });
@@ -199,8 +214,18 @@ test('putBaseline falha após retries se o conflito persistir e o arquivo contin
     });
 
     await assert.rejects(
-        () => putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file),
-        /O README\.md na raiz não precisa ser removido/
+        () => putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file),
+        (err) => {
+            assert.equal(
+                err.message,
+                fail('PUT_FAILED', {
+                    status: 422,
+                    store: `${STORE_ORG}/${STORE_REPO}/${SCAN_REPO}/baseline.json`,
+                    detail: 'Update is not a fast forward'
+                }).message
+            );
+            return true;
+        }
     );
 });
 
@@ -208,18 +233,51 @@ test('putBaseline no GHES usa /git/refs quando /git/ref retorna 404', async () =
     const { file } = writeResults();
     const calls = mockGitData({ fileExists: false, singularRef404: true, patchStatuses: [200] });
 
-    const result = await putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file);
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, true);
     assert.ok(calls.some((c) => c.method === 'GET' && /\/git\/ref\//.test(c.url) && !c.url.includes('/git/refs/')));
     assert.ok(calls.some((c) => c.method === 'GET' && c.url.includes('/git/refs/')));
 });
 
-test('putBaseline falha com mensagem clara se o repositório está vazio', async () => {
+test('putBaseline falha na hora se a ruleset exigir pull request', async () => {
+    const { file } = writeResults();
+    process.env.BASELINE_PUT_MAX_ATTEMPTS = '5';
+    const calls = mockGitData({
+        fileExists: false,
+        patchStatuses: [422],
+        patchErrorMessage: 'Repository rule violations found\nChanges must be made through a pull request.'
+    });
+
+    await assert.rejects(
+        () => putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file),
+        (err) => {
+            assert.equal(
+                err.message,
+                fail('RULESET_PR_REQUIRED', {
+                    store: `${STORE_ORG}/${STORE_REPO}/${SCAN_REPO}/baseline.json`
+                }).message
+            );
+            return true;
+        }
+    );
+    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 1);
+});
+
+test('putBaseline falha se o repositório está vazio', async () => {
     const { file } = writeResults();
     mockGitData({ fileExists: false, emptyRepo: true });
 
     await assert.rejects(
-        () => putBaseline('token', 'cogna-edu', 'Afrika-Veracode-Connect-Baseline', 'cogna-somos/test-node', file),
-        /o repositório está vazio/
+        () => putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file),
+        (err) => {
+            assert.equal(
+                err.message,
+                fail('EMPTY_REPO', {
+                    store: `${STORE_ORG}/${STORE_REPO}/${SCAN_REPO}/baseline.json`,
+                    detail: 'Git Repository is empty.'
+                }).message
+            );
+            return true;
+        }
     );
 });

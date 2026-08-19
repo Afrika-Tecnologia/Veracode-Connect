@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { message, fail } = require('./messages');
 
 /** Nome fixo do repositório de baseline (não configurável pelo consumidor). */
 const FIXED_BASELINE_REPO_NAME = 'Afrika-Veracode-Connect-Baseline';
@@ -118,9 +119,7 @@ async function resolveAccessToken() {
             }
         );
         if (!response.ok || !json?.token) {
-            throw new Error(
-                `Falha ao obter installation token do GitHub App (HTTP ${response.status}): ${text.slice(0, 300)}`
-            );
+            throw fail('APP_TOKEN_FAILED', { status: response.status, detail: text.slice(0, 300) });
         }
         return { token: json.token, source: 'github_app' };
     }
@@ -129,15 +128,13 @@ async function resolveAccessToken() {
         return { token: pat, source: 'pat' };
     }
 
-    throw new Error(
-        'baseline_mode=repo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).'
-    );
+    throw fail('AUTH_REQUIRED');
 }
 
 function baselineContentPath(scanRepository) {
     const parts = String(scanRepository || '').split('/');
     if (parts.length !== 2 || !parts[0] || !parts[1]) {
-        throw new Error(`repository_full_name inválido (esperado org/repo): '${scanRepository}'`);
+        throw fail('INVALID_REPOSITORY', { scanRepository });
     }
     return `${parts[0]}/${parts[1]}/baseline.json`;
 }
@@ -175,6 +172,12 @@ function isEmptyRepoConflict(detail) {
     return /repository is empty/i.test(String(detail || ''));
 }
 
+function isRulesetViolation(detail) {
+    return /repository rule violations|must be made through a pull request|protected branch/i.test(
+        String(detail || '')
+    );
+}
+
 async function githubJson(token, url, options = {}) {
     const method = options.method || 'GET';
     const { response, json, text } = await fetchJson(url, {
@@ -193,26 +196,21 @@ async function getFileExists(token, url) {
     const existing = await githubJson(token, url);
     if (existing.response.status === 200) {
         if (Array.isArray(existing.json) || existing.json?.type === 'dir') {
-            throw new Error(
-                'O caminho do baseline aponta para um diretório, não para um arquivo baseline.json.'
-            );
+            throw fail('PATH_IS_DIRECTORY');
         }
         return { exists: true, sha: existing.json?.sha };
     }
     if (existing.response.status === 404) {
         return { exists: false };
     }
-    throw new Error(
-        `Falha ao verificar existência do baseline (HTTP ${existing.response.status}): ${existing.text.slice(0, 300)}`
-    );
+    throw fail('EXISTS_CHECK_FAILED', {
+        status: existing.response.status,
+        detail: existing.text.slice(0, 300)
+    });
 }
 
 function emptyRepoError(storeLabel, detail) {
-    return new Error(
-        `Falha ao gravar baseline em ${storeLabel}: o repositório está vazio. ` +
-        'A Contents/Git Data API exige pelo menos um commit inicial (README.md na raiz). ' +
-        `O README NÃO bloqueia o seed — ele é o commit pai. Detalhe GitHub: ${detail}`
-    );
+    return fail('EMPTY_REPO', { store: storeLabel, detail });
 }
 
 function gitRefPath(branch) {
@@ -230,9 +228,7 @@ async function getGitRefHead(token, api, repoPath, branch) {
     if (refRes.response.status === 404) {
         refRes = await githubJson(token, pluralUrl);
         usedGetUrl = pluralUrl;
-        console.log(
-            `HEAD não encontrado em /git/ref (HTTP 404); usando /git/refs (compatível com GHES e github.com).`
-        );
+        console.log(message('success', 'GIT_REF_FALLBACK'));
     }
     if (Array.isArray(refRes.json) && refRes.json[0]) {
         refRes = { ...refRes, json: refRes.json[0] };
@@ -248,17 +244,22 @@ async function commitNewFileOnBranch(token, api, baselineOrg, baselineRepoName, 
         throw emptyRepoError(`${baselineOrg}/${baselineRepoName}/${relativePath}`, refDetail);
     }
     if (!refRes.response.ok || !refRes.json?.object?.sha) {
-        throw new Error(
-            `Falha ao ler HEAD de ${baselineOrg}/${baselineRepoName}@${branch} (HTTP ${refRes.response.status}): ${refDetail}`
-        );
+        throw fail('READ_HEAD_FAILED', {
+            repo: `${baselineOrg}/${baselineRepoName}`,
+            branch,
+            status: refRes.response.status,
+            detail: refDetail
+        });
     }
     const headSha = refRes.json.object.sha;
 
     const commitRes = await githubJson(token, `${api}/repos/${repoPath}/git/commits/${headSha}`);
     if (!commitRes.response.ok || !commitRes.json?.tree?.sha) {
-        throw new Error(
-            `Falha ao ler commit pai ${headSha} (HTTP ${commitRes.response.status}): ${githubErrorDetail(commitRes.json, commitRes.text)}`
-        );
+        throw fail('READ_PARENT_COMMIT_FAILED', {
+            sha: headSha,
+            status: commitRes.response.status,
+            detail: githubErrorDetail(commitRes.json, commitRes.text)
+        });
     }
     const baseTreeSha = commitRes.json.tree.sha;
 
@@ -267,9 +268,10 @@ async function commitNewFileOnBranch(token, api, baselineOrg, baselineRepoName, 
         body: { content: contentBase64, encoding: 'base64' }
     });
     if (!blobRes.response.ok || !blobRes.json?.sha) {
-        throw new Error(
-            `Falha ao criar blob do baseline (HTTP ${blobRes.response.status}): ${githubErrorDetail(blobRes.json, blobRes.text)}`
-        );
+        throw fail('CREATE_BLOB_FAILED', {
+            status: blobRes.response.status,
+            detail: githubErrorDetail(blobRes.json, blobRes.text)
+        });
     }
 
     const treeRes = await githubJson(token, `${api}/repos/${repoPath}/git/trees`, {
@@ -287,9 +289,10 @@ async function commitNewFileOnBranch(token, api, baselineOrg, baselineRepoName, 
         }
     });
     if (!treeRes.response.ok || !treeRes.json?.sha) {
-        throw new Error(
-            `Falha ao criar tree do baseline (HTTP ${treeRes.response.status}): ${githubErrorDetail(treeRes.json, treeRes.text)}`
-        );
+        throw fail('CREATE_TREE_FAILED', {
+            status: treeRes.response.status,
+            detail: githubErrorDetail(treeRes.json, treeRes.text)
+        });
     }
 
     const newCommitRes = await githubJson(token, `${api}/repos/${repoPath}/git/commits`, {
@@ -303,9 +306,10 @@ async function commitNewFileOnBranch(token, api, baselineOrg, baselineRepoName, 
         }
     });
     if (!newCommitRes.response.ok || !newCommitRes.json?.sha) {
-        throw new Error(
-            `Falha ao criar commit do baseline (HTTP ${newCommitRes.response.status}): ${githubErrorDetail(newCommitRes.json, newCommitRes.text)}`
-        );
+        throw fail('CREATE_COMMIT_FAILED', {
+            status: newCommitRes.response.status,
+            detail: githubErrorDetail(newCommitRes.json, newCommitRes.text)
+        });
     }
 
     const updateRef = await githubJson(token, patchRefUrl, {
@@ -346,21 +350,20 @@ async function checkRepoExists(token, baselineOrg, baselineRepoName) {
     );
 
     if (response.status === 404) {
-        throw new Error(
-            `Repositório de baseline '${baselineOrg}/${baselineRepoName}' não existe. ` +
-            'Crie o repositório privado antes de usar baseline_mode=repo.'
-        );
+        throw fail('REPO_NOT_FOUND', { repo: `${baselineOrg}/${baselineRepoName}` });
     }
     if (response.status === 401 || response.status === 403) {
-        throw new Error(
-            `Sem acesso ao repositório de baseline '${baselineOrg}/${baselineRepoName}' (HTTP ${response.status}). ` +
-            'Verifique o GitHub App/PAT (contents: read/write) e a instalação na org correta.'
-        );
+        throw fail('REPO_FORBIDDEN', {
+            repo: `${baselineOrg}/${baselineRepoName}`,
+            status: response.status
+        });
     }
     if (!response.ok) {
-        throw new Error(
-            `Falha ao verificar repositório de baseline '${baselineOrg}/${baselineRepoName}' (HTTP ${response.status}): ${text.slice(0, 300)}`
-        );
+        throw fail('REPO_CHECK_FAILED', {
+            repo: `${baselineOrg}/${baselineRepoName}`,
+            status: response.status,
+            detail: text.slice(0, 300)
+        });
     }
     return true;
 }
@@ -376,34 +379,36 @@ async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
     if (response.status === 404) {
         setOutput('has_baseline', 'false');
-        console.log(
-            `Consulta de baseline concluída: baseline não encontrado em ${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}.`
-        );
+        console.log(message('success', 'BASELINE_ABSENT', {
+            store: `${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}`
+        }));
         return { hasBaseline: false };
     }
     if (!response.ok) {
-        throw new Error(
-            `Falha ao obter baseline (HTTP ${response.status}) em ${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}: ${text.slice(0, 300)}`
-        );
+        throw fail('GET_BASELINE_FAILED', {
+            status: response.status,
+            store: `${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}`,
+            detail: text.slice(0, 300)
+        });
     }
 
     if (!json?.content) {
-        throw new Error('Resposta da Contents API sem campo content.');
+        throw fail('CONTENTS_MISSING');
     }
 
     const decoded = Buffer.from(String(json.content).replace(/\n/g, ''), 'base64').toString('utf8');
     fs.writeFileSync(outFile, decoded, 'utf8');
     setOutput('has_baseline', 'true');
-    console.log(
-        `Consulta de baseline concluída com sucesso: baseline encontrado em ${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}.`
-    );
-    console.log(`Arquivo local gravado: "${outFile}"`);
+    console.log(message('success', 'BASELINE_FOUND', {
+        store: `${baselineOrg}/${baselineRepoName}/${baselineContentPath(scanRepository)}`
+    }));
+    console.log(message('success', 'LOCAL_FILE', { file: outFile }));
     return { hasBaseline: true, sha: json.sha };
 }
 
 async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile) {
     if (!fs.existsSync(resultsFile)) {
-        throw new Error(`Arquivo de resultados não encontrado: ${resultsFile}`);
+        throw fail('RESULTS_FILE_MISSING', { file: resultsFile });
     }
 
     const api = githubApiBase();
@@ -415,22 +420,17 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     // Write-once: if already exists, do not overwrite
     const existing = await getFileExists(token, url);
     if (existing.exists) {
-        console.log(
-            `::warning::Baseline já existe em ${storeLabel}. Write-once: não será sobrescrito.`
-        );
+        console.log(`::warning::${message('warning', 'EXISTS_WRITE_ONCE', { store: storeLabel })}`);
         setOutput('baseline_seeded', 'false');
         setOutput('baseline_already_exists', 'true');
-        console.log(
-            `Gravação de baseline ignorada com sucesso (write-once): arquivo já existia em ${storeLabel}.`
-        );
         return { seeded: false, alreadyExists: true };
     }
 
     const defaultBranch = await getDefaultBranch(token, baselineOrg, baselineRepoName);
-    console.log(`API GitHub: "${api}" (mesmo fluxo em github.com, GHEC e GHES).`);
+    console.log(message('success', 'API', { api }));
     const appName = String(scanRepository).split('/')[1] || scanRepository;
     const raw = fs.readFileSync(resultsFile);
-    const message = `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
+    const commitMessage = `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
     const contentBase64 = raw.toString('base64');
 
     const maxAttempts = putMaxAttempts();
@@ -446,20 +446,17 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
             defaultBranch,
             relativePath,
             contentBase64,
-            message
+            commitMessage
         );
 
         if (result.response.ok) {
             setOutput('baseline_seeded', 'true');
             setOutput('baseline_already_exists', 'false');
-            console.log(`Baseline gravado com sucesso (write-once): ${storeLabel}`);
-            console.log(
-                `Commit em cima do HEAD existente (README e demais arquivos preservados). ` +
-                `Branch: "${defaultBranch}". Pai: ${result.headSha}. Novo commit: ${result.commitSha}.`
-            );
-            console.log(
-                `Commit autor/committer: "${BASELINE_COMMIT_IDENTITY.name}" <${BASELINE_COMMIT_IDENTITY.email}>`
-            );
+            console.log(message('success', 'BASELINE_WRITTEN', {
+                store: storeLabel,
+                branch: defaultBranch,
+                sha: result.commitSha
+            }));
             return { seeded: true, alreadyExists: false };
         }
 
@@ -469,44 +466,48 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
             throw emptyRepoError(storeLabel, lastDetail);
         }
 
+        if (isRulesetViolation(lastDetail)) {
+            throw fail('RULESET_PR_REQUIRED', { store: storeLabel });
+        }
+
         const verified = await getFileExists(token, url);
         if (verified.exists) {
-            console.log(
-                `::warning::Baseline já existia no momento do seed (HTTP ${result.response.status}). Write-once: mantido o arquivo existente.`
-            );
+            console.log(`::warning::${message('warning', 'EXISTS_AFTER_HTTP', {
+                status: result.response.status,
+                store: storeLabel
+            })}`);
             setOutput('baseline_seeded', 'false');
             setOutput('baseline_already_exists', 'true');
-            console.log(
-                `Gravação de baseline ignorada (corrida write-once): mantido o arquivo existente em ${storeLabel}.`
-            );
             return { seeded: false, alreadyExists: true };
         }
 
         const retriable = result.response.status === 409
-            || result.response.status === 422
             || /not a fast forward/i.test(lastDetail);
 
         if (retriable && attempt < maxAttempts) {
             const wait = retryMs * attempt;
-            console.log(
-                `Conflito ao atualizar ${defaultBranch} (HTTP ${result.response.status}): ${lastDetail}. ` +
-                `O arquivo ${relativePath} ainda não existe — retry ${attempt}/${maxAttempts} em ${wait}ms ` +
-                '(HEAD avançou; o seed será refeito em cima do commit mais recente, sem apagar o README).'
-            );
+            console.log(message('warning', 'RETRY', {
+                attempt,
+                max: maxAttempts,
+                status: result.response.status,
+                detail: lastDetail
+            }));
             await sleep(wait);
             continue;
         }
 
-        throw new Error(
-            `Falha ao gravar baseline (HTTP ${result.response.status}) em ${storeLabel}: ${lastDetail}. ` +
-            'O README.md na raiz não precisa ser removido — o seed adiciona {org}/{repo}/baseline.json em um commit filho.'
-        );
+        throw fail('PUT_FAILED', {
+            status: result.response.status,
+            store: storeLabel,
+            detail: lastDetail
+        });
     }
 
-    throw new Error(
-        `Falha ao gravar baseline após ${maxAttempts} tentativas em ${storeLabel}: ${lastDetail}. ` +
-        'O arquivo não foi encontrado após o conflito; o seed NÃO foi gravado.'
-    );
+    throw fail('PUT_RETRIES_EXHAUSTED', {
+        attempts: maxAttempts,
+        store: storeLabel,
+        detail: lastDetail
+    });
 }
 
 async function main() {
@@ -518,7 +519,7 @@ async function main() {
     const outFile = (process.env.BASELINE_OUT_FILE || 'baseline.json').trim();
 
     if (!command) {
-        throw new Error('Uso: node github-baseline.js <resolve-token|check-repo|get-baseline|put-baseline>');
+        throw fail('CLI_USAGE');
     }
 
     if (command === 'resolve-token') {
@@ -532,8 +533,8 @@ async function main() {
         // For composite steps that need the token in env without logging: write to a local file
         const tokenFile = process.env.TOKEN_FILE || path.join(process.cwd(), '.baseline-github-token');
         fs.writeFileSync(tokenFile, token, { encoding: 'utf8', mode: 0o600 });
-        process.stdout.write(`Autenticação resolvida com sucesso via: "${source}"\n`);
-        process.stdout.write(`Arquivo de token escrito em: "${tokenFile}"\n`);
+        process.stdout.write(`${message('success', 'AUTH', { source })}\n`);
+        process.stdout.write(`${message('success', 'TOKEN_FILE', { file: tokenFile })}\n`);
         if (out) {
             fs.appendFileSync(out, `token_file=${tokenFile}\n`);
         }
@@ -541,25 +542,21 @@ async function main() {
     }
 
     const { token, source } = await resolveAccessToken();
-    console.log(`Autenticação no GitHub concluída com sucesso via: "${source}"`);
+    console.log(message('success', 'AUTH', { source }));
 
     if (!baselineOrg) {
-        throw new Error(
-            "baseline_org é obrigatório. A organização deve conter o repositório fixo 'Afrika-Veracode-Connect-Baseline'."
-        );
+        throw fail('BASELINE_ORG_REQUIRED');
     }
 
     if (command === 'check-repo') {
         await checkRepoExists(token, baselineOrg, baselineRepoName);
-        console.log(
-            `Repositório de baseline confirmado com sucesso: "${baselineOrg}/${baselineRepoName}"`
-        );
+        console.log(message('success', 'REPO', { repo: `${baselineOrg}/${baselineRepoName}` }));
         return;
     }
 
     if (command === 'get-baseline') {
         if (!scanRepository) {
-            throw new Error('SCAN_REPOSITORY (org/repo) é obrigatório.');
+            throw fail('SCAN_REPOSITORY_REQUIRED');
         }
         await getBaseline(token, baselineOrg, baselineRepoName, scanRepository, outFile);
         return;
@@ -567,13 +564,13 @@ async function main() {
 
     if (command === 'put-baseline') {
         if (!scanRepository) {
-            throw new Error('SCAN_REPOSITORY (org/repo) é obrigatório.');
+            throw fail('SCAN_REPOSITORY_REQUIRED');
         }
         await putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile);
         return;
     }
 
-    throw new Error(`Comando desconhecido: ${command}`);
+    throw fail('UNKNOWN_COMMAND', { command });
 }
 
 if (require.main === module) {
@@ -594,6 +591,7 @@ module.exports = {
     githubApiBase,
     githubErrorDetail,
     isEmptyRepoConflict,
+    isRulesetViolation,
     BASELINE_COMMIT_IDENTITY,
     FIXED_BASELINE_REPO_NAME
 };

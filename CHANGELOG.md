@@ -4,7 +4,27 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 
 O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.6] - 2026-08-19
+
+### Changed
+
+- Logs e erros do Repo Baseline em tom técnico (`auth=`, `api=`, `baseline gravado: path sha=`). HTTP 422 de ruleset (exige PR) falha na hora, sem retry.
+- Catálogo único de mensagens do Repo Baseline em `internal/repo-baseline-flow/messages.js` (Node `require` + CLI para steps bash).
+- Catálogos de mensagens (`messages.js`) em todas as sub-actions: validate-inputs, auto-packager, veracode-sca, veracode-iac, veracode-upload-scan, portal-afrika-baseline-flow, pipeline-only e build-gate. Erros, warnings e logs de sucesso centralizados por chave — mesmo padrão de `repo-baseline-flow/messages.js`.
+
+### Added
+
+- Sub-action `internal/ensure-runtime`: garante `node` (24.x, binário oficial nodejs.org), `jq` (binário direto do GitHub), `curl` e `git` antes de qualquer step. Suporta `apt-get`, `yum`, `apk` e download direto (runners sem package manager). Roda como step 0 no orquestrador, eliminando instalações avulsas de `jq` nas sub-actions.
+
+- Dependências Veracode atualizadas para Node.js 24:
+  - `veracode/veracode-sca` `v2.1.19` → `v2.1.20`
+  - `veracode/uploadandscan-action` `v0.2.2` → `v0.2.3`
+  - `veracode/Veracode-pipeline-scan-action` `v1.0.23`, `veracode/veracode-flaws-to-issues` `v2.2.26` e `veracode/container_iac_secrets_scanning` `v1.0.8` já usavam Node.js 24 nos SHAs pinados.
+- Auto Packager: cria `~/.veracode/veracode.yml` vazio se ausente (elimina warning `failed to read config file` da Veracode CLI em runners limpos).
+
+### Fixed
+
+- Testes e README do Repo Baseline usam apenas fixtures `Afrika-Tecnologia`.
 
 ## [1.3.5] - 2026-08-18
 

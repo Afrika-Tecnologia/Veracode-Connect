@@ -73,7 +73,7 @@ Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub co
 
 O nome do repositório de store é **fixo**: `Afrika-Veracode-Connect-Baseline`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
 
-O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed **não substitui** o README — cria um commit filho que adiciona `{org-do-app}/{repo-do-app}/baseline.json` na árvore existente. Caminhos diferentes não colidem (`README.md` ≠ `cogna-somos/test-node/baseline.json`).
+O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed adiciona `{org-do-app}/{repo-do-app}/baseline.json` (ex.: `Afrika-Tecnologia/exemplo-app/baseline.json`) sem substituir o README.
 
 Auth (escolha uma):
 

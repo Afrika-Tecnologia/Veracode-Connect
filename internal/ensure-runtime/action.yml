@@ -1,0 +1,160 @@
+name: 'Verificar pré-requisitos de runtime'
+description: 'Garante que node (24.x), jq, curl e git estão disponíveis no runner. Baixa automaticamente o que estiver ausente.'
+
+inputs:
+  node_version:
+    description: 'Versão major do Node.js a garantir (ex.: 24).'
+    required: false
+    default: '24'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Garantir curl (bootstrap)
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v curl >/dev/null 2>&1; then
+          exit 0
+        fi
+        echo "curl ausente — instalando..."
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update -y -qq && sudo apt-get install -y -qq curl >/dev/null 2>&1
+        elif command -v yum >/dev/null 2>&1; then
+          sudo yum install -y curl >/dev/null 2>&1
+        elif command -v apk >/dev/null 2>&1; then
+          sudo apk add --no-cache curl >/dev/null 2>&1
+        elif command -v wget >/dev/null 2>&1; then
+          echo "curl indisponível; wget presente — continuando com wget."
+        else
+          echo "::error::Impossível baixar dependências: nem curl nem wget disponíveis no runner."
+          exit 1
+        fi
+
+    - name: 'Garantir Node.js ${{ inputs.node_version }}.x'
+      shell: bash
+      env:
+        NODE_MAJOR: ${{ inputs.node_version }}
+      run: |
+        set -euo pipefail
+        echo "::group::Garantir Node.js ${NODE_MAJOR}.x"
+
+        needs_install=false
+        if command -v node >/dev/null 2>&1; then
+          current="$(node -v 2>/dev/null || echo 'v0')"
+          current_major="${current#v}"
+          current_major="${current_major%%.*}"
+          if [ "${current_major}" -ge "${NODE_MAJOR}" ] 2>/dev/null; then
+            echo "node ok: ${current}"
+          else
+            echo "node ${current} < v${NODE_MAJOR} — atualizando..."
+            needs_install=true
+          fi
+        else
+          echo "node ausente — instalando..."
+          needs_install=true
+        fi
+
+        if [ "${needs_install}" = "true" ]; then
+          ARCH="$(uname -m)"
+          case "${ARCH}" in
+            x86_64)  NODE_ARCH="x64" ;;
+            aarch64) NODE_ARCH="arm64" ;;
+            armv7l)  NODE_ARCH="armv7l" ;;
+            *)       NODE_ARCH="${ARCH}" ;;
+          esac
+
+          NODE_DIST="node-v${NODE_MAJOR}.0.0-linux-${NODE_ARCH}"
+          NODE_URL="https://nodejs.org/dist/latest-v${NODE_MAJOR}.x/"
+
+          INDEX="$(curl -fsSL "${NODE_URL}" 2>/dev/null || wget -qO- "${NODE_URL}" 2>/dev/null || true)"
+          TARBALL="$(echo "${INDEX}" | grep -oP "node-v${NODE_MAJOR}\.\d+\.\d+-linux-${NODE_ARCH}\.tar\.xz" | head -1 || true)"
+
+          if [ -z "${TARBALL}" ]; then
+            TARBALL="$(echo "${INDEX}" | grep -oP "node-v${NODE_MAJOR}\.\d+\.\d+-linux-${NODE_ARCH}\.tar\.gz" | head -1 || true)"
+          fi
+
+          if [ -z "${TARBALL}" ]; then
+            echo "::error::Não foi possível encontrar binário do Node.js ${NODE_MAJOR}.x para ${NODE_ARCH}."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          DOWNLOAD_URL="${NODE_URL}${TARBALL}"
+          INSTALL_DIR="/usr/local/lib/nodejs"
+          sudo mkdir -p "${INSTALL_DIR}"
+
+          echo "Baixando ${DOWNLOAD_URL}..."
+          if echo "${TARBALL}" | grep -q '\.tar\.xz$'; then
+            curl -fsSL "${DOWNLOAD_URL}" | sudo tar -xJ -C "${INSTALL_DIR}" --strip-components=1
+          else
+            curl -fsSL "${DOWNLOAD_URL}" | sudo tar -xz -C "${INSTALL_DIR}" --strip-components=1
+          fi
+
+          if [ ! -x "${INSTALL_DIR}/bin/node" ]; then
+            echo "::error::Instalação do Node.js falhou: binário não encontrado em ${INSTALL_DIR}/bin/node."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "${INSTALL_DIR}/bin" >> "${GITHUB_PATH}"
+          export PATH="${INSTALL_DIR}/bin:${PATH}"
+          echo "node instalado: $(node -v)"
+        fi
+
+        echo "::endgroup::"
+
+    - name: Garantir jq, git
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Garantir jq, git"
+
+        pkg_install() {
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -y -qq && sudo apt-get install -y -qq "$@" >/dev/null 2>&1
+          elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y "$@" >/dev/null 2>&1
+          elif command -v apk >/dev/null 2>&1; then
+            sudo apk add --no-cache "$@" >/dev/null 2>&1
+          else
+            return 1
+          fi
+        }
+
+        install_jq_binary() {
+          ARCH="$(uname -m)"
+          case "${ARCH}" in
+            x86_64)  JQ_ARCH="jq-linux-amd64" ;;
+            aarch64) JQ_ARCH="jq-linux-arm64" ;;
+            *)       return 1 ;;
+          esac
+          JQ_URL="https://github.com/jqlang/jq/releases/latest/download/${JQ_ARCH}"
+          echo "jq: baixando binário de ${JQ_URL}..."
+          sudo curl -fsSL -o /usr/local/bin/jq "${JQ_URL}" && sudo chmod +x /usr/local/bin/jq
+        }
+
+        for cmd in jq git; do
+          if command -v "${cmd}" >/dev/null 2>&1; then
+            echo "${cmd} ok: $("${cmd}" --version 2>&1 | head -1)"
+          else
+            echo "${cmd} ausente — instalando..."
+            if pkg_install "${cmd}"; then
+              echo "${cmd} instalado: $("${cmd}" --version 2>&1 | head -1)"
+            elif [ "${cmd}" = "jq" ]; then
+              if install_jq_binary; then
+                echo "jq instalado (binário): $(jq --version 2>&1 | head -1)"
+              else
+                echo "::error::Falha ao instalar jq. Runner sem package manager e arquitetura não suportada para download direto."
+                echo "::endgroup::"
+                exit 1
+              fi
+            else
+              echo "::error::Falha ao instalar ${cmd}. Nenhum package manager disponível no runner."
+              echo "::endgroup::"
+              exit 1
+            fi
+          fi
+        done
+
+        echo "::endgroup::"

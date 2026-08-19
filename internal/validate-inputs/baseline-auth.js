@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const { message, fail } = require('./messages');
 
 function githubApiBase() {
     if (process.env.GITHUB_API_URL) {
@@ -77,9 +78,7 @@ async function resolveAccessToken() {
             json = null;
         }
         if (!response.ok || !json?.token) {
-            throw new Error(
-                `Falha ao obter installation token do GitHub App (HTTP ${response.status}): ${String(text).slice(0, 300)}`
-            );
+            throw fail('APP_TOKEN_FAILED', { status: response.status, detail: String(text).slice(0, 300) });
         }
         return json.token;
     }
@@ -88,9 +87,7 @@ async function resolveAccessToken() {
         return pat;
     }
 
-    throw new Error(
-        'baseline_mode=repo requer GitHub App (baseline_github_app_id + private_key + installation_id) ou baseline_github_token (PAT).'
-    );
+    throw fail('AUTH_REQUIRED');
 }
 
 async function assertBaselineRepoExists(token, baselineOrg, baselineRepoName) {
@@ -107,22 +104,14 @@ async function assertBaselineRepoExists(token, baselineOrg, baselineRepoName) {
     );
 
     if (response.status === 404) {
-        throw new Error(
-            `Repositório de baseline '${baselineOrg}/${baselineRepoName}' não existe. ` +
-            'Crie o repositório privado antes de usar baseline_mode=repo.'
-        );
+        throw fail('BASELINE_REPO_NOT_FOUND', { repo: `${baselineOrg}/${baselineRepoName}` });
     }
     if (response.status === 401 || response.status === 403) {
-        throw new Error(
-            `Sem acesso ao repositório de baseline '${baselineOrg}/${baselineRepoName}' (HTTP ${response.status}). ` +
-            'Verifique o GitHub App/PAT (contents: read/write) e a instalação na org correta.'
-        );
+        throw fail('BASELINE_REPO_FORBIDDEN', { repo: `${baselineOrg}/${baselineRepoName}`, status: response.status });
     }
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(
-            `Falha ao verificar repositório de baseline '${baselineOrg}/${baselineRepoName}' (HTTP ${response.status}): ${text.slice(0, 300)}`
-        );
+        throw fail('BASELINE_REPO_CHECK_FAILED', { repo: `${baselineOrg}/${baselineRepoName}`, status: response.status, detail: text.slice(0, 300) });
     }
 }
 
@@ -130,7 +119,7 @@ function resolveBaselineMode(env) {
     const rawMode = (env.BASELINE_MODE || 'none').trim().toLowerCase() || 'none';
 
     if (!['none', 'portal_afrika', 'repo'].includes(rawMode)) {
-        return { error: `baseline_mode inválido: '${env.BASELINE_MODE}'. Use 'none', 'portal_afrika' ou 'repo'.` };
+        return { error: message('error', 'BASELINE_MODE_INVALID', { mode: env.BASELINE_MODE }) };
     }
 
     return { mode: rawMode };

@@ -48,9 +48,9 @@ runs:
           echo "::group::Preparar scan file (Auto Packager)"
 
           if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::warning::Auto Packager está ativo, mas scan_file foi fornecido. Usando o arquivo informado em vez de empacotar."
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SCAN_FILE_OVERRIDES_PACKAGER)"
             echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
-            echo "Scan file definido com sucesso: \"${INPUT_SCAN_FILE}\" (Auto Packager ignorado — arquivo já informado)"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_SET "file=${INPUT_SCAN_FILE}")"
             echo "::endgroup::"
             exit 0
           fi
@@ -58,6 +58,9 @@ runs:
           if [ "${{ steps.cli_cache.outputs.cache-hit }}" != "true" ] && ! command -v veracode >/dev/null 2>&1; then
             curl -fsSL --connect-timeout 15 --max-time 60 https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION="${CLI_VERSION}" sh
           fi
+
+          mkdir -p "${HOME}/.veracode"
+          [ -f "${HOME}/.veracode/veracode.yml" ] || touch "${HOME}/.veracode/veracode.yml"
 
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
           if command -v veracode >/dev/null 2>&1; then
@@ -69,7 +72,7 @@ runs:
             VERACODE_CMD="${PWD}/veracode"
             echo "${PWD}" >> "$GITHUB_PATH"
           else
-            echo "::error::Falha ao preparar o scan file: Veracode CLI instalada, mas o binário 'veracode' não foi encontrado no PATH/workspace."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error CLI_NOT_FOUND)"
             echo "::endgroup::"
             exit 1
           fi
@@ -83,7 +86,7 @@ runs:
           set -e
 
           if [ "${PACKAGE_EXIT}" -ne 0 ]; then
-            echo "::warning::'veracode package' retornou exit code ${PACKAGE_EXIT}; tentando fallback."
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning PACKAGE_EXIT_FALLBACK "code=${PACKAGE_EXIT}")"
           fi
 
           ZIP_FILE="$(sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' veracode_package.log | tail -n 1 || true)"
@@ -96,7 +99,7 @@ runs:
             fi
             shopt -u nullglob
             if [ ${#zips[@]} -eq 0 ]; then
-              echo "::warning::Nenhum arquivo .zip gerado pela Veracode CLI. Acionando fallback (TheDoctor0/zip-release)."
+              echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_ZIP_FALLBACK)"
               echo "needs_fallback=true" >> "$GITHUB_OUTPUT"
               echo "Auto Packager não gerou zip — fallback será usado."
               echo "::endgroup::"
@@ -106,7 +109,7 @@ runs:
           fi
 
           if [ ! -f "${ZIP_FILE}" ]; then
-            echo "::error::Falha no Auto Packager: arquivo '${ZIP_FILE}' não encontrado após o empacotamento."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error PACKAGE_FILE_MISSING "file=${ZIP_FILE}")"
             echo "::endgroup::"
             exit 1
           fi
@@ -118,25 +121,25 @@ runs:
           fi
 
           echo "scan_file=${TARGET}" >> "$GITHUB_OUTPUT"
-          echo "Scan file preparado com sucesso via Auto Packager: \"${TARGET}\" (origem: ${ZIP_FILE})"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_PACKAGED "file=${TARGET}" "source=${ZIP_FILE}")"
           ls -lh "${TARGET}" || true
           echo "::endgroup::"
         else
           echo "::group::Preparar scan file (arquivo informado)"
           if [ -z "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::Falha ao preparar o scan file: scan_file não foi fornecido e enable_auto_packager está 'false'."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SCAN_FILE_NOT_PROVIDED)"
             echo "::endgroup::"
             exit 1
           fi
 
           if [ ! -f "${INPUT_SCAN_FILE}" ]; then
-            echo "::error::Falha ao preparar o scan file: arquivo '${INPUT_SCAN_FILE}' não encontrado."
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SCAN_FILE_NOT_FOUND "file=${INPUT_SCAN_FILE}")"
             echo "::endgroup::"
             exit 1
           fi
 
           echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
-          echo "Scan file informado validado com sucesso: \"${INPUT_SCAN_FILE}\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_VALIDATED "file=${INPUT_SCAN_FILE}")"
           echo "::endgroup::"
         fi
 
@@ -154,12 +157,12 @@ runs:
       run: |
         echo "::group::Concluir Fallback ZIP"
         if [ ! -f "app.zip" ]; then
-          echo "::error::Falha no fallback ZIP: app.zip não foi criado pelo zip-release."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FALLBACK_ZIP_FAILED)"
           echo "::endgroup::"
           exit 1
         fi
         echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
-        echo "Fallback ZIP concluído com sucesso: \"app.zip\" (via TheDoctor0/zip-release)"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FALLBACK_ZIP_OK)"
         ls -lh app.zip || true
         echo "::endgroup::"
       id: fallback_output
@@ -175,10 +178,10 @@ runs:
         echo "::group::Consolidar saída do scan file"
         if [ -n "${FALL_FILE:-}" ]; then
           echo "scan_file=${FALL_FILE}" >> "$GITHUB_OUTPUT"
-          echo "Scan file consolidado com sucesso: \"${FALL_FILE}\" (origem: fallback ZIP)"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${FALL_FILE}" "source=fallback ZIP")"
         else
           echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
-          echo "Scan file consolidado com sucesso: \"${PREP_FILE}\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${PREP_FILE}" "source=prepare")"
         fi
         echo "::endgroup::"
 

@@ -37,11 +37,10 @@ test('CLI imprime mensagem interpolada em stdout', () => {
         cli,
         'success',
         'FILEPATH_RESOLVED',
-        'path=/tmp/app.zip',
-        'dir=/tmp/.veracode-upload'
+        'path=/tmp/app.zip'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0);
-    assert.equal(result.stdout, 'filepath=/tmp/app.zip upload_dir=/tmp/.veracode-upload');
+    assert.equal(result.stdout, 'filepath=/tmp/app.zip');
 });
 
 test('CLI falha com chave desconhecida', () => {

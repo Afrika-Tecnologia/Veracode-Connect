@@ -4,6 +4,12 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 
 O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [1.3.7] - 2026-08-24
+
+### Fixed
+
+- Upload & Scan: passa o caminho do **arquivo** `.zip` (absoluto) para `veracode/uploadandscan-action`, como a action espera (`stats.isFile()` → `-filepath` direto). O workaround de diretório isolado (`.veracode-upload`) batia no ramo `isDirectory()`, que concatena `filepath + file` sem `/` e gerava path inválido (`.../.veracode-uploadveracode-scan.zip` → Invalid input / Cannot prescan).
+
 ## [1.3.6] - 2026-08-19
 
 ### Changed

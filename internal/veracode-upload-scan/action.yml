@@ -114,16 +114,14 @@ runs:
           exit 1
         fi
 
-        # veracode/uploadandscan-action (Node.js) faz readdir() em filepath.
-        # Passar um .zip causa ENOTDIR. Isolar o artefato num diretório.
-        UPLOAD_DIR="${GITHUB_WORKSPACE}/.veracode-upload"
-        ARTIFACT_NAME="$(basename "${ABS_PATH}")"
-        mkdir -p "${UPLOAD_DIR}"
-        cp "${ABS_PATH}" "${UPLOAD_DIR}/${ARTIFACT_NAME}"
-
-        echo "filepath=${UPLOAD_DIR}" >> "$GITHUB_OUTPUT"
+        # veracode/uploadandscan-action (src/services/scan-service.js uploadFile):
+        # - se filepath for ARQUIVO: passa o path direto ao Java wrapper (caminho esperado)
+        # - se for DIRETÓRIO: faz readdir e concatena filepath+file SEM barra
+        #   (bug upstream: sem "/" no fim vira ".veracode-uploadveracode-scan.zip")
+        # Docs/exemplos da Veracode usam arquivo: filepath: 'app.zip' | 'app/target/app.war'
+        echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
         echo "artifact_path=${ABS_PATH}" >> "$GITHUB_OUTPUT"
-        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ABS_PATH}" "dir=${UPLOAD_DIR}")"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ABS_PATH}")"
         echo "::endgroup::"
 
     - name: Veracode Upload & Scan

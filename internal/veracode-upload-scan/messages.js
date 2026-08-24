@@ -29,7 +29,7 @@ const warnings = {};
 
 const success = {
     PREP_OK: 'upload_scan preparado: sandbox={sandbox} mode={mode} branch={branch}',
-    FILEPATH_RESOLVED: 'filepath={path} upload_dir={dir}'
+    FILEPATH_RESOLVED: 'filepath={path}'
 };
 
 const catalogs = {

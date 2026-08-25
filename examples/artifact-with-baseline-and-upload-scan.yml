@@ -53,6 +53,7 @@ jobs:
           scan_file: veracode-artifact/app.zip
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'
+          veracode_sandbox_name: 'dev'
           policy_fail: 'false'
 
 

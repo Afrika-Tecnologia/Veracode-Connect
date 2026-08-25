@@ -70,6 +70,10 @@ inputs:
     description: 'Upload & Scan: sandbox (true), app principal (false) ou omitido/vazio (auto — default branch sem sandbox, demais branches com sandbox).'
     required: false
     default: ''
+  veracode_sandbox_name:
+    description: 'Nome da sandbox no Veracode (mapeado para sandboxname do uploadandscan-action). Obrigatório quando veracode_sandbox=true. Em modo auto, se omitido usa "{branch} - {appname}" (até 80 chars).'
+    required: false
+    default: ''
   scan_file:
     description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager está desativado.'
     required: false
@@ -162,6 +166,8 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         create_issues: ${{ inputs.create_issues }}
+        veracode_sandbox: ${{ inputs.veracode_sandbox }}
+        veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
         baseline_org: ${{ inputs.baseline_org }}
         baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
         baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
@@ -283,6 +289,7 @@ runs:
         veracode_api_key: ${{ inputs.veracode_api_key }}
         repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
+        veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
         filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
         veracode_appname: ${{ inputs.veracode_appname }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}

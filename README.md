@@ -50,6 +50,7 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `create_issues` | nao | `'false'` | Cria issues no repositório: SCA (`veracode-sca` → `create-issues`) e Pipeline Scan (`veracode-flaws-to-issues`). Requer `issues: write` no workflow. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
 | `veracode_sandbox` | nao | *(vazio — auto)* | Omitido: branch default → app principal; outras branches → sandbox. `'true'`/`'false'` forçam o modo. |
+| `veracode_sandbox_name` | nao* | - | Obrigatório quando `veracode_sandbox: 'true'`. Mapeado para `sandboxname` do Upload & Scan (até 80 chars). Em modo auto, se omitido usa `{branch} - {appname}`. |
 | `enable_sca` | nao | `'false'` | Ativa SCA (via `veracode/veracode-sca`). |
 | `veracode_sca_token` | nao* | - | Obrigatorio na pratica quando `enable_sca: 'true'`. |
 | `enable_iac` | nao | `'false'` | Ativa IaC/Secrets (directory scan). |
@@ -197,7 +198,7 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 - nao espera o scan finalizar (submit assincrono; `failbuild: false` — trava final via `build-gate`)
 - `deleteincompletescan: true`
 - sandbox (quando ativo): auto por branch (default branch → app principal; demais → sandbox) ou `'true'`/`'false'` explicito
-- `sandboxname` (com sandbox): `{branch} - {appname}` (ate 80 chars)
+- `sandboxname` (com sandbox): `veracode_sandbox_name` se informado; senão `{branch} - {appname}` (até 80 chars). Com `veracode_sandbox: 'true'`, `veracode_sandbox_name` é obrigatório.
 - `version`: `Scan via Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
 - `platformType`: auto (`CLOUD` em github.com, `ENTERPRISE` em GHES)
 

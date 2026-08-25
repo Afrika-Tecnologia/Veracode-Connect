@@ -26,6 +26,8 @@ const errors = {
     BASELINE_AUTH_REQUIRED: 'baseline_mode=repo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     BASELINE_APP_INCOMPLETE: 'GitHub App incompleto: informe baseline_github_app_id, baseline_github_app_private_key e baseline_github_app_installation_id (ou use baseline_github_token).',
     SCAN_FILE_REQUIRED: "scan_file é obrigatório quando auto_packager está desativado e pipeline/upload/baseline estão ativos.",
+    SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
+    SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name.',
     BASELINE_MODE_INVALID: "baseline_mode inválido: '{mode}'. Use 'none', 'portal_afrika' ou 'repo'.",
     ISSUES_TOKEN_REQUIRED: 'create_issues=true requer GITHUB_TOKEN no contexto do job.',
     ISSUES_REPO_REQUIRED: 'create_issues=true requer github.repository no contexto do workflow.',

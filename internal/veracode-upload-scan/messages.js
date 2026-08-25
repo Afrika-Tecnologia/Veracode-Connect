@@ -22,6 +22,7 @@ function format(template, vars = {}) {
 
 const errors = {
     SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
+    SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name (sandboxname).',
     FILEPATH_NOT_FOUND: 'Falha ao resolver filepath: arquivo não encontrado: {path}'
 };
 

@@ -4,6 +4,12 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 
 O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [1.3.8] - 2026-08-25
+
+### Added
+
+- Input `veracode_sandbox_name`: nome da sandbox no Upload & Scan (`sandboxname` na action Veracode). Obrigatório quando `veracode_sandbox: 'true'`; em modo auto, se omitido mantém o fallback `{branch} - {appname}` (até 80 chars).
+
 ## [1.3.7] - 2026-08-24
 
 ### Fixed

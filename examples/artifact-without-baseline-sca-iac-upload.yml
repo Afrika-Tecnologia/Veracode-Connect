@@ -52,6 +52,7 @@ jobs:
           baseline_mode: 'none'
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'
+          veracode_sandbox_name: 'dev'
           policy_fail: 'false'
           enable_sca: 'true'
           veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}

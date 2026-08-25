@@ -91,6 +91,33 @@ test('validate-inputs falha quando baseline_mode=repo sem credenciais', () => {
     assert.match(stdout, /baseline_mode=repo requer GitHub App/);
 });
 
+test('validate-inputs falha quando veracode_sandbox=true sem veracode_sandbox_name', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            VERACODE_SANDBOX: 'true'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /veracode_sandbox=true requer veracode_sandbox_name\./);
+});
+
+test('validate-inputs passa quando veracode_sandbox=true com veracode_sandbox_name', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            VERACODE_SANDBOX: 'true',
+            VERACODE_SANDBOX_NAME: 'dev'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /validação=ok/);
+});
+
 test('resolveBaselineMode: default e none', () => {
     const result = resolveBaselineMode({});
     assert.equal(result.mode, 'none');

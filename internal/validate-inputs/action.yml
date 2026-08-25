@@ -64,6 +64,14 @@ inputs:
     description: 'PAT fallback para o repo de baseline.'
     required: false
     default: ''
+  veracode_sandbox:
+    description: 'Upload & Scan sandbox: true, false ou vazio (auto).'
+    required: false
+    default: ''
+  veracode_sandbox_name:
+    description: 'Nome da sandbox (obrigatório quando veracode_sandbox=true).'
+    required: false
+    default: ''
 
 outputs:
   baseline_mode:
@@ -101,6 +109,8 @@ runs:
         BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
         BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
         BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        VERACODE_SANDBOX: ${{ inputs.veracode_sandbox }}
+        VERACODE_SANDBOX_NAME: ${{ inputs.veracode_sandbox_name }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

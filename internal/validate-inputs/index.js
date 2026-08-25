@@ -26,7 +26,9 @@ const {
     BASELINE_GITHUB_APP_ID,
     BASELINE_GITHUB_APP_PRIVATE_KEY,
     BASELINE_GITHUB_APP_INSTALLATION_ID,
-    BASELINE_GITHUB_TOKEN
+    BASELINE_GITHUB_TOKEN,
+    VERACODE_SANDBOX,
+    VERACODE_SANDBOX_NAME
 } = process.env;
 
 console.log("::group::Validar inputs condicionais");
@@ -99,6 +101,15 @@ const needsScanFile =
 
 if (needsScanFile && ENABLE_AUTO_PACKAGER !== 'true' && !SCAN_FILE) {
     erros.push(message('error', 'SCAN_FILE_REQUIRED'));
+}
+
+const sandboxFlag = (VERACODE_SANDBOX || '').trim();
+const sandboxName = (VERACODE_SANDBOX_NAME || '').trim();
+if (sandboxFlag && sandboxFlag !== 'true' && sandboxFlag !== 'false') {
+    erros.push(message('error', 'SANDBOX_INVALID'));
+}
+if (sandboxFlag === 'true' && !sandboxName) {
+    erros.push(message('error', 'SANDBOX_NAME_REQUIRED'));
 }
 
 function failValidation() {

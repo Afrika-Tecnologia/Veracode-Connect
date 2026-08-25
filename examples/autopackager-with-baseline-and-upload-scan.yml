@@ -24,4 +24,5 @@ jobs:
           enable_auto_packager: 'true'
           enable_upload_scan: 'true'
           veracode_sandbox: 'true'
+          veracode_sandbox_name: 'dev'
           policy_fail: 'false'

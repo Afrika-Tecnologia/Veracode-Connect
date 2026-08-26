@@ -35,7 +35,11 @@ const warnings = {
 };
 
 const success = {
-    PIPELINE_STATUS_SET: 'pipeline_status={status}'
+    PIPELINE_STATUS_SET: 'pipeline_status={status}',
+    ARTIFACT_NAME_SET: 'artifact_name={name}',
+    FILTERED_RESULTS_FOUND: 'filtered_results.json=encontrado',
+    POLICY_CHECK_OK: 'policy_fail=ok',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

@@ -81,11 +81,11 @@ runs:
 
         # 2) Se não encontrou, buscar em subdiretórios comuns
         if [ "${moved_any}" != "true" ]; then
-          echo "Arquivos não encontrados no diretório raiz. Buscando em subdiretórios..."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success RESULTS_SEARCH_SUBDIRS)"
           for f in "${files[@]}"; do
             found=$(find "${GITHUB_WORKSPACE}" -maxdepth 3 -name "${f}" -not -path "*/iac-results/*" -not -path "*/node_modules/*" -print -quit 2>/dev/null || true)
             if [ -n "${found}" ]; then
-              echo "Encontrado: ${found}"
+              echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILE_FOUND "path=${found}")"
               cp -f "${found}" "iac-results/${f}"
               moved_any="true"
             fi
@@ -94,8 +94,6 @@ runs:
 
         if [ "${moved_any}" != "true" ]; then
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_IAC_RESULTS)"
-          echo "Coleta de resultados IaC/Secrets: nenhum arquivo encontrado."
-          echo "Listando arquivos .json no workspace (debug):"
           find "${GITHUB_WORKSPACE}" -maxdepth 3 -name '*.json' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -20 || true
         else
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success RESULTS_COLLECTED)"
@@ -224,5 +222,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
-        echo "Summary do IaC/Secrets gerado com sucesso."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

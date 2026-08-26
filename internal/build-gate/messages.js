@@ -31,7 +31,9 @@ const warnings = {
 };
 
 const success = {
-    ALL_PASSED: 'Verificação final concluída: nenhum módulo ativo falhou.'
+    ALL_PASSED: 'Verificação final concluída: nenhum módulo ativo falhou.',
+    STEP_STATUS: '{name}={status}',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

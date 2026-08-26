@@ -54,7 +54,12 @@ const success = {
     BASELINE_LOCAL_CREATED: 'baseline local criado: baseline.json',
     UPLOAD_RESULT_OK: 'upload resultado com baseline concluído (HTTP {status})',
     SEED_UPLOADED: 'baseline enviado ao Portal Afrika (HTTP {status}) repo={repo}',
-    SEED_ELIGIBLE: 'seed=elegível branch={branch}'
+    SEED_ELIGIBLE: 'seed=elegível branch={branch}',
+    PIPELINE_STATUS_SET: 'pipeline_status={status}',
+    ARTIFACT_NAME_SET: 'artifact_name={name}',
+    FILTERED_RESULTS_FOUND: 'filtered_results.json=encontrado',
+    POLICY_CHECK_OK: 'policy_fail=ok',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

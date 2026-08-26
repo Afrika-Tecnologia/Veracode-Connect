@@ -22,7 +22,8 @@ const warnings = {
 const success = {
     SCA_STATUS_SET: 'sca_status={status}',
     SCA_ARTIFACT_NORMALIZED: 'artefato_sca={file} (origem: {source})',
-    ARTIFACT_NAME_SET: 'artifact_name={name}'
+    ARTIFACT_NAME_SET: 'artifact_name={name}',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

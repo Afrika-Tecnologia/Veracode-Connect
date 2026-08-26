@@ -141,7 +141,6 @@ runs:
         echo "::group::Portal Afrika Baseline (upload resultado com baseline)"
         if [ ! -f "results.json" ]; then
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning RESULTS_MISSING_UPLOAD)"
-          echo "Upload de resultado com baseline: ignorado (results.json ausente)."
           echo "::endgroup::"
           exit 0
         fi
@@ -158,7 +157,6 @@ runs:
 
         if [ "${HTTP_STATUS}" -ge 400 ]; then
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning UPLOAD_BASELINE_FAILED "status=${HTTP_STATUS}")"
-          echo "Upload de resultado com baseline: falhou (HTTP ${HTTP_STATUS}), job segue."
         else
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success UPLOAD_RESULT_OK "status=${HTTP_STATUS}")"
         fi
@@ -196,7 +194,7 @@ runs:
           ARTIFACT_NAME="pipescan-results"
         fi
         echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
-        echo "Nome do artefato Pipeline Scan definido: \"${ARTIFACT_NAME}\""
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success ARTIFACT_NAME_SET "name=${ARTIFACT_NAME}")"
         echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
@@ -237,7 +235,6 @@ runs:
         else
           echo "can_seed=false" >> "$GITHUB_OUTPUT"
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_NOT_DEFAULT_BRANCH "default_branch=${default_branch}")"
-          echo "Seed de baseline bloqueado: branch atual \"${branch}\" ≠ default \"${default_branch}\"."
         fi
         echo "::endgroup::"
 
@@ -292,10 +289,10 @@ runs:
         echo "::group::Definir status do Pipeline Scan (com baseline)"
         if [ "${OUTCOME}" = "failure" ]; then
           echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
-          echo "Status do Pipeline Scan definido: \"scan_failed_with_baseline\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_with_baseline")"
         else
           echo "pipeline_status=scan_completed_with_baseline" >> "$GITHUB_OUTPUT"
-          echo "Status do Pipeline Scan definido: \"scan_completed_with_baseline\""
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_completed_with_baseline")"
         fi
         echo "::endgroup::"
 
@@ -312,18 +309,18 @@ runs:
         if [ "${CAN_SEED}" = "true" ]; then
           if [ "${OUTCOME}" = "failure" ]; then
             echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
-            echo "Status do Pipeline Scan definido: \"scan_failed_without_baseline_and_uploaded\""
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_without_baseline_and_uploaded")"
           else
             echo "pipeline_status=scan_completed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
-            echo "Status do Pipeline Scan definido: \"scan_completed_without_baseline_and_uploaded\""
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_completed_without_baseline_and_uploaded")"
           fi
         else
           if [ "${OUTCOME}" = "failure" ]; then
             echo "pipeline_status=scan_failed_without_baseline" >> "$GITHUB_OUTPUT"
-            echo "Status do Pipeline Scan definido: \"scan_failed_without_baseline\" (seed pulado — fora da default_branch)"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_without_baseline")"
           else
             echo "pipeline_status=scan_completed_without_baseline" >> "$GITHUB_OUTPUT"
-            echo "Status do Pipeline Scan definido: \"scan_completed_without_baseline\" (seed pulado — fora da default_branch)"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_completed_without_baseline")"
           fi
         fi
         echo "::endgroup::"
@@ -360,10 +357,9 @@ runs:
             exit 1
           else
             echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning POLICY_FAIL_FALSE)"
-            echo "Verificação policy_fail concluída: falhas presentes, mas o job segue."
           fi
         else
-          echo "Verificação policy_fail concluída com sucesso: Pipeline Scan sem falha de policy."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success POLICY_CHECK_OK)"
         fi
         echo "::endgroup::"
 
@@ -376,11 +372,10 @@ runs:
         echo "::group::Verificar filtered_results para import de issues"
         if [ -f "filtered_results.json" ]; then
           echo "has_filtered=true" >> "$GITHUB_OUTPUT"
-          echo "Arquivo filtered_results.json encontrado — import de issues será executado."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILTERED_RESULTS_FOUND)"
         else
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning FILTERED_RESULTS_MISSING)"
           echo "has_filtered=false" >> "$GITHUB_OUTPUT"
-          echo "Import de issues do Pipeline Scan: ignorado (arquivo ausente)."
         fi
         echo "::endgroup::"
 
@@ -483,5 +478,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
-        echo "Summary do Portal Afrika Baseline Pipeline Scan gerado com sucesso."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

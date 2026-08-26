@@ -19,11 +19,11 @@ runs:
         REPO="${GITHUB_REPOSITORY:-}"
 
         if [ -z "${REPO}" ]; then
-          echo "::error::Falha ao resolver o repositório: github.repository não está definido no contexto."
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error REPO_UNDEFINED)"
           echo "::endgroup::"
           exit 1
         fi
 
         echo "repository_full_name=${REPO}" >> "$GITHUB_OUTPUT"
-        echo "Nome do repositório resolvido com sucesso: \"${REPO}\""
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success REPO_RESOLVED "repo=${REPO}")"
         echo "::endgroup::"

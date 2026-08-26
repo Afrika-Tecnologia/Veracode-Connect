@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.10] - 2026-08-26
+
+### Changed
+
+- Com baseline ativo (`portal_afrika` / `repo`), o comentário do PR e o Step Summary do Pipeline Scan passam a destacar **Novas (pós-baseline)** (`filtered_results.json`, por severidade) como tabela a considerar, e mantêm **Todas (este scan)** (`results.json`). No Summary, os detalhes listam primeiro as novas e depois o scan completo.
+
 ## [1.3.9] - 2026-08-26
 
 ### Added

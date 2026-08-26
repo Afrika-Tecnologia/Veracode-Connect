@@ -101,6 +101,38 @@ test('buildCommentBody inclui marker e seções ativas', () => {
     assert.doesNotMatch(body, /### SCA/);
 });
 
+test('buildCommentBody com baseline destaca tabela de novas', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-base-'));
+    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
+        findings: [{ severity: 4 }, { severity: 4 }, { severity: 3 }]
+    }));
+    fs.writeFileSync(path.join(dir, 'filtered_results.json'), JSON.stringify({
+        findings: [{ severity: 4 }]
+    }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: {
+            sca_status: 'skipped',
+            iac_outcome: 'skipped',
+            pipeline_outcome: 'skipped',
+            baseline_outcome: 'success',
+            repo_baseline_outcome: 'skipped',
+            upload_outcome: 'skipped',
+            validate_outcome: 'success',
+            baseline_mode: 'repo'
+        }
+    });
+
+    assert.match(body, /#### Novas \(pós-baseline\)/);
+    assert.match(body, /#### Todas \(este scan\)/);
+    assert.match(body, /\| High \| 1 \|/);
+    assert.match(body, /\| High \| 2 \|/);
+    assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \|/);
+    assert.match(body, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
+});
+
 test('isActiveStatus ignora skipped', () => {
     assert.equal(isActiveStatus('skipped'), false);
     assert.equal(isActiveStatus('success'), true);

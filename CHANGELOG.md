@@ -4,6 +4,22 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 
 O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.3.9] - 2026-08-26
+
+### Added
+
+- Input `comment_pr` (default `'false'`): publica ou atualiza comentário sticky no Pull Request com tabelas resumidas por scan (SAST, SCA, IaC/Secrets, Upload & Scan). Requer `pull-requests: write` no workflow. Fora de PR → skip sem falhar o job.
+- Sub-action `internal/pr-comment`: monta markdown a partir dos artefatos no workspace e faz upsert via Issues Comments API (`<!-- veracode-connect-pr-comment -->`).
+- Validação antecipada quando `comment_pr: 'true'`: `GITHUB_TOKEN` presente e permissão `pull-requests: write` (probe via API de pull requests/comentários).
+- Outputs `artifact_name`, `artifact_size`, `sandbox_name` e `enable_sandbox` em `internal/veracode-upload-scan` para metadados do comentário no PR.
+- Catálogo `messages.js` (e testes) nas sub-actions que ainda não tinham: `ensure-runtime`, `resolve-repo` e `resolve-platform-type`.
+
+### Changed
+
+- Logs de operador das sub-actions passam pelo catálogo local `messages.js` (`node "$GITHUB_ACTION_PATH/messages.js" …`), sem texto solto no YAML. Step Summary e `$GITHUB_OUTPUT` continuam no YAML. Bootstrap do `ensure-runtime` (antes do Node existir no PATH) permanece como exceção documentada.
+
 ## [1.3.8] - 2026-08-25
 
 ### Added

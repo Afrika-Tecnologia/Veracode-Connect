@@ -1,0 +1,101 @@
+name: 'PR Comment'
+description: 'Publica ou atualiza comentário sticky no Pull Request com resumo dos scans Veracode Connect.'
+
+inputs:
+  fail_build:
+    description: 'Valor de fail_build do orquestrador.'
+    required: false
+    default: 'true'
+  sca_status:
+    description: 'Status do SCA (success | warning | skipped).'
+    required: false
+    default: 'skipped'
+  sca_scan_url:
+    description: 'URL do relatório SCA no Veracode.'
+    required: false
+    default: ''
+  iac_outcome:
+    description: 'Outcome do IaC/Secrets.'
+    required: false
+    default: 'skipped'
+  pipeline_outcome:
+    description: 'Outcome do Pipeline Scan (sem baseline).'
+    required: false
+    default: 'skipped'
+  baseline_outcome:
+    description: 'Outcome do Portal Afrika Baseline Flow.'
+    required: false
+    default: 'skipped'
+  repo_baseline_outcome:
+    description: 'Outcome do Repo Baseline Flow.'
+    required: false
+    default: 'skipped'
+  upload_outcome:
+    description: 'Outcome do Upload & Scan.'
+    required: false
+    default: 'skipped'
+  validate_outcome:
+    description: 'Outcome da validação de inputs.'
+    required: false
+    default: 'success'
+  baseline_mode:
+    description: 'Modo de baseline (none | portal_afrika | repo).'
+    required: false
+    default: 'none'
+  upload_app_name:
+    description: 'Nome do app Veracode (Upload & Scan).'
+    required: false
+    default: ''
+  upload_sandbox_name:
+    description: 'Nome da sandbox (Upload & Scan).'
+    required: false
+    default: ''
+  upload_enable_sandbox:
+    description: 'Sandbox ativa no Upload & Scan (true/false).'
+    required: false
+    default: 'false'
+  upload_artifact_name:
+    description: 'Nome do artefato enviado (Upload & Scan).'
+    required: false
+    default: ''
+  upload_artifact_size:
+    description: 'Tamanho do artefato (Upload & Scan).'
+    required: false
+    default: ''
+  upload_platform_url:
+    description: 'URL base da plataforma Veracode.'
+    required: false
+    default: 'https://analysiscenter.veracode.com/'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Publicar comentário no PR
+      if: always()
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+        GITHUB_EVENT_PATH: ${{ github.event_path }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        FAIL_BUILD: ${{ inputs.fail_build }}
+        SCA_STATUS: ${{ inputs.sca_status }}
+        SCA_SCAN_URL: ${{ inputs.sca_scan_url }}
+        IAC_OUTCOME: ${{ inputs.iac_outcome }}
+        PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
+        BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
+        REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
+        UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
+        VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
+        BASELINE_MODE: ${{ inputs.baseline_mode }}
+        UPLOAD_APP_NAME: ${{ inputs.upload_app_name }}
+        UPLOAD_SANDBOX_NAME: ${{ inputs.upload_sandbox_name }}
+        UPLOAD_ENABLE_SANDBOX: ${{ inputs.upload_enable_sandbox }}
+        UPLOAD_ARTIFACT_NAME: ${{ inputs.upload_artifact_name }}
+        UPLOAD_ARTIFACT_SIZE: ${{ inputs.upload_artifact_size }}
+        UPLOAD_PLATFORM_URL: ${{ inputs.upload_platform_url }}
+      run: |
+        set -euo pipefail
+        node "$GITHUB_ACTION_PATH/index.js"

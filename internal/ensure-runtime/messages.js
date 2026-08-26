@@ -1,17 +1,13 @@
 'use strict';
 
 /**
- * Catálogo de mensagens do Veracode IaC/Secrets (erros, avisos, sucesso).
+ * Catálogo de mensagens do ensure-runtime.
+ * GitHub só envia o diretório desta sub-action.
  *
- * Fica nesta pasta porque GitHub só envia o diretório da sub-action
- * (`Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1`).
- *
- * Node:  const { message, fail } = require('./messages');
  * Bash:  node "$GITHUB_ACTION_PATH/messages.js" error CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" warning CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" success CHAVE [k=v ...]
  *
- * Placeholders: {nome} interpolados por format().
+ * Exceção: o step de bootstrap do curl (e erros de download do Node quando
+ * node ainda não está no PATH) não pode invocar este arquivo — ver action.yml.
  */
 
 function format(template, vars = {}) {
@@ -20,19 +16,26 @@ function format(template, vars = {}) {
     ));
 }
 
-const errors = {};
+const errors = {
+    CURL_WGET_MISSING: 'Impossível baixar dependências: nem curl nem wget disponíveis no runner.',
+    NODE_TARBALL_MISSING: 'Não foi possível encontrar binário do Node.js {major}.x para {arch}.',
+    NODE_INSTALL_FAILED: 'Instalação do Node.js falhou: binário não encontrado em {path}.',
+    JQ_INSTALL_FAILED: 'Falha ao instalar jq. Runner sem package manager e arquitetura não suportada para download direto.',
+    PKG_INSTALL_FAILED: 'Falha ao instalar {cmd}. Nenhum package manager disponível no runner.'
+};
 
 const warnings = {
-    NO_IAC_RESULTS: 'Nenhum arquivo de resultado do IaC foi encontrado para coletar.'
+    CURL_MISSING_WGET: 'curl indisponível; wget presente — continuando com wget.'
 };
 
 const success = {
-    IAC_STATUS_SET: 'iac_status={status}',
-    ARTIFACT_NAME_SET: 'artifact_name={name}',
-    RESULTS_COLLECTED: 'resultados IaC/Secrets coletados em iac-results/',
-    RESULTS_SEARCH_SUBDIRS: 'resultados IaC: buscando em subdiretórios',
-    FILE_FOUND: 'encontrado={path}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    TOOL_OK: '{cmd}=ok version={version}',
+    TOOL_INSTALLED: '{cmd}=instalado version={version}',
+    TOOL_INSTALLING: '{cmd}=ausente — instalando',
+    NODE_OK: 'node=ok version={version}',
+    NODE_UPGRADING: 'node={version} < v{major} — atualizando',
+    NODE_DOWNLOADING: 'node=baixando url={url}',
+    JQ_DOWNLOADING: 'jq=baixando url={url}'
 };
 
 const catalogs = {

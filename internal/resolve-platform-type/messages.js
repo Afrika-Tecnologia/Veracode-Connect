@@ -1,17 +1,10 @@
 'use strict';
 
 /**
- * Catálogo de mensagens do Veracode IaC/Secrets (erros, avisos, sucesso).
+ * Catálogo de mensagens do resolve-platform-type.
+ * GitHub só envia o diretório desta sub-action.
  *
- * Fica nesta pasta porque GitHub só envia o diretório da sub-action
- * (`Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1`).
- *
- * Node:  const { message, fail } = require('./messages');
- * Bash:  node "$GITHUB_ACTION_PATH/messages.js" error CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" warning CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" success CHAVE [k=v ...]
- *
- * Placeholders: {nome} interpolados por format().
+ * Bash:  node "$GITHUB_ACTION_PATH/messages.js" success CHAVE [k=v ...]
  */
 
 function format(template, vars = {}) {
@@ -22,17 +15,10 @@ function format(template, vars = {}) {
 
 const errors = {};
 
-const warnings = {
-    NO_IAC_RESULTS: 'Nenhum arquivo de resultado do IaC foi encontrado para coletar.'
-};
+const warnings = {};
 
 const success = {
-    IAC_STATUS_SET: 'iac_status={status}',
-    ARTIFACT_NAME_SET: 'artifact_name={name}',
-    RESULTS_COLLECTED: 'resultados IaC/Secrets coletados em iac-results/',
-    RESULTS_SEARCH_SUBDIRS: 'resultados IaC: buscando em subdiretórios',
-    FILE_FOUND: 'encontrado={path}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    PLATFORM_RESOLVED: 'platform_type={type} server={server}'
 };
 
 const catalogs = {

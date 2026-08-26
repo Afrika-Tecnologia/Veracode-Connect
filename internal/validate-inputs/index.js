@@ -19,6 +19,7 @@ const {
     VID,
     VKEY,
     CREATE_ISSUES,
+    COMMENT_PR,
     GITHUB_TOKEN,
     GITHUB_REPOSITORY,
     GITHUB_SERVER_URL,
@@ -55,6 +56,9 @@ if (!VID) erros.push(message('error', 'VID_REQUIRED'));
 if (!VKEY) erros.push(message('error', 'VKEY_REQUIRED'));
 if (CREATE_ISSUES && CREATE_ISSUES !== 'true' && CREATE_ISSUES !== 'false') {
     erros.push(message('error', 'CREATE_ISSUES_INVALID'));
+}
+if (COMMENT_PR && COMMENT_PR !== 'true' && COMMENT_PR !== 'false') {
+    erros.push(message('error', 'COMMENT_PR_INVALID'));
 }
 if (VKEY && (!/^[0-9a-fA-F]+$/.test(VKEY) || VKEY.length % 2 !== 0)) {
     erros.push(message('error', 'VKEY_INVALID_HEX'));
@@ -231,6 +235,74 @@ async function validateCreateIssuesPreconditions() {
     console.log("::endgroup::");
 }
 
+async function validateCommentPrPreconditions() {
+    if (COMMENT_PR !== 'true') {
+        return;
+    }
+
+    console.log("::group::Validar comment_pr (pull-requests: write)");
+    if (!GITHUB_TOKEN) {
+        erros.push(message('error', 'COMMENT_PR_TOKEN_REQUIRED'));
+        console.log("::endgroup::");
+        return;
+    }
+    if (!GITHUB_REPOSITORY) {
+        erros.push(message('error', 'COMMENT_PR_REPO_REQUIRED'));
+        console.log("::endgroup::");
+        return;
+    }
+
+    const apiBase = createIssuesApiBase();
+
+    try {
+        const pullsResponse = await fetch(`${apiBase}/repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=1`, {
+            method: 'GET',
+            headers: githubApiHeaders()
+        });
+
+        if (pullsResponse.status === 403 || pullsResponse.status === 401) {
+            erros.push(message('error', 'COMMENT_PR_TOKEN_FORBIDDEN', { status: pullsResponse.status }));
+            console.log("::endgroup::");
+            return;
+        }
+        if (!pullsResponse.ok) {
+            erros.push(message('error', 'COMMENT_PR_PULLS_QUERY_FAILED', { status: pullsResponse.status }));
+            console.log("::endgroup::");
+            return;
+        }
+
+        console.log(message('success', 'COMMENT_PR_PULLS_READ_OK'));
+        const pulls = await pullsResponse.json();
+        const probePr = pulls[0]?.number;
+
+        if (!probePr) {
+            console.log("::endgroup::");
+            return;
+        }
+
+        const response = await fetch(`${apiBase}/repos/${GITHUB_REPOSITORY}/issues/${probePr}/comments`, {
+            method: 'POST',
+            headers: {
+                ...githubApiHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ body: '' })
+        });
+
+        if (response.status === 403 || response.status === 401) {
+            erros.push(message('error', 'COMMENT_PR_WRITE_FORBIDDEN'));
+        } else if (response.status !== 422 && response.status !== 201) {
+            erros.push(message('error', 'COMMENT_PR_WRITE_UNCONFIRMED', { status: response.status }));
+        } else {
+            console.log(message('success', 'COMMENT_PR_WRITE_OK'));
+        }
+    } catch (err) {
+        erros.push(message('error', 'COMMENT_PR_VALIDATION_FAILED', { detail: err?.message || String(err) }));
+    }
+
+    console.log("::endgroup::");
+}
+
 async function validateRepoBaselinePreconditions() {
     if (resolvedBaselineMode !== 'repo') {
         return;
@@ -255,6 +327,7 @@ async function validateRepoBaselinePreconditions() {
 
 async function main() {
     await validateCreateIssuesPreconditions();
+    await validateCommentPrPreconditions();
     await validateRepoBaselinePreconditions();
 
     if (erros.length > 0) {

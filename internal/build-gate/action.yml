@@ -57,9 +57,6 @@ runs:
         set -euo pipefail
 
         echo "::group::Trava de Build (verificação final)"
-        echo "============================================"
-        echo "  RESUMO DOS RESULTADOS"
-        echo "============================================"
 
         falhas=()
         alertas=()
@@ -67,24 +64,19 @@ runs:
         check_status() {
           local name="$1"
           local status="$2"
-          # Só exibe módulos que realmente rodaram (não skipped)
           if [ "${status}" = "skipped" ]; then
             return 0
           fi
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success STEP_STATUS "name=${name}" "status=${status}")"
           if [[ "${status}" == "failure" || "${status}" == "failed" || "${status}" == "scan_failed"* ]]; then
-            echo "  ❌ ${name}: ${status}"
             falhas+=("${name}")
           elif [ "${status}" = "warning" ]; then
-            echo "  ⚠️  ${name}: warning"
             alertas+=("${name}")
-          else
-            echo "  ✅ ${name}: ${status}"
           fi
         }
 
-        # Validação: só destaca quando falhou (success é implícito se chegou aqui com módulos ativos)
         if [ "${VALIDATE_OUTCOME}" = "failure" ] || [ "${VALIDATE_OUTCOME}" = "failed" ]; then
-          echo "  ❌ Validação de Inputs: ${VALIDATE_OUTCOME}"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success STEP_STATUS "name=Validação de Inputs" "status=${VALIDATE_OUTCOME}")"
           falhas+=("Validação de Inputs")
         fi
 
@@ -94,8 +86,6 @@ runs:
         check_status "Repo Baseline" "${REPO_BASELINE_OUTCOME}"
         check_status "Pipeline Scan" "${PIPELINE_OUTCOME}"
         check_status "Upload & Scan" "${UPLOAD_OUTCOME}"
-
-        echo "============================================"
 
         if [ ${#alertas[@]} -gt 0 ]; then
           echo ""
@@ -200,5 +190,5 @@ runs:
           echo ""
           echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"
         } >> "$GITHUB_STEP_SUMMARY"
-        echo "Summary final do build-gate gerado com sucesso."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

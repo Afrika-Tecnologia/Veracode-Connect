@@ -1,17 +1,10 @@
 'use strict';
 
 /**
- * Catálogo de mensagens do Veracode IaC/Secrets (erros, avisos, sucesso).
- *
- * Fica nesta pasta porque GitHub só envia o diretório da sub-action
- * (`Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1`).
+ * Catálogo de mensagens do PR Comment (erros, avisos, sucesso).
  *
  * Node:  const { message, fail } = require('./messages');
  * Bash:  node "$GITHUB_ACTION_PATH/messages.js" error CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" warning CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" success CHAVE [k=v ...]
- *
- * Placeholders: {nome} interpolados por format().
  */
 
 function format(template, vars = {}) {
@@ -20,19 +13,22 @@ function format(template, vars = {}) {
     ));
 }
 
-const errors = {};
+const errors = {
+    LIST_COMMENTS_FAILED: 'Falha ao listar comentários do PR #{pr} (HTTP {status}).',
+    UPSERT_COMMENT_FAILED: 'Falha ao publicar comentário no PR #{pr} (HTTP {status}): {detail}.',
+    TOKEN_REQUIRED: 'comment_pr=true requer GITHUB_TOKEN no contexto do job.',
+    REPO_REQUIRED: 'comment_pr=true requer github.repository no contexto do workflow.'
+};
 
 const warnings = {
-    NO_IAC_RESULTS: 'Nenhum arquivo de resultado do IaC foi encontrado para coletar.'
+    POST_FAILED: 'pr_comment=warning reason=post_failed detail={detail}',
+    NOT_PR: 'pr_comment=skipped reason=not_pr'
 };
 
 const success = {
-    IAC_STATUS_SET: 'iac_status={status}',
-    ARTIFACT_NAME_SET: 'artifact_name={name}',
-    RESULTS_COLLECTED: 'resultados IaC/Secrets coletados em iac-results/',
-    RESULTS_SEARCH_SUBDIRS: 'resultados IaC: buscando em subdiretórios',
-    FILE_FOUND: 'encontrado={path}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    CREATED: 'pr_comment=created pr={pr}',
+    UPDATED: 'pr_comment=updated pr={pr}',
+    SKIPPED: 'pr_comment=skipped reason={reason}'
 };
 
 const catalogs = {
@@ -91,5 +87,6 @@ module.exports = {
     parseVars,
     errors,
     warnings,
-    success
+    success,
+    MARKER: '<!-- veracode-connect-pr-comment -->'
 };

@@ -28,6 +28,8 @@ Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
 
 Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (Settings → General → Features → Issues) e o workflow **precisa** declarar `permissions: issues: write` no **job ou workflow** que chama esta action (composite actions **não** podem definir permissions). A validação inicial falha cedo com instruções se algum pré-requisito estiver ausente.
 
+Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-requests: write` (além de `contents: read`). O comentário só é publicado em execuções de **Pull Request**; em push/workflow_dispatch o step registra skip e continua. A validação inicial verifica o token e a permissão antes dos scans.
+
 | Input | Obrigatorio | Default | Notas |
 |---|---:|---:|---|
 | `veracode_api_id` | sim | - | VID do Veracode. |
@@ -48,6 +50,7 @@ Com `create_issues: 'true'`, o repositório precisa ter **Issues habilitadas** (
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
 | `veracode_policy_name` | nao | `''` | Nome da policy a ser usada no scan do Veracode. |
 | `create_issues` | nao | `'false'` | Cria issues no repositório: SCA (`veracode-sca` → `create-issues`) e Pipeline Scan (`veracode-flaws-to-issues`). Requer `issues: write` no workflow. |
+| `comment_pr` | nao | `'false'` | Comentário sticky no PR com tabelas resumidas dos scans. Requer `pull-requests: write` e evento de Pull Request. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
 | `veracode_sandbox` | nao | *(vazio — auto)* | Omitido: branch default → app principal; outras branches → sandbox. `'true'`/`'false'` forçam o modo. |
 | `veracode_sandbox_name` | nao* | - | Obrigatório quando `veracode_sandbox: 'true'`. Mapeado para `sandboxname` do Upload & Scan (até 80 chars). Em modo auto, se omitido usa `{branch} - {appname}`. |
@@ -159,6 +162,16 @@ permissions:
 ```
 
 O App/PAT de baseline **não** substitui `issues: write` — a criação de issues usa o `GITHUB_TOKEN` do workflow no repo da aplicação.
+
+Com `comment_pr: 'true'` (comentário sticky no PR do **repositório sendo scaneado**):
+
+```yml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+O comentário inclui tabelas resumidas por scan; detalhes completos ficam no Step Summary da execução (link no rodapé do comentário).
 
 ## Outputs
 

@@ -10,6 +10,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    # Bootstrap: node pode estar ausente — textos devem espelhar keys de messages.js
     - name: Garantir curl (bootstrap)
       shell: bash
       run: |
@@ -17,7 +18,7 @@ runs:
         if command -v curl >/dev/null 2>&1; then
           exit 0
         fi
-        echo "curl ausente — instalando..."
+        echo "curl=ausente — instalando"
         if command -v apt-get >/dev/null 2>&1; then
           sudo apt-get update -y -qq && sudo apt-get install -y -qq curl >/dev/null 2>&1
         elif command -v yum >/dev/null 2>&1; then
@@ -25,7 +26,7 @@ runs:
         elif command -v apk >/dev/null 2>&1; then
           sudo apk add --no-cache curl >/dev/null 2>&1
         elif command -v wget >/dev/null 2>&1; then
-          echo "curl indisponível; wget presente — continuando com wget."
+          echo "::warning::curl indisponível; wget presente — continuando com wget."
         else
           echo "::error::Impossível baixar dependências: nem curl nem wget disponíveis no runner."
           exit 1
@@ -45,13 +46,13 @@ runs:
           current_major="${current#v}"
           current_major="${current_major%%.*}"
           if [ "${current_major}" -ge "${NODE_MAJOR}" ] 2>/dev/null; then
-            echo "node ok: ${current}"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success NODE_OK "version=${current}")"
           else
-            echo "node ${current} < v${NODE_MAJOR} — atualizando..."
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success NODE_UPGRADING "version=${current}" "major=${NODE_MAJOR}")"
             needs_install=true
           fi
         else
-          echo "node ausente — instalando..."
+          echo "node=ausente — instalando"
           needs_install=true
         fi
 
@@ -75,7 +76,11 @@ runs:
           fi
 
           if [ -z "${TARBALL}" ]; then
-            echo "::error::Não foi possível encontrar binário do Node.js ${NODE_MAJOR}.x para ${NODE_ARCH}."
+            if command -v node >/dev/null 2>&1; then
+              echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error NODE_TARBALL_MISSING "major=${NODE_MAJOR}" "arch=${NODE_ARCH}")"
+            else
+              echo "::error::Não foi possível encontrar binário do Node.js ${NODE_MAJOR}.x para ${NODE_ARCH}."
+            fi
             echo "::endgroup::"
             exit 1
           fi
@@ -84,7 +89,11 @@ runs:
           INSTALL_DIR="/usr/local/lib/nodejs"
           sudo mkdir -p "${INSTALL_DIR}"
 
-          echo "Baixando ${DOWNLOAD_URL}..."
+          if command -v node >/dev/null 2>&1; then
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success NODE_DOWNLOADING "url=${DOWNLOAD_URL}")"
+          else
+            echo "node=baixando url=${DOWNLOAD_URL}"
+          fi
           if echo "${TARBALL}" | grep -q '\.tar\.xz$'; then
             curl -fsSL "${DOWNLOAD_URL}" | sudo tar -xJ -C "${INSTALL_DIR}" --strip-components=1
           else
@@ -99,7 +108,7 @@ runs:
 
           echo "${INSTALL_DIR}/bin" >> "${GITHUB_PATH}"
           export PATH="${INSTALL_DIR}/bin:${PATH}"
-          echo "node instalado: $(node -v)"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success NODE_OK "version=$(node -v)")"
         fi
 
         echo "::endgroup::"
@@ -130,27 +139,27 @@ runs:
             *)       return 1 ;;
           esac
           JQ_URL="https://github.com/jqlang/jq/releases/latest/download/${JQ_ARCH}"
-          echo "jq: baixando binário de ${JQ_URL}..."
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success JQ_DOWNLOADING "url=${JQ_URL}")"
           sudo curl -fsSL -o /usr/local/bin/jq "${JQ_URL}" && sudo chmod +x /usr/local/bin/jq
         }
 
         for cmd in jq git; do
           if command -v "${cmd}" >/dev/null 2>&1; then
-            echo "${cmd} ok: $("${cmd}" --version 2>&1 | head -1)"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success TOOL_OK "cmd=${cmd}" "version=$("${cmd}" --version 2>&1 | head -1)")"
           else
-            echo "${cmd} ausente — instalando..."
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success TOOL_INSTALLING "cmd=${cmd}")"
             if pkg_install "${cmd}"; then
-              echo "${cmd} instalado: $("${cmd}" --version 2>&1 | head -1)"
+              echo "$(node "$GITHUB_ACTION_PATH/messages.js" success TOOL_INSTALLED "cmd=${cmd}" "version=$("${cmd}" --version 2>&1 | head -1)")"
             elif [ "${cmd}" = "jq" ]; then
               if install_jq_binary; then
-                echo "jq instalado (binário): $(jq --version 2>&1 | head -1)"
+                echo "$(node "$GITHUB_ACTION_PATH/messages.js" success TOOL_INSTALLED "cmd=jq" "version=$(jq --version 2>&1 | head -1)")"
               else
-                echo "::error::Falha ao instalar jq. Runner sem package manager e arquitetura não suportada para download direto."
+                echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error JQ_INSTALL_FAILED)"
                 echo "::endgroup::"
                 exit 1
               fi
             else
-              echo "::error::Falha ao instalar ${cmd}. Nenhum package manager disponível no runner."
+              echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error PKG_INSTALL_FAILED "cmd=${cmd}")"
               echo "::endgroup::"
               exit 1
             fi

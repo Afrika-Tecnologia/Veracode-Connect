@@ -101,7 +101,6 @@ runs:
             if [ ${#zips[@]} -eq 0 ]; then
               echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_ZIP_FALLBACK)"
               echo "needs_fallback=true" >> "$GITHUB_OUTPUT"
-              echo "Auto Packager não gerou zip — fallback será usado."
               echo "::endgroup::"
               exit 0
             fi
@@ -220,5 +219,5 @@ runs:
 
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
-        echo "Summary do Auto Packager gerado com sucesso."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

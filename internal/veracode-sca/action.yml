@@ -76,7 +76,6 @@ runs:
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_ARTIFACT_NORMALIZED "file=veracode_sca.log" "source=scaResults.json")"
         else
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_SCA_RESULTS)"
-          echo "Normalização de artefatos SCA: nenhum arquivo de resultado encontrado."
         fi
         echo "::endgroup::"
 
@@ -204,5 +203,5 @@ runs:
           echo "| Status interno | \`${SCA_STATUS}\` |"
           echo ""
         } >> "$GITHUB_STEP_SUMMARY"
-        echo "Summary do SCA gerado com sucesso."
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

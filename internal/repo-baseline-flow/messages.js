@@ -102,7 +102,12 @@ const success = {
     LOCAL_FILE: 'local_file={file}',
     BASELINE_WRITTEN: 'baseline gravado: {store} branch={branch} sha={sha}',
     GIT_REF_FALLBACK: 'GET /git/ref HTTP 404; usando GET /git/refs.',
-    SEED_ELIGIBLE: 'seed=elegível branch={branch}'
+    SEED_ELIGIBLE: 'seed=elegível branch={branch}',
+    PIPELINE_STATUS_SET: 'pipeline_status={status}',
+    ARTIFACT_NAME_SET: 'artifact_name={name}',
+    FILTERED_RESULTS_FOUND: 'filtered_results.json=encontrado',
+    POLICY_CHECK_OK: 'policy_fail=ok',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

@@ -44,6 +44,10 @@ inputs:
     description: 'Cria/importa issues no GitHub (true/false).'
     required: false
     default: 'false'
+  comment_pr:
+    description: 'Publica comentário sticky no PR com resumo dos scans (true/false).'
+    required: false
+    default: 'false'
   baseline_org:
     description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo fixo Afrika-Veracode-Connect-Baseline.'
     required: false
@@ -101,6 +105,7 @@ runs:
         VID: ${{ inputs.veracode_api_id }}
         VKEY: ${{ inputs.veracode_api_key }}
         CREATE_ISSUES: ${{ inputs.create_issues }}
+        COMMENT_PR: ${{ inputs.comment_pr }}
         GITHUB_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}

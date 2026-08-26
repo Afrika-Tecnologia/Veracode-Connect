@@ -23,5 +23,5 @@ runs:
         fi
 
         echo "platform_type=${platform_type}" >> "$GITHUB_OUTPUT"
-        echo "Platform type resolvido com sucesso: \"${platform_type}\" (server: ${GITHUB_SERVER_URL})"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PLATFORM_RESOLVED "type=${platform_type}" "server=${GITHUB_SERVER_URL}")"
         echo "::endgroup::"

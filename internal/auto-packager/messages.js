@@ -32,7 +32,8 @@ const success = {
     SCAN_FILE_PACKAGED: 'scan_file={file} (origem: {source})',
     SCAN_FILE_VALIDATED: 'scan_file={file}',
     FALLBACK_ZIP_OK: 'scan_file=app.zip (via TheDoctor0/zip-release)',
-    SCAN_FILE_CONSOLIDATED: 'scan_file={file} (origem: {source})'
+    SCAN_FILE_CONSOLIDATED: 'scan_file={file} (origem: {source})',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

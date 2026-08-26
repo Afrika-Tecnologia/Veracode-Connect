@@ -30,7 +30,10 @@ const warnings = {};
 
 const success = {
     PREP_OK: 'upload_scan preparado: sandbox={sandbox} mode={mode} branch={branch}',
-    FILEPATH_RESOLVED: 'filepath={path}'
+    FILEPATH_RESOLVED: 'filepath={path}',
+    SANDBOX_NAME_SET: 'sandboxname={name}',
+    GIT_REPO_URL: 'git_repository_url={url}',
+    SUMMARY_WRITTEN: 'summary=escrito'
 };
 
 const catalogs = {

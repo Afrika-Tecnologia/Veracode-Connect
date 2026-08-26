@@ -141,6 +141,18 @@ function collectModuleStatuses(inputs) {
     return { failures, warnings };
 }
 
+function severityCountTable(counts) {
+    return [
+        '| Severidade | Qtd |',
+        '|---|---|',
+        `| Very High | ${counts.veryHigh} |`,
+        `| High | ${counts.high} |`,
+        `| Medium | ${counts.medium} |`,
+        `| Low / Very Low | ${counts.low} |`,
+        `| **Total** | **${counts.total}** |`
+    ].join('\n');
+}
+
 function pipelineSection(workspace, hasBaseline) {
     const resultsPath = path.join(workspace, 'results.json');
     const counts = countPipelineFindings(resultsPath);
@@ -148,23 +160,26 @@ function pipelineSection(workspace, hasBaseline) {
         return '### SAST (Pipeline Scan)\n\n> Arquivo `results.json` não encontrado.\n';
     }
 
-    let section = '### SAST (Pipeline Scan)\n\n';
-    section += '| Severidade | Qtd |\n|---|---|\n';
-    section += `| Very High | ${counts.veryHigh} |\n`;
-    section += `| High | ${counts.high} |\n`;
-    section += `| Medium | ${counts.medium} |\n`;
-    section += `| Low / Very Low | ${counts.low} |\n`;
-    section += `| **Total** | **${counts.total}** |\n`;
+    const lines = ['### SAST (Pipeline Scan)', ''];
 
     if (hasBaseline) {
-        const filteredPath = path.join(workspace, 'filtered_results.json');
-        const filtered = countPipelineFindings(filteredPath);
+        const filtered = countPipelineFindings(path.join(workspace, 'filtered_results.json'));
         if (filtered) {
-            section += `\n> **Novas (pós-baseline):** ${filtered.total}\n`;
+            lines.push('#### Novas (pós-baseline)');
+            lines.push('');
+            lines.push(severityCountTable(filtered));
+            lines.push('');
+            lines.push('#### Todas (este scan)');
+            lines.push('');
+            lines.push(severityCountTable(counts));
+            lines.push('');
+            return `${lines.join('\n')}\n`;
         }
     }
 
-    return `${section}\n`;
+    lines.push(severityCountTable(counts));
+    lines.push('');
+    return `${lines.join('\n')}\n`;
 }
 
 function scaSection(workspace, scanUrl) {
@@ -297,5 +312,6 @@ module.exports = {
     resolvePrNumber,
     isActiveStatus,
     isFailureStatus,
-    collectModuleStatuses
+    collectModuleStatuses,
+    severityCountTable
 };

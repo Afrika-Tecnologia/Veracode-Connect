@@ -429,36 +429,39 @@ runs:
           echo ""
 
           if [ -f "results.json" ]; then
-            TOTAL=$(jq '.findings | length' results.json 2>/dev/null || echo "0")
-            VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' results.json 2>/dev/null || echo "0")
-            HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' results.json 2>/dev/null || echo "0")
-            MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' results.json 2>/dev/null || echo "0")
-            LOW=$(jq '[.findings[] | select(.severity <= 2)] | length' results.json 2>/dev/null || echo "0")
+            emit_sast_count_table() {
+              local file="$1"
+              local heading="$2"
+              local TOTAL VERY_HIGH HIGH MEDIUM LOW
+              TOTAL=$(jq '.findings | length' "${file}" 2>/dev/null || echo "0")
+              VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' "${file}" 2>/dev/null || echo "0")
+              HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' "${file}" 2>/dev/null || echo "0")
+              MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' "${file}" 2>/dev/null || echo "0")
+              LOW=$(jq '[.findings[] | select(.severity <= 2)] | length' "${file}" 2>/dev/null || echo "0")
+              echo "#### ${heading}"
+              echo ""
+              echo "| Severidade | Quantidade |"
+              echo "|---|---|"
+              echo "| 🔴 Very High | ${VERY_HIGH} |"
+              echo "| 🟠 High | ${HIGH} |"
+              echo "| 🟡 Medium | ${MEDIUM} |"
+              echo "| 🔵 Low / Very Low | ${LOW} |"
+              echo "| **Total** | **${TOTAL}** |"
+              echo ""
+            }
 
-            echo "| Severidade | Quantidade |"
-            echo "|---|---|"
-            echo "| 🔴 Very High | ${VERY_HIGH} |"
-            echo "| 🟠 High | ${HIGH} |"
-            echo "| 🟡 Medium | ${MEDIUM} |"
-            echo "| 🔵 Low / Very Low | ${LOW} |"
-            echo "| **Total** | **${TOTAL}** |"
-            echo ""
-
-            # Mostrar tabela com filtragem se existe filtered_results.json
-            if [ -f "filtered_results.json" ] && [ "${HAS_BASELINE}" = "true" ]; then
-              FILTERED_TOTAL=$(jq '.findings | length' filtered_results.json 2>/dev/null || echo "0")
-              if [ "${FILTERED_TOTAL}" != "0" ] && [ "${FILTERED_TOTAL}" != "null" ]; then
-                echo "> 🆕 **${FILTERED_TOTAL}** vulnerabilidades novas (não presentes no baseline)"
-                echo ""
+            emit_sast_details() {
+              local file="$1"
+              local heading="$2"
+              local total
+              total=$(jq '.findings | length' "${file}" 2>/dev/null || echo "0")
+              if [ "${total}" = "0" ] || [ "${total}" = "null" ]; then
+                return 0
               fi
-            fi
-
-            if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
-              echo "<details><summary>📋 Detalhes das vulnerabilidades (${TOTAL})</summary>"
+              echo "<details><summary>${heading} (${total})</summary>"
               echo ""
               echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
               echo "|---|---|---|---|---|---|"
-
               jq -r '.findings | sort_by(-.severity) | to_entries[] |
                 def sev_icon:
                   if . == 5 then "🔴 Very High"
@@ -467,10 +470,20 @@ runs:
                   elif . == 2 then "🔵 Low"
                   elif . == 1 then "⚪ Very Low"
                   else "ℹ️ Info" end;
-                "| \(.key + 1) | \(.value.severity | sev_icon) | CWE-\(.value.cwe_id) | \(.value.title // "N/A") | \(.value.files.source_file.file // "N/A") | \(.value.files.source_file.line // "N/A") |"' results.json 2>/dev/null || echo "| - | - | - | Erro ao parsear | - | - |"
-
+                "| \(.key + 1) | \(.value.severity | sev_icon) | CWE-\(.value.cwe_id) | \(.value.title // "N/A") | \(.value.files.source_file.file // "N/A") | \(.value.files.source_file.line // "N/A") |"' "${file}" 2>/dev/null || echo "| - | - | - | Erro ao parsear | - | - |"
               echo ""
               echo "</details>"
+              echo ""
+            }
+
+            if [ "${HAS_BASELINE}" = "true" ] && [ -f "filtered_results.json" ]; then
+              emit_sast_count_table "filtered_results.json" "Novas (pós-baseline)"
+              emit_sast_count_table "results.json" "Todas (este scan)"
+              emit_sast_details "filtered_results.json" "📋 Novas (não presentes no baseline)"
+              emit_sast_details "results.json" "📋 Todas as vulnerabilidades do scan"
+            else
+              emit_sast_count_table "results.json" "Vulnerabilidades"
+              emit_sast_details "results.json" "📋 Detalhes das vulnerabilidades"
             fi
           else
             echo "> ⚠️ Arquivo results.json não encontrado."

@@ -31,6 +31,20 @@ inputs:
     required: false
     default: 'CLOUD'
 
+outputs:
+  artifact_name:
+    description: 'Nome do arquivo .zip enviado ao Veracode.'
+    value: ${{ steps.resolve_filepath.outputs.artifact_name }}
+  artifact_size:
+    description: 'Tamanho legível do artefato enviado.'
+    value: ${{ steps.resolve_filepath.outputs.artifact_size }}
+  sandbox_name:
+    description: 'Nome da sandbox calculada (vazio se sandbox desativada).'
+    value: ${{ steps.vars.outputs.sandbox_name }}
+  enable_sandbox:
+    description: 'Sandbox ativa (true/false).'
+    value: ${{ steps.vars.outputs.enable_sandbox }}
+
 runs:
   using: 'composite'
   steps:
@@ -134,6 +148,8 @@ runs:
         # Docs/exemplos da Veracode usam arquivo: filepath: 'app.zip' | 'app/target/app.war'
         echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
         echo "artifact_path=${ABS_PATH}" >> "$GITHUB_OUTPUT"
+        echo "artifact_name=$(basename "${ABS_PATH}")" >> "$GITHUB_OUTPUT"
+        echo "artifact_size=$(du -h "${ABS_PATH}" | cut -f1)" >> "$GITHUB_OUTPUT"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ABS_PATH}")"
         echo "::endgroup::"
 

@@ -118,6 +118,33 @@ test('validate-inputs passa quando veracode_sandbox=true com veracode_sandbox_na
     assert.match(stdout, /validação=ok/);
 });
 
+test('validate-inputs falha quando comment_pr inválido', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            COMMENT_PR: 'yes'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /comment_pr deve ser 'true' ou 'false'/);
+});
+
+test('validate-inputs falha quando comment_pr=true sem GITHUB_TOKEN', async () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            COMMENT_PR: 'true',
+            GITHUB_REPOSITORY: 'Afrika-Tecnologia/exemplo-app'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /comment_pr=true requer GITHUB_TOKEN/);
+});
+
 test('resolveBaselineMode: default e none', () => {
     const result = resolveBaselineMode({});
     assert.equal(result.mode, 'none');

@@ -1,5 +1,5 @@
 name: 'Veracode Connect'
-description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com baseline via Portal Afrika ou repositório GitHub. Requer permissions: contents: read; com create_issues: true também issues: write'
+description: 'Orquestra integrações do Veracode (Pipeline Scan, Upload & Scan, SCA, IaC/Secrets) com baseline via Portal Afrika ou repositório GitHub. Requer permissions: contents: read; com create_issues: true também issues: write; com comment_pr: true também pull-requests: write'
 author: 'Afrika-Tecnologia'
 branding:
   icon: 'shield'
@@ -100,6 +100,10 @@ inputs:
     description: 'Cria/importa issues no GitHub para findings do SCA (create-issues) e do Pipeline Scan (veracode-flaws-to-issues). Default false.'
     required: false
     default: 'false'
+  comment_pr:
+    description: 'Publica ou atualiza comentário sticky no Pull Request com tabelas resumidas dos scans. Default false.'
+    required: false
+    default: 'false'
 
 outputs:
   baseline_mode:
@@ -166,6 +170,7 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         create_issues: ${{ inputs.create_issues }}
+        comment_pr: ${{ inputs.comment_pr }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
         baseline_org: ${{ inputs.baseline_org }}
@@ -308,3 +313,25 @@ runs:
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
+
+    # ── 9. Comentário no PR (opcional) ───────────────────────────────
+    - name: Comentário no PR
+      if: always() && inputs.comment_pr == 'true'
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/pr-comment@v1
+      with:
+        fail_build: ${{ inputs.fail_build }}
+        sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
+        sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
+        iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
+        pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
+        baseline_outcome: ${{ steps.baseline_flow.outcome || 'skipped' }}
+        repo_baseline_outcome: ${{ steps.repo_baseline_flow.outcome || 'skipped' }}
+        upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
+        validate_outcome: ${{ steps.validate.outcome || 'success' }}
+        baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
+        upload_app_name: ${{ inputs.veracode_appname }}
+        upload_sandbox_name: ${{ steps.upload_and_scan.outputs.sandbox_name || '' }}
+        upload_enable_sandbox: ${{ steps.upload_and_scan.outputs.enable_sandbox || 'false' }}
+        upload_artifact_name: ${{ steps.upload_and_scan.outputs.artifact_name || '' }}
+        upload_artifact_size: ${{ steps.upload_and_scan.outputs.artifact_size || '' }}
+        upload_platform_url: 'https://analysiscenter.veracode.com/'

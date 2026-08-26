@@ -4,6 +4,17 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 
 O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.3.9] - 2026-08-26
+
+### Added
+
+- Input `comment_pr` (default `'false'`): publica ou atualiza comentário sticky no Pull Request com tabelas resumidas por scan (SAST, SCA, IaC/Secrets, Upload & Scan). Requer `pull-requests: write` no workflow. Fora de PR → skip sem falhar o job.
+- Sub-action `internal/pr-comment`: monta markdown a partir dos artefatos no workspace e faz upsert via Issues Comments API (`<!-- veracode-connect-pr-comment -->`).
+- Validação antecipada quando `comment_pr: 'true'`: `GITHUB_TOKEN` presente e permissão `pull-requests: write` (probe via API de pull requests/comentários).
+- Outputs `artifact_name`, `artifact_size`, `sandbox_name` e `enable_sandbox` em `internal/veracode-upload-scan` para metadados do comentário no PR.
+
 ## [1.3.8] - 2026-08-25
 
 ### Added

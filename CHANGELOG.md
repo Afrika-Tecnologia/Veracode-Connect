@@ -6,6 +6,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.11] - 2026-09-11
+
+### Added
+
+- Input `baseline_repo_name` (default `Afrika-Veracode-Connect-Baseline`, `required: false`): nome do repositório de store usado no Repo Baseline. O default permanece o valor atual; pode ser alterado se a org usar outro repo.
+- Input `baseline_repo_branch` (`required: false`, default vazio): branch do store onde o baseline é lido e gravado. Vazio mantém o comportamento atual (`default_branch` do store, em geral `main`).
+
 ## [1.3.10] - 2026-08-26
 
 ### Changed

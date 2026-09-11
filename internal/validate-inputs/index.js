@@ -24,6 +24,7 @@ const {
     GITHUB_REPOSITORY,
     GITHUB_SERVER_URL,
     BASELINE_ORG,
+    BASELINE_REPO_NAME,
     BASELINE_GITHUB_APP_ID,
     BASELINE_GITHUB_APP_PRIVATE_KEY,
     BASELINE_GITHUB_APP_INSTALLATION_ID,
@@ -94,7 +95,9 @@ if (resolvedBaselineMode === 'repo') {
         console.log("::warning::" + message('warning', 'APP_INCOMPLETE_PAT_FALLBACK'));
     }
 
+    const baselineRepoName = (BASELINE_REPO_NAME || '').trim() || 'Afrika-Veracode-Connect-Baseline';
     setOutput('baseline_org', baselineOrg);
+    setOutput('baseline_repo_name', baselineRepoName);
 }
 
 const needsScanFile =
@@ -313,7 +316,7 @@ async function validateRepoBaselinePreconditions() {
 
     console.log("::group::Validar repositório de baseline (existência + acesso)");
     const baselineOrg = (BASELINE_ORG || '').trim();
-    const baselineRepoName = 'Afrika-Veracode-Connect-Baseline';
+    const baselineRepoName = (BASELINE_REPO_NAME || '').trim() || 'Afrika-Veracode-Connect-Baseline';
 
     try {
         const token = await resolveAccessToken();

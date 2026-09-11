@@ -3,8 +3,16 @@ description: 'Consulta baseline no repositório GitHub, roda Pipeline Scan com o
 
 inputs:
   baseline_org:
-    description: 'Organização dona do repositório de baseline (deve conter Afrika-Veracode-Connect-Baseline).'
+    description: 'Organização dona do repositório de baseline (deve conter o repo informado em baseline_repo_name).'
     required: true
+  baseline_repo_name:
+    description: 'Nome do repositório de store de baseline.'
+    required: false
+    default: 'Afrika-Veracode-Connect-Baseline'
+  baseline_repo_branch:
+    description: 'Branch do store onde o baseline é lido e gravado. Vazio usa a default_branch do store.'
+    required: false
+    default: ''
   baseline_github_app_id:
     description: 'GitHub App ID.'
     required: false
@@ -73,6 +81,8 @@ runs:
       shell: bash
       env:
         BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
         BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
         BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
         BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
@@ -186,6 +196,8 @@ runs:
       shell: bash
       env:
         BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
         BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
         BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
         BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
@@ -323,6 +335,8 @@ runs:
         WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
         CREATE_ISSUES: ${{ inputs.create_issues }}
         BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ steps.check_baseline.outputs.baseline_repo_branch || inputs.baseline_repo_branch }}
         SCAN_REPOSITORY: ${{ inputs.repository_full_name }}
         CAN_SEED: ${{ steps.seed_gate.outputs.can_seed }}
         CURRENT_BRANCH: ${{ steps.seed_gate.outputs.current_branch }}
@@ -342,7 +356,7 @@ runs:
         {
           echo "### 🔬 Veracode Pipeline Scan (Repo Baseline)"
           echo ""
-          echo "> 📦 Store: \`${BASELINE_ORG}/Afrika-Veracode-Connect-Baseline/${SCAN_REPOSITORY}/baseline.json\`"
+          echo "> 📦 Store: \`${BASELINE_ORG}/${BASELINE_REPO_NAME}/${SCAN_REPOSITORY}/baseline.json\` @ \`${BASELINE_REPO_BRANCH:-default_branch}\`"
           echo ""
 
           if [ "${HAS_BASELINE}" = "true" ]; then

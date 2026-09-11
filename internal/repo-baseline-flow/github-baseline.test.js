@@ -9,7 +9,10 @@ const {
     isEmptyRepoConflict,
     isRulesetViolation,
     baselineContentPath,
-    githubApiBase
+    githubApiBase,
+    resolveBaselineRepoName,
+    resolveRequestedStoreBranch,
+    DEFAULT_BASELINE_REPO_NAME
 } = require('./github-baseline.js');
 const { fail } = require('./messages.js');
 
@@ -154,6 +157,29 @@ test('baselineContentPath monta org/repo/baseline.json', () => {
         baselineContentPath('Afrika-Tecnologia/exemplo-app'),
         'Afrika-Tecnologia/exemplo-app/baseline.json'
     );
+});
+
+test('resolveBaselineRepoName usa default quando vazio e aceita override', () => {
+    assert.equal(resolveBaselineRepoName(''), DEFAULT_BASELINE_REPO_NAME);
+    assert.equal(resolveBaselineRepoName('   '), DEFAULT_BASELINE_REPO_NAME);
+    assert.equal(resolveBaselineRepoName(undefined), DEFAULT_BASELINE_REPO_NAME);
+    assert.equal(resolveBaselineRepoName('Meu-Baseline-Store'), 'Meu-Baseline-Store');
+});
+
+test('resolveRequestedStoreBranch trata vazio como default dinâmico', () => {
+    assert.equal(resolveRequestedStoreBranch(''), '');
+    assert.equal(resolveRequestedStoreBranch('   '), '');
+    assert.equal(resolveRequestedStoreBranch('develop'), 'develop');
+});
+
+test('putBaseline grava na branch informada', async () => {
+    const { file } = writeResults();
+    const calls = mockGitData({ fileExists: false, patchStatuses: [200] });
+
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file, 'develop');
+    assert.equal(result.seeded, true);
+    assert.ok(calls.some((c) => c.method === 'GET' && c.url.includes('/contents/') && c.url.includes('ref=develop')));
+    assert.ok(calls.some((c) => c.method === 'GET' && c.url.includes('heads/develop')));
 });
 
 test('putBaseline ignora seed quando o arquivo já existe (GET 200)', async () => {

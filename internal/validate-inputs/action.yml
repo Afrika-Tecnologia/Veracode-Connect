@@ -49,7 +49,15 @@ inputs:
     required: false
     default: 'false'
   baseline_org:
-    description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo fixo Afrika-Veracode-Connect-Baseline.'
+    description: 'Org dona do repositório de baseline (modo repo). Deve conter o repo informado em baseline_repo_name.'
+    required: false
+    default: ''
+  baseline_repo_name:
+    description: 'Nome do repositório de store de baseline (modo repo).'
+    required: false
+    default: 'Afrika-Veracode-Connect-Baseline'
+  baseline_repo_branch:
+    description: 'Branch do store de baseline (modo repo). Vazio usa a default_branch do store.'
     required: false
     default: ''
   baseline_github_app_id:
@@ -84,6 +92,9 @@ outputs:
   baseline_org:
     description: 'Org do baseline (modo repo).'
     value: ${{ steps.validate.outputs.baseline_org }}
+  baseline_repo_name:
+    description: 'Nome do repositório de store de baseline (modo repo).'
+    value: ${{ steps.validate.outputs.baseline_repo_name }}
 
 runs:
   using: 'composite'
@@ -110,6 +121,8 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
         BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
         BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
         BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
         BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}

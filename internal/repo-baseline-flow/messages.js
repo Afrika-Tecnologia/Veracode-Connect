@@ -68,7 +68,7 @@ const errors = {
     CLI_USAGE:
         'Uso: node github-baseline.js <resolve-token|check-repo|get-baseline|put-baseline>',
     BASELINE_ORG_REQUIRED:
-        "baseline_org é obrigatório. A organização deve conter o repositório fixo 'Afrika-Veracode-Connect-Baseline'.",
+        "baseline_org é obrigatório. A organização deve conter o repositório de baseline (default 'Afrika-Veracode-Connect-Baseline', ou o valor de baseline_repo_name).",
     SCAN_REPOSITORY_REQUIRED:
         'SCAN_REPOSITORY (org/repo) é obrigatório.',
     UNKNOWN_COMMAND:

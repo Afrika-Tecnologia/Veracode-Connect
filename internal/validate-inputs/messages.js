@@ -23,7 +23,7 @@ const errors = {
     PORTAL_AFRIKA_KEY_REQUIRED: 'baseline_mode=portal_afrika requer portal_afrika_api_key.',
     PORTAL_URL_TRAILING_SLASH: "portal_afrika_base_url não deve terminar com barra (/). Atual: '{url}'",
     PORTAL_URL_INVALID_SCHEME: "portal_afrika_base_url deve começar com http:// ou https://. Atual: '{url}'",
-    BASELINE_ORG_REQUIRED: "baseline_mode=repo requer baseline_org. A organização informada deve conter o repositório fixo 'Afrika-Veracode-Connect-Baseline'.",
+    BASELINE_ORG_REQUIRED: "baseline_mode=repo requer baseline_org. A organização informada deve conter o repositório de baseline (default 'Afrika-Veracode-Connect-Baseline', ou o valor de baseline_repo_name).",
     BASELINE_AUTH_REQUIRED: 'baseline_mode=repo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     BASELINE_APP_INCOMPLETE: 'GitHub App incompleto: informe baseline_github_app_id, baseline_github_app_private_key e baseline_github_app_installation_id (ou use baseline_github_token).',
     SCAN_FILE_REQUIRED: "scan_file é obrigatório quando auto_packager está desativado e pipeline/upload/baseline estão ativos.",

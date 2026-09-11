@@ -37,7 +37,15 @@ inputs:
     required: false
     default: 'none'
   baseline_org:
-    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo fixo Afrika-Veracode-Connect-Baseline.'
+    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo informado em baseline_repo_name.'
+    required: false
+    default: ''
+  baseline_repo_name:
+    description: 'Nome do repositório de store de baseline (modo repo). Pode ser alterado se a org usar outro repo.'
+    required: false
+    default: 'Afrika-Veracode-Connect-Baseline'
+  baseline_repo_branch:
+    description: 'Branch do repositório de store onde o baseline é lido e gravado (modo repo). Vazio usa a default_branch do store (comportamento atual; em geral main).'
     required: false
     default: ''
   baseline_github_app_id:
@@ -174,6 +182,8 @@ runs:
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
         baseline_org: ${{ inputs.baseline_org }}
+        baseline_repo_name: ${{ inputs.baseline_repo_name }}
+        baseline_repo_branch: ${{ inputs.baseline_repo_branch }}
         baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
         baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
         baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
@@ -241,6 +251,8 @@ runs:
       uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1
       with:
         baseline_org: ${{ inputs.baseline_org }}
+        baseline_repo_name: ${{ inputs.baseline_repo_name }}
+        baseline_repo_branch: ${{ inputs.baseline_repo_branch }}
         baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
         baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
         baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}

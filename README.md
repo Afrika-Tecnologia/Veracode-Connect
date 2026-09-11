@@ -40,7 +40,9 @@ Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-req
 | `baseline_mode` | nao | `'none'` | `none` \| `portal_afrika` \| `repo`. |
 | `portal_afrika_api_key` | nao* | - | Obrigatorio quando `baseline_mode: 'portal_afrika'`. |
 | `portal_afrika_base_url` | nao | `https://www.bantuu.io` | Sem barra final. |
-| `baseline_org` | nao* | - | Obrigatorio quando `baseline_mode: 'repo'`. A org deve ter o repo fixo `Afrika-Veracode-Connect-Baseline`. |
+| `baseline_org` | nao* | - | Obrigatorio quando `baseline_mode: 'repo'`. A org deve ter o repo informado em `baseline_repo_name`. |
+| `baseline_repo_name` | nao | `Afrika-Veracode-Connect-Baseline` | Nome do repositório de store de baseline (modo `repo`). Altere se a org usar outro repo. |
+| `baseline_repo_branch` | nao | *(vazio — default_branch do store)* | Branch do store onde o baseline é lido e gravado. Vazio mantém o comportamento atual (`default_branch` do store, em geral `main`). |
 | `baseline_github_app_id` | nao* | - | GitHub App ID (modo `repo`). |
 | `baseline_github_app_private_key` | nao* | - | Private key PEM do App (modo `repo`). |
 | `baseline_github_app_installation_id` | nao* | - | Installation ID do App (modo `repo`). |
@@ -75,7 +77,9 @@ Assim o baseline reflete a linha principal, não a primeira feature branch que r
 
 Quando `baseline_mode: 'repo'`, o Veracode Connect usa um repositório GitHub como store de baseline (alternativa ao Portal Afrika).
 
-O nome do repositório de store é **fixo**: `Afrika-Veracode-Connect-Baseline`. Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo.
+O nome do repositório de store é `Afrika-Veracode-Connect-Baseline` por default (`baseline_repo_name`). Crie-o (preferencialmente privado) na organização informada em `baseline_org` **antes** de ativar o modo, ou passe outro nome se a org já tiver um store diferente.
+
+A branch do store é a `default_branch` do repositório (em geral `main`). Passe `baseline_repo_branch` se quiser ler e gravar o baseline em outra branch.
 
 O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed adiciona `{org-do-app}/{repo-do-app}/baseline.json` (ex.: `Afrika-Tecnologia/exemplo-app/baseline.json`) sem substituir o README.
 
@@ -90,7 +94,7 @@ Se o App estiver incompleto e o PAT estiver preenchido, a action usa o PAT com w
 
 ### Permissões do GitHub App (recomendado)
 
-Crie um GitHub App na org (ou conta) que possui `Afrika-Veracode-Connect-Baseline`. Na criação, configure:
+Crie um GitHub App na org (ou conta) que possui o repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`). Na criação, configure:
 
 **Repository permissions** (somente estas são necessárias):
 
@@ -107,9 +111,9 @@ Depois:
 
 1. Gere e baixe a **private key** (PEM) → secret `BASELINE_GITHUB_APP_PRIVATE_KEY`.
 2. Anote o **App ID** → secret `BASELINE_GITHUB_APP_ID`.
-3. Instale o App na org do baseline, restringindo a instalação ao repositório `Afrika-Veracode-Connect-Baseline` (ou à org, se preferir).
+3. Instale o App na org do baseline, restringindo a instalação ao repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`) ou à org, se preferir.
 4. Anote o **Installation ID** (URL da instalação ou API) → secret `BASELINE_GITHUB_APP_INSTALLATION_ID`.
-5. Defina `baseline_org` (variável/input) com a org dona do repo de baseline.
+5. Defina `baseline_org` (variável/input) com a org dona do repo de baseline. Se o store não usar o nome default, passe também `baseline_repo_name`. Se o store não usar a `default_branch`, passe `baseline_repo_branch`.
 
 ### GitHub Enterprise (Cloud ou Server)
 
@@ -117,7 +121,7 @@ O seed já usa `github.api_url` (github.com → `https://api.github.com`; GHES �
 
 | Ponto | O que observar |
 |---|---|
-| **Ruleset / branch protection** na `main` do store | Exigir PR, impedir push do App ou exigir commit assinado. O seed faz commit direto; se a regra não tiver bypass para o GitHub App, a API devolve 409/403/422 e o arquivo **não** é criado. Inclua o App na lista de bypass (ou não proteja a `main` desse repo). |
+| **Ruleset / branch protection** na branch do store (`baseline_repo_branch` ou `default_branch`, em geral `main`) | Exigir PR, impedir push do App ou exigir commit assinado. O seed faz commit direto; se a regra não tiver bypass para o GitHub App, a API devolve 409/403/422 e o arquivo **não** é criado. Inclua o App na lista de bypass (ou não proteja essa branch). |
 | **SSO (SAML)** | PAT precisa estar autorizado no SSO da enterprise. GitHub App instalado na org já passa pelo SSO. |
 | **EMU (Enterprise Managed Users)** | Alguns tenants rejeitam committer com e-mail externo (`veracode.connect@afrikatech.com.br`). Se o commit for recusado, use PAT de uma conta da enterprise ou ajuste a política de identidade. |
 | **GHES (Server)** | O App tem que ser **criado e instalado na instância** (App ID/key de github.com não servem). Git Data API existe; versões antigas usam `/git/refs` em vez de `/git/ref` — a action tenta os dois. |
@@ -125,14 +129,14 @@ O seed já usa `github.api_url` (github.com → `https://api.github.com`; GHES �
 
 ### Permissões do PAT (fallback)
 
-Use só se não puder usar GitHub App. O token precisa acessar **apenas** `Afrika-Veracode-Connect-Baseline` com leitura e escrita de conteúdo.
+Use só se não puder usar GitHub App. O token precisa acessar **apenas** o repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`) com leitura e escrita de conteúdo.
 
 **Fine-grained PAT** (preferível ao classic):
 
 | Configuração | Valor |
 |---|---|
-| Resource owner | Org (ou user) dona de `Afrika-Veracode-Connect-Baseline` |
-| Repository access | Only select repositories → `Afrika-Veracode-Connect-Baseline` |
+| Resource owner | Org (ou user) dona do repositório de store |
+| Repository access | Only select repositories → o repo informado em `baseline_repo_name` |
 | Permissions → Contents | **Read and write** |
 | Permissions → Metadata | Read-only (automático) |
 

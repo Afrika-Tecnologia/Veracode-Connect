@@ -14,8 +14,22 @@ const fs = require('fs');
 const path = require('path');
 const { message, fail } = require('./messages');
 
-/** Nome fixo do repositório de baseline (não configurável pelo consumidor). */
-const FIXED_BASELINE_REPO_NAME = 'Afrika-Veracode-Connect-Baseline';
+/** Nome default do repositório de store de baseline (override via BASELINE_REPO_NAME). */
+const DEFAULT_BASELINE_REPO_NAME = 'Afrika-Veracode-Connect-Baseline';
+
+function resolveBaselineRepoName(raw) {
+    return String(raw || '').trim() || DEFAULT_BASELINE_REPO_NAME;
+}
+
+function resolveRequestedStoreBranch(raw) {
+    return String(raw || '').trim();
+}
+
+function contentsApiUrl(api, baselineOrg, baselineRepoName, contentPath, branch) {
+    const base = `${api}/repos/${encodeURIComponent(baselineOrg)}/${encodeURIComponent(baselineRepoName)}/contents/${contentPath}`;
+    const ref = String(branch || '').trim();
+    return ref ? `${base}?ref=${encodeURIComponent(ref)}` : base;
+}
 
 /** Identidade usada nos commits de seed (Contents API author/committer). */
 const BASELINE_COMMIT_IDENTITY = {
@@ -340,6 +354,14 @@ async function getDefaultBranch(token, baselineOrg, baselineRepoName) {
     return 'main';
 }
 
+async function resolveStoreBranch(token, baselineOrg, baselineRepoName, requested) {
+    const explicit = resolveRequestedStoreBranch(requested);
+    if (explicit) {
+        return explicit;
+    }
+    return getDefaultBranch(token, baselineOrg, baselineRepoName);
+}
+
 async function checkRepoExists(token, baselineOrg, baselineRepoName) {
     const api = githubApiBase();
     const { response, text } = await fetchJson(
@@ -368,10 +390,12 @@ async function checkRepoExists(token, baselineOrg, baselineRepoName) {
     return true;
 }
 
-async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository, outFile) {
+async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository, outFile, branch) {
     const api = githubApiBase();
+    const targetBranch = await resolveStoreBranch(token, baselineOrg, baselineRepoName, branch);
     const contentPath = encodeContentPath(baselineContentPath(scanRepository));
-    const url = `${api}/repos/${encodeURIComponent(baselineOrg)}/${encodeURIComponent(baselineRepoName)}/contents/${contentPath}`;
+    const url = contentsApiUrl(api, baselineOrg, baselineRepoName, contentPath, targetBranch);
+    setOutput('baseline_repo_branch', targetBranch);
 
     const { response, json, text } = await fetchJson(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -406,16 +430,18 @@ async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     return { hasBaseline: true, sha: json.sha };
 }
 
-async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile) {
+async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile, branch) {
     if (!fs.existsSync(resultsFile)) {
         throw fail('RESULTS_FILE_MISSING', { file: resultsFile });
     }
 
     const api = githubApiBase();
+    const targetBranch = await resolveStoreBranch(token, baselineOrg, baselineRepoName, branch);
     const relativePath = baselineContentPath(scanRepository);
     const contentPath = encodeContentPath(relativePath);
-    const url = `${api}/repos/${encodeURIComponent(baselineOrg)}/${encodeURIComponent(baselineRepoName)}/contents/${contentPath}`;
+    const url = contentsApiUrl(api, baselineOrg, baselineRepoName, contentPath, targetBranch);
     const storeLabel = `${baselineOrg}/${baselineRepoName}/${relativePath}`;
+    setOutput('baseline_repo_branch', targetBranch);
 
     // Write-once: if already exists, do not overwrite
     const existing = await getFileExists(token, url);
@@ -426,7 +452,6 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
         return { seeded: false, alreadyExists: true };
     }
 
-    const defaultBranch = await getDefaultBranch(token, baselineOrg, baselineRepoName);
     console.log(message('success', 'API', { api }));
     const appName = String(scanRepository).split('/')[1] || scanRepository;
     const raw = fs.readFileSync(resultsFile);
@@ -443,7 +468,7 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
             api,
             baselineOrg,
             baselineRepoName,
-            defaultBranch,
+            targetBranch,
             relativePath,
             contentBase64,
             commitMessage
@@ -454,7 +479,7 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
             setOutput('baseline_already_exists', 'false');
             console.log(message('success', 'BASELINE_WRITTEN', {
                 store: storeLabel,
-                branch: defaultBranch,
+                branch: targetBranch,
                 sha: result.commitSha
             }));
             return { seeded: true, alreadyExists: false };
@@ -513,7 +538,8 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 async function main() {
     const command = process.argv[2];
     const baselineOrg = (process.env.BASELINE_ORG || '').trim();
-    const baselineRepoName = FIXED_BASELINE_REPO_NAME;
+    const baselineRepoName = resolveBaselineRepoName(process.env.BASELINE_REPO_NAME);
+    const baselineRepoBranch = resolveRequestedStoreBranch(process.env.BASELINE_REPO_BRANCH);
     const scanRepository = (process.env.SCAN_REPOSITORY || process.env.GITHUB_REPOSITORY || '').trim();
     const resultsFile = (process.env.RESULTS_FILE || 'results.json').trim();
     const outFile = (process.env.BASELINE_OUT_FILE || 'baseline.json').trim();
@@ -558,7 +584,7 @@ async function main() {
         if (!scanRepository) {
             throw fail('SCAN_REPOSITORY_REQUIRED');
         }
-        await getBaseline(token, baselineOrg, baselineRepoName, scanRepository, outFile);
+        await getBaseline(token, baselineOrg, baselineRepoName, scanRepository, outFile, baselineRepoBranch);
         return;
     }
 
@@ -566,7 +592,7 @@ async function main() {
         if (!scanRepository) {
             throw fail('SCAN_REPOSITORY_REQUIRED');
         }
-        await putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile);
+        await putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile, baselineRepoBranch);
         return;
     }
 
@@ -593,5 +619,9 @@ module.exports = {
     isEmptyRepoConflict,
     isRulesetViolation,
     BASELINE_COMMIT_IDENTITY,
-    FIXED_BASELINE_REPO_NAME
+    DEFAULT_BASELINE_REPO_NAME,
+    resolveBaselineRepoName,
+    resolveRequestedStoreBranch,
+    resolveStoreBranch,
+    contentsApiUrl
 };

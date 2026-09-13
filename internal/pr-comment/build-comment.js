@@ -3,6 +3,11 @@
 const fs = require('fs');
 const path = require('path');
 const { MARKER } = require('./messages');
+const {
+    buildSummaryMarkdown,
+    countBySeverity,
+    loadFindings
+} = require('./sast-findings');
 
 function readJsonFile(filePath) {
     try {
@@ -16,18 +21,10 @@ function readJsonFile(filePath) {
 }
 
 function countPipelineFindings(jsonPath) {
-    const data = readJsonFile(jsonPath);
-    if (!data || !Array.isArray(data.findings)) {
+    if (!fs.existsSync(jsonPath)) {
         return null;
     }
-    const findings = data.findings;
-    return {
-        veryHigh: findings.filter((f) => f.severity === 5).length,
-        high: findings.filter((f) => f.severity === 4).length,
-        medium: findings.filter((f) => f.severity === 3).length,
-        low: findings.filter((f) => f.severity <= 2).length,
-        total: findings.length
-    };
+    return countBySeverity(loadFindings(jsonPath));
 }
 
 function extractIacFindings(data) {
@@ -85,13 +82,18 @@ function parseScaLog(workspace) {
         const high = pick(/High\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         const medium = pick(/Medium\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         const low = pick(/Low\s+Risk\s+Vulnerabilities\s+(\d+)/i);
+        const libTotal = pick(/Total\s+Libraries\s+(\d+)/i);
+        const directLibs = pick(/Direct\s+Libraries\s+(\d+)/i);
         return {
             critical,
             high,
             medium,
             low,
             total: critical + high + medium + low,
-            vulnLibs: pick(/Vulnerable\s+Libraries\s+(\d+)/i)
+            vulnLibs: pick(/Vulnerable\s+Libraries\s+(\d+)/i),
+            libTotal,
+            directLibs,
+            transitiveLibs: Math.max(0, libTotal - directLibs)
         };
     }
     return null;
@@ -105,14 +107,20 @@ function isFailureStatus(status) {
     return status === 'failure' || status === 'failed' || (typeof status === 'string' && status.startsWith('scan_failed'));
 }
 
-function resolveBanner(failures, warnings) {
-    if (failures.length > 0) {
-        return `> ❌ **Falhas detectadas** — ${failures.join(', ')}`;
+function statusIcon(status) {
+    if (status === 'success') {
+        return '✅ Success';
     }
-    if (warnings.length > 0) {
-        return `> ⚠️ **Warnings** — ${warnings.join(', ')}`;
+    if (status === 'failure' || status === 'failed' || (typeof status === 'string' && status.startsWith('scan_failed'))) {
+        return '❌ Failed';
     }
-    return '> ✅ **Todos os scans ativos passaram**';
+    if (status === 'warning') {
+        return '⚠️ Warning';
+    }
+    if (status === 'skipped' || !status) {
+        return '⏭️ Skipped';
+    }
+    return `❓ ${status}`;
 }
 
 function collectModuleStatuses(inputs) {
@@ -141,104 +149,171 @@ function collectModuleStatuses(inputs) {
     return { failures, warnings };
 }
 
+function resolveBanner(inputs) {
+    const { failures } = collectModuleStatuses(inputs);
+    if (failures.length > 0) {
+        if (inputs.fail_build === 'true') {
+            return '> ❌ **Build travado** — Falhas detectadas e `fail_build=true`';
+        }
+        return '> ⚠️ **Falhas detectadas** mas build **não travado** (`fail_build=false`)';
+    }
+    return '> ✅ **Todos os checks ativos passaram com sucesso**';
+}
+
 function severityCountTable(counts) {
     return [
-        '| Severidade | Qtd |',
+        '| Severidade | Quantidade |',
         '|---|---|',
-        `| Very High | ${counts.veryHigh} |`,
-        `| High | ${counts.high} |`,
-        `| Medium | ${counts.medium} |`,
-        `| Low / Very Low | ${counts.low} |`,
+        `| 🔴 Very High | ${counts.veryHigh} |`,
+        `| 🟠 High | ${counts.high} |`,
+        `| 🟡 Medium | ${counts.medium} |`,
+        `| 🔵 Low / Very Low | ${counts.low} |`,
         `| **Total** | **${counts.total}** |`
     ].join('\n');
 }
 
-function pipelineSection(workspace, hasBaseline) {
-    const resultsPath = path.join(workspace, 'results.json');
-    const counts = countPipelineFindings(resultsPath);
-    if (!counts) {
-        return '### SAST (Pipeline Scan)\n\n> Arquivo `results.json` não encontrado.\n';
+function pipelineHeading(baselineMode) {
+    if (baselineMode === 'portal_afrika') {
+        return '### 🔬 Veracode Pipeline Scan (Portal Afrika Baseline)';
     }
-
-    const lines = ['### SAST (Pipeline Scan)', ''];
-
-    if (hasBaseline) {
-        const filtered = countPipelineFindings(path.join(workspace, 'filtered_results.json'));
-        if (filtered) {
-            lines.push('#### Novas (pós-baseline)');
-            lines.push('');
-            lines.push(severityCountTable(filtered));
-            lines.push('');
-            lines.push('#### Todas (este scan)');
-            lines.push('');
-            lines.push(severityCountTable(counts));
-            lines.push('');
-            return `${lines.join('\n')}\n`;
-        }
+    if (baselineMode === 'repo') {
+        return '### 🔬 Veracode Pipeline Scan (Repo Baseline)';
     }
-
-    lines.push(severityCountTable(counts));
-    lines.push('');
-    return `${lines.join('\n')}\n`;
+    return '### 🔬 Veracode Pipeline Scan';
 }
 
-function scaSection(workspace, scanUrl) {
+function pipelineSection(workspace, inputs) {
+    const heading = pipelineHeading(inputs.baseline_mode);
+    const resultsPath = path.join(workspace, 'results.json');
+    if (!fs.existsSync(resultsPath)) {
+        return `${heading}\n\n> ⚠️ Arquivo results.json não encontrado.\n`;
+    }
+
+    const split = hasBaseline(inputs);
+    const tables = buildSummaryMarkdown({
+        resultsPath,
+        baselinePath: path.join(workspace, 'baseline.json'),
+        filteredPath: path.join(workspace, 'filtered_results.json'),
+        split
+    });
+    return `${heading}\n\n${tables}`;
+}
+
+function scaSection(workspace, scanUrl, scaStatus) {
     const counts = parseScaLog(workspace);
-    let section = '### SCA\n\n';
+    const lines = ['### 🔍 Veracode SCA (Software Composition Analysis)', ''];
     if (scanUrl) {
-        section += `> [Relatório no Veracode](${scanUrl})\n\n`;
+        lines.push(`> 🔗 [Relatório completo no Veracode](${scanUrl})`);
+        lines.push('');
     }
     if (!counts) {
-        section += '> Arquivo de resultados SCA não encontrado.\n';
-        return `${section}\n`;
+        lines.push('> ⚠️ Nenhum artefato de resultado SCA encontrado.');
+        lines.push('');
+        return `${lines.join('\n')}\n`;
     }
-    section += '| Severidade | Qtd |\n|---|---|\n';
-    section += `| Critical | ${counts.critical} |\n`;
-    section += `| High | ${counts.high} |\n`;
-    section += `| Medium | ${counts.medium} |\n`;
-    section += `| Low | ${counts.low} |\n`;
-    section += `| **Total** | **${counts.total}** |\n`;
-    if (counts.vulnLibs > 0) {
-        section += `\n> Bibliotecas vulneráveis: ${counts.vulnLibs}\n`;
+    lines.push('| Severidade | Quantidade |');
+    lines.push('|---|---|');
+    lines.push(`| 🔴 Critical Risk | ${counts.critical} |`);
+    lines.push(`| 🟠 High Risk | ${counts.high} |`);
+    lines.push(`| 🟡 Medium Risk | ${counts.medium} |`);
+    lines.push(`| 🔵 Low Risk | ${counts.low} |`);
+    lines.push(`| **Total Vulnerabilidades** | **${counts.total}** |`);
+    lines.push(`| Bibliotecas vulneráveis | ${counts.vulnLibs} |`);
+    if (counts.libTotal > 0) {
+        lines.push(`| Total de bibliotecas analisadas | ${counts.libTotal} |`);
+        lines.push(`| Bibliotecas diretas | ${counts.directLibs} |`);
+        lines.push(`| Bibliotecas transitivas | ${counts.transitiveLibs} |`);
     }
-    return `${section}\n`;
+    lines.push('');
+    if (scaStatus) {
+        lines.push(`| Status interno | \`${scaStatus}\` |`);
+        lines.push('');
+    }
+    return `${lines.join('\n')}\n`;
 }
 
 function iacSection(workspace) {
     const counts = parseIacResults(workspace);
-    let section = '### IaC / Secrets\n\n';
+    const lines = ['### 🛡️ Veracode IaC / Secrets', ''];
     if (!counts) {
-        section += '> Arquivo `iac-results/results.json` não encontrado.\n';
-        return `${section}\n`;
+        lines.push('> ⚠️ Nenhum arquivo de resultado encontrado.');
+        lines.push('');
+        return `${lines.join('\n')}\n`;
     }
-    section += '| Severidade | Qtd |\n|---|---|\n';
-    section += `| Critical | ${counts.critical} |\n`;
-    section += `| High | ${counts.high} |\n`;
-    section += `| Medium | ${counts.medium} |\n`;
-    section += `| Low / Negligible | ${counts.low} |\n`;
-    section += `| **Total** | **${counts.total}** |\n`;
-    return `${section}\n`;
+    lines.push('| Severidade | Quantidade |');
+    lines.push('|---|---|');
+    lines.push(`| 🔴 Critical | ${counts.critical} |`);
+    lines.push(`| 🟠 High | ${counts.high} |`);
+    lines.push(`| 🟡 Medium | ${counts.medium} |`);
+    lines.push(`| 🔵 Low / Negligible | ${counts.low} |`);
+    lines.push(`| **Total Findings** | **${counts.total}** |`);
+    lines.push('');
+    return `${lines.join('\n')}\n`;
 }
 
 function uploadSection(inputs) {
     const appName = inputs.upload_app_name || 'N/A';
-    const sandbox = inputs.upload_enable_sandbox === 'true'
-        ? (inputs.upload_sandbox_name || 'N/A')
-        : 'app principal';
     const artifact = inputs.upload_artifact_name || 'N/A';
     const size = inputs.upload_artifact_size || 'N/A';
     const status = inputs.upload_outcome || 'N/A';
-    const platformUrl = inputs.upload_platform_url || 'https://analysiscenter.veracode.com/';
+    const lines = [
+        '### 📤 Veracode Upload & Scan',
+        '',
+        '| Propriedade | Valor |',
+        '|---|---|',
+        `| App Name | \`${appName}\` |`
+    ];
+    if (inputs.upload_enable_sandbox === 'true') {
+        lines.push(`| Sandbox | \`${inputs.upload_sandbox_name || 'N/A'}\` |`);
+    } else {
+        lines.push('| Sandbox | Desativado — app principal |');
+    }
+    lines.push(`| Artefato | \`${artifact}\` |`);
+    lines.push(`| Tamanho | ${size} |`);
+    lines.push(`| Status | ${status} |`);
+    if (inputs.upload_platform_url) {
+        lines.push(`| Plataforma | [Analysis Center](${inputs.upload_platform_url}) |`);
+    }
+    lines.push('');
+    return `${lines.join('\n')}\n`;
+}
 
-    let section = '### Upload & Scan\n\n';
-    section += '| Campo | Valor |\n|---|---|\n';
-    section += `| App | \`${appName}\` |\n`;
-    section += `| Sandbox | ${sandbox} |\n`;
-    section += `| Artefato | \`${artifact}\` |\n`;
-    section += `| Tamanho | ${size} |\n`;
-    section += `| Status | ${status} |\n`;
-    section += `| Plataforma | [Analysis Center](${platformUrl}) |\n`;
-    return `${section}\n`;
+function resumoFinalSection(inputs, workflowRunUrl) {
+    const rows = [];
+    const appendIfActive = (name, status) => {
+        if (!isActiveStatus(status)) {
+            return;
+        }
+        rows.push(`| ${name} | ${statusIcon(status)} |`);
+    };
+    appendIfActive('Veracode SCA', inputs.sca_status);
+    appendIfActive('Veracode IaC/Secrets', inputs.iac_outcome);
+    appendIfActive('Portal Afrika Baseline', inputs.baseline_outcome);
+    appendIfActive('Repo Baseline', inputs.repo_baseline_outcome);
+    appendIfActive('Pipeline Scan', inputs.pipeline_outcome);
+    appendIfActive('Upload & Scan', inputs.upload_outcome);
+
+    const lines = [
+        '---',
+        '',
+        '## 🛡️ Veracode Connect — Resumo Final',
+        '',
+        resolveBanner(inputs),
+        ''
+    ];
+    if (rows.length > 0) {
+        lines.push('| Scan | Status |');
+        lines.push('|---|---|');
+        lines.push(...rows);
+        lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+    lines.push(`[Mais detalhes no Step Summary](${workflowRunUrl})`);
+    lines.push('');
+    lines.push('*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*');
+    lines.push('');
+    return lines.join('\n');
 }
 
 function pipelineRan(inputs) {
@@ -258,23 +333,13 @@ function buildCommentBody(options) {
         inputs
     } = options;
 
-    const { failures, warnings } = collectModuleStatuses(inputs);
-    const lines = [
-        MARKER,
-        '',
-        '## Veracode Connect',
-        '',
-        resolveBanner(failures, warnings),
-        '',
-        `[Workflow run](${workflowRunUrl})`,
-        ''
-    ];
+    const lines = [MARKER, ''];
 
     if (pipelineRan(inputs)) {
-        lines.push(pipelineSection(workspace, hasBaseline(inputs)));
+        lines.push(pipelineSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.sca_status)) {
-        lines.push(scaSection(workspace, inputs.sca_scan_url));
+        lines.push(scaSection(workspace, inputs.sca_scan_url, inputs.sca_status));
     }
     if (isActiveStatus(inputs.iac_outcome)) {
         lines.push(iacSection(workspace));
@@ -283,9 +348,7 @@ function buildCommentBody(options) {
         lines.push(uploadSection(inputs));
     }
 
-    lines.push('---');
-    lines.push(`[Mais detalhes](${workflowRunUrl})`);
-    lines.push('');
+    lines.push(resumoFinalSection(inputs, workflowRunUrl));
 
     return lines.join('\n');
 }
@@ -313,5 +376,6 @@ module.exports = {
     isActiveStatus,
     isFailureStatus,
     collectModuleStatuses,
-    severityCountTable
+    severityCountTable,
+    resolveBanner
 };

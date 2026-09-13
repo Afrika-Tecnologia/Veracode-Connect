@@ -6,6 +6,17 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.12] - 2026-09-13
+
+### Changed
+
+- Step Summary do job lista os módulos nesta ordem (execução inalterada): Pipeline Scan, SCA, IaC/Secrets, Upload & Scan, Auto Packager e Resumo Final. Cada scan grava um fragmento; o build-gate concatena no fim.
+- Comentário do PR alinha títulos, tabelas (severidade com ícones) e o bloco **Resumo Final** ao Step Summary. Pipeline reutiliza o mesmo markdown de Novas/Todas.
+
+### Fixed
+
+- Com baseline ativo, **Novas (pós-baseline)** deixa de ler `filtered_results.json` (a action oficial grava `{"findings":[]}` quando não há fail de policy/severidade). A separação passa a ser `results.json` menos `baseline.json`, pelo `flaw_match` da Veracode. Vale no Step Summary e no comentário do PR.
+
 ## [1.3.11] - 2026-09-11
 
 ### Added

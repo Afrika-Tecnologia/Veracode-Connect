@@ -120,6 +120,8 @@ runs:
         set -euo pipefail
         echo "::group::Gerar Summary do SCA"
 
+        FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        mkdir -p "${FRAG_DIR}"
         {
           echo "### 🔍 Veracode SCA (Software Composition Analysis)"
           echo ""
@@ -202,6 +204,6 @@ runs:
           echo ""
           echo "| Status interno | \`${SCA_STATUS}\` |"
           echo ""
-        } >> "$GITHUB_STEP_SUMMARY"
+        } > "${FRAG_DIR}/sca.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

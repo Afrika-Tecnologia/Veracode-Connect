@@ -185,6 +185,8 @@ runs:
         set -euo pipefail
         echo "::group::Gerar Summary do Upload & Scan"
 
+        FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        mkdir -p "${FRAG_DIR}"
         {
           echo "### 📤 Veracode Upload & Scan"
           echo ""
@@ -210,6 +212,6 @@ runs:
           echo "| Status | ${UPLOAD_OUTCOME} |"
 
           echo ""
-        } >> "$GITHUB_STEP_SUMMARY"
+        } > "${FRAG_DIR}/upload.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

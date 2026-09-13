@@ -194,6 +194,8 @@ runs:
         set -euo pipefail
         echo "::group::Gerar Summary do Auto Packager"
 
+        FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        mkdir -p "${FRAG_DIR}"
         {
           echo "### 📦 Auto Packager"
           echo ""
@@ -218,6 +220,6 @@ runs:
           fi
 
           echo ""
-        } >> "$GITHUB_STEP_SUMMARY"
+        } > "${FRAG_DIR}/packager.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

@@ -345,6 +345,9 @@ runs:
         set -euo pipefail
         echo "::group::Gerar Summary do Repo Baseline Pipeline Scan"
 
+        FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        mkdir -p "${FRAG_DIR}"
+
         OUTCOME="skipped"
         for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
           if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
@@ -372,67 +375,20 @@ runs:
           echo ""
 
           if [ -f "results.json" ]; then
-            emit_sast_count_table() {
-              local file="$1"
-              local heading="$2"
-              local TOTAL VERY_HIGH HIGH MEDIUM LOW
-              TOTAL=$(jq '.findings | length' "${file}" 2>/dev/null || echo "0")
-              VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' "${file}" 2>/dev/null || echo "0")
-              HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' "${file}" 2>/dev/null || echo "0")
-              MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' "${file}" 2>/dev/null || echo "0")
-              LOW=$(jq '[.findings[] | select(.severity <= 2)] | length' "${file}" 2>/dev/null || echo "0")
-              echo "#### ${heading}"
-              echo ""
-              echo "| Severidade | Quantidade |"
-              echo "|---|---|"
-              echo "| 🔴 Very High | ${VERY_HIGH} |"
-              echo "| 🟠 High | ${HIGH} |"
-              echo "| 🟡 Medium | ${MEDIUM} |"
-              echo "| 🔵 Low / Very Low | ${LOW} |"
-              echo "| **Total** | **${TOTAL}** |"
-              echo ""
-            }
-
-            emit_sast_details() {
-              local file="$1"
-              local heading="$2"
-              local total
-              total=$(jq '.findings | length' "${file}" 2>/dev/null || echo "0")
-              if [ "${total}" = "0" ] || [ "${total}" = "null" ]; then
-                return 0
-              fi
-              echo "<details><summary>${heading} (${total})</summary>"
-              echo ""
-              echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
-              echo "|---|---|---|---|---|---|"
-              jq -r '.findings | sort_by(-.severity) | to_entries[] |
-                def sev_icon:
-                  if . == 5 then "🔴 Very High"
-                  elif . == 4 then "🟠 High"
-                  elif . == 3 then "🟡 Medium"
-                  elif . == 2 then "🔵 Low"
-                  elif . == 1 then "⚪ Very Low"
-                  else "ℹ️ Info" end;
-                "| \(.key + 1) | \(.value.severity | sev_icon) | CWE-\(.value.cwe_id) | \(.value.title // "N/A") | \(.value.files.source_file.file // "N/A") | \(.value.files.source_file.line // "N/A") |"' "${file}" 2>/dev/null || echo "| - | - | - | Erro ao parsear | - | - |"
-              echo ""
-              echo "</details>"
-              echo ""
-            }
-
-            if [ "${HAS_BASELINE}" = "true" ] && [ -f "filtered_results.json" ]; then
-              emit_sast_count_table "filtered_results.json" "Novas (pós-baseline)"
-              emit_sast_count_table "results.json" "Todas (este scan)"
-              emit_sast_details "filtered_results.json" "📋 Novas (não presentes no baseline)"
-              emit_sast_details "results.json" "📋 Todas as vulnerabilidades do scan"
-            else
-              emit_sast_count_table "results.json" "Vulnerabilidades"
-              emit_sast_details "results.json" "📋 Detalhes das vulnerabilidades"
+            SPLIT="false"
+            if [ "${HAS_BASELINE}" = "true" ]; then
+              SPLIT="true"
             fi
+            node "$GITHUB_ACTION_PATH/sast-findings.js" summary-md \
+              --results results.json \
+              --baseline baseline.json \
+              --filtered filtered_results.json \
+              --split "${SPLIT}"
           else
             echo "> ⚠️ Arquivo results.json não encontrado."
           fi
 
           echo ""
-        } >> "$GITHUB_STEP_SUMMARY"
+        } > "${FRAG_DIR}/pipeline.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"

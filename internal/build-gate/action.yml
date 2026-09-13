@@ -131,6 +131,9 @@ runs:
           exit 0
         fi
 
+        FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        node "$GITHUB_ACTION_PATH/assemble-summary.js" assemble "${FRAG_DIR}" "$GITHUB_STEP_SUMMARY"
+
         status_icon() {
           local status="$1"
           case "${status}" in

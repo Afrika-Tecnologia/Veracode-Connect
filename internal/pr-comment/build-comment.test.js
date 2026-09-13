@@ -45,13 +45,18 @@ test('parseScaLog lê contagens do log', () => {
         'High Risk Vulnerabilities 3',
         'Medium Risk Vulnerabilities 1',
         'Low Risk Vulnerabilities 4',
-        'Vulnerable Libraries 5'
+        'Vulnerable Libraries 5',
+        'Total Libraries 20',
+        'Direct Libraries 8'
     ].join('\n'));
     const counts = parseScaLog(dir);
     assert.equal(counts.critical, 2);
     assert.equal(counts.high, 3);
     assert.equal(counts.total, 10);
     assert.equal(counts.vulnLibs, 5);
+    assert.equal(counts.libTotal, 20);
+    assert.equal(counts.directLibs, 8);
+    assert.equal(counts.transitiveLibs, 12);
 });
 
 test('parseIacResults extrai matches', () => {
@@ -95,10 +100,11 @@ test('buildCommentBody inclui marker e seções ativas', () => {
     });
 
     assert.match(body, new RegExp(MARKER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(body, /### SAST \(Pipeline Scan\)/);
-    assert.match(body, /\| High \| 1 \|/);
-    assert.match(body, /\[Mais detalhes\]/);
-    assert.doesNotMatch(body, /### SCA/);
+    assert.match(body, /### 🔬 Veracode Pipeline Scan/);
+    assert.match(body, /\| 🟠 High \| 1 \|/);
+    assert.match(body, /## 🛡️ Veracode Connect — Resumo Final/);
+    assert.match(body, /\[Mais detalhes no Step Summary\]/);
+    assert.doesNotMatch(body, /### 🔍 Veracode SCA/);
 });
 
 test('buildCommentBody com baseline destaca tabela de novas', () => {
@@ -125,12 +131,60 @@ test('buildCommentBody com baseline destaca tabela de novas', () => {
         }
     });
 
+    assert.match(body, /### 🔬 Veracode Pipeline Scan \(Repo Baseline\)/);
     assert.match(body, /#### Novas \(pós-baseline\)/);
     assert.match(body, /#### Todas \(este scan\)/);
-    assert.match(body, /\| High \| 1 \|/);
-    assert.match(body, /\| High \| 2 \|/);
+    assert.match(body, /\| 🟠 High \| 1 \|/);
+    assert.match(body, /\| 🟠 High \| 2 \|/);
     assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \|/);
     assert.match(body, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
+});
+
+test('buildCommentBody com baseline.json ignora filtered_results vazio', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-base-split-'));
+    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
+        findings: [
+            {
+                severity: 5,
+                flaw_match: { flaw_hash: 'old', procedure_hash: 'a', prototype_hash: 'b', flaw_hash_ordinal: 1 }
+            },
+            {
+                severity: 4,
+                flaw_match: { flaw_hash: 'new', procedure_hash: 'c', prototype_hash: 'd', flaw_hash_ordinal: 1 }
+            }
+        ]
+    }));
+    fs.writeFileSync(path.join(dir, 'baseline.json'), JSON.stringify({
+        findings: [
+            {
+                severity: 5,
+                flaw_match: { flaw_hash: 'old', procedure_hash: 'a', prototype_hash: 'b', flaw_hash_ordinal: 1 }
+            }
+        ]
+    }));
+    fs.writeFileSync(path.join(dir, 'filtered_results.json'), JSON.stringify({ findings: [] }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: {
+            sca_status: 'skipped',
+            iac_outcome: 'skipped',
+            pipeline_outcome: 'skipped',
+            baseline_outcome: 'success',
+            repo_baseline_outcome: 'skipped',
+            upload_outcome: 'skipped',
+            validate_outcome: 'success',
+            baseline_mode: 'portal_afrika'
+        }
+    });
+
+    assert.match(body, /### 🔬 Veracode Pipeline Scan \(Portal Afrika Baseline\)/);
+    assert.match(body, /#### Novas \(pós-baseline\)/);
+    assert.match(body, /\| 🟠 High \| 1 \|/);
+    assert.match(body, /\| 🔴 Very High \| 1 \|/);
+    assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \|/);
+    assert.match(body, /\| \*\*Total\*\* \| \*\*2\*\* \|/);
 });
 
 test('isActiveStatus ignora skipped', () => {

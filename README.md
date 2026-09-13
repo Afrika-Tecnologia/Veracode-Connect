@@ -22,6 +22,8 @@ Uso (exemplo rapido):
 
 Os logs ficam agrupados no console (`::group::/::endgroup::`).
 
+O Step Summary do job lista só os módulos que rodaram, nesta ordem (independente da execução): Pipeline Scan, SCA, IaC/Secrets, Upload & Scan, Auto Packager e Resumo Final.
+
 ## Inputs
 
 Todos os booleanos devem ser passados como string: `'true'` / `'false'`.
@@ -175,7 +177,7 @@ permissions:
   pull-requests: write
 ```
 
-O comentário inclui tabelas resumidas por scan; detalhes completos ficam no Step Summary da execução (link no rodapé do comentário).
+O comentário segue o mesmo formato do Step Summary (títulos, tabelas de severidade e Resumo Final). O rodapé aponta para o Step Summary da execução.
 
 ## Outputs
 

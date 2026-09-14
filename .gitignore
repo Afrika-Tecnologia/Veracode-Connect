@@ -1,2 +1,5 @@
 # Cursor IDE
 .cursor/
+
+# Runtime do Auto Packager (gerado no job)
+.veracode-connect/

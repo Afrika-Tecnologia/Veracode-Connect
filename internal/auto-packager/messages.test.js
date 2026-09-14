@@ -17,8 +17,8 @@ test('message resolve catálogo e interpola', () => {
         "Falha no Auto Packager: arquivo 'app.zip' não encontrado após o empacotamento."
     );
     assert.equal(
-        message('warning', 'PACKAGE_EXIT_FALLBACK', { code: 1 }),
-        "'veracode package' retornou exit code 1; tentando fallback."
+        message('warning', 'PACKAGE_EXIT_WITH_ARTIFACTS', { code: 1 }),
+        "'veracode package' retornou exit code 1; usando os artefato(s) gerados pela CLI no diretório de saída."
     );
     assert.equal(
         message('success', 'SCAN_FILE_SET', { file: 'build.zip' }),
@@ -40,11 +40,11 @@ test('CLI imprime mensagem interpolada em stdout', () => {
     const result = cp.spawnSync(process.execPath, [
         cli,
         'warning',
-        'PACKAGE_EXIT_FALLBACK',
+        'PACKAGE_EXIT_WITH_ARTIFACTS',
         'code=127'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0);
-    assert.equal(result.stdout, warnings.PACKAGE_EXIT_FALLBACK.replace('{code}', '127'));
+    assert.equal(result.stdout, warnings.PACKAGE_EXIT_WITH_ARTIFACTS.replace('{code}', '127'));
 });
 
 test('CLI falha com chave desconhecida', () => {

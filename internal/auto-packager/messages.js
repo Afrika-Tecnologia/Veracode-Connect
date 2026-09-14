@@ -18,21 +18,23 @@ const errors = {
     PACKAGE_FILE_MISSING: "Falha no Auto Packager: arquivo '{file}' não encontrado após o empacotamento.",
     SCAN_FILE_NOT_PROVIDED: "Falha ao preparar o scan file: scan_file não foi fornecido e enable_auto_packager está 'false'.",
     SCAN_FILE_NOT_FOUND: "Falha ao preparar o scan file: arquivo '{file}' não encontrado.",
-    FALLBACK_ZIP_FAILED: 'Falha no fallback ZIP: app.zip não foi criado pelo zip-release.'
+    NO_PACKAGER_ARTIFACTS: "Falha no Auto Packager: nenhum artefato gerado pela Veracode CLI no diretório de saída '{dir}'. Nenhum ZIP do workspace será usado.",
+    PACKAGE_FAILED_NO_ARTIFACTS: "Falha no Auto Packager: 'veracode package' saiu com código {code} e nenhum artefato válido foi gerado. Nenhum ZIP do workspace será usado.",
+    BUNDLE_FAILED: 'Falha ao descompactar e reunir {count} artefatos do Auto Packager em {file}.'
 };
 
 const warnings = {
     SCAN_FILE_OVERRIDES_PACKAGER: 'Auto Packager está ativo, mas scan_file foi fornecido. Usando o arquivo informado em vez de empacotar.',
-    PACKAGE_EXIT_FALLBACK: "'veracode package' retornou exit code {code}; tentando fallback.",
-    NO_ZIP_FALLBACK: 'Nenhum arquivo .zip gerado pela Veracode CLI. Acionando fallback (TheDoctor0/zip-release).'
+    PACKAGE_EXIT_WITH_ARTIFACTS: "'veracode package' retornou exit code {code}; usando os artefato(s) gerados pela CLI no diretório de saída.",
+    MULTIPLE_ARTIFACTS_BUNDLED: "{count} artefatos do Auto Packager foram descompactados e reunidos em '{file}' (sem ZIP aninhado) para Pipeline Scan e Upload & Scan."
 };
 
 const success = {
     SCAN_FILE_SET: 'scan_file={file} (Auto Packager ignorado — arquivo já informado)',
     SCAN_FILE_PACKAGED: 'scan_file={file} (origem: {source})',
     SCAN_FILE_VALIDATED: 'scan_file={file}',
-    FALLBACK_ZIP_OK: 'scan_file=app.zip (via TheDoctor0/zip-release)',
     SCAN_FILE_CONSOLIDATED: 'scan_file={file} (origem: {source})',
+    ARTIFACTS_SELECTED: 'artefatos={count} scan_file={file}',
     SUMMARY_WRITTEN: 'summary=escrito'
 };
 

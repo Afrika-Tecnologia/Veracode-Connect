@@ -20,8 +20,11 @@ inputs:
 
 outputs:
   scan_file:
-    description: 'Caminho efetivo do arquivo a ser usado no Veracode Pipeline Scan.'
+    description: 'Caminho efetivo do arquivo a ser usado no Veracode Pipeline Scan e no Upload & Scan.'
     value: ${{ steps.final_output.outputs.scan_file }}
+  artifact_count:
+    description: 'Quantidade de artefatos gerados pelo Auto Packager (vazio quando o packager nao rodou).'
+    value: ${{ steps.prepare.outputs.artifact_count || '' }}
 
 runs:
   using: 'composite'
@@ -77,51 +80,39 @@ runs:
             exit 1
           fi
 
+          OUTPUT_DIR="${WORKSPACE}/.veracode-connect/packaged"
+          BUNDLE_PATH="${WORKSPACE}/.veracode-connect/veracode-packager-bundle.zip"
+          rm -rf "${OUTPUT_DIR}"
+          rm -f "${BUNDLE_PATH}"
+          mkdir -p "${OUTPUT_DIR}"
+
           "${VERACODE_CMD}" version || true
 
           "${VERACODE_CMD}" package discover . || true
           set +e
-          "${VERACODE_CMD}" package --trust --source . --type directory --output . 2>&1 | tee veracode_package.log
+          "${VERACODE_CMD}" package --trust --source . --type directory --output "${OUTPUT_DIR}" 2>&1 | tee veracode_package.log
           PACKAGE_EXIT=${PIPESTATUS[0]}
           set -e
 
-          if [ "${PACKAGE_EXIT}" -ne 0 ]; then
-            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning PACKAGE_EXIT_FALLBACK "code=${PACKAGE_EXIT}")"
-          fi
+          set +e
+          node "$GITHUB_ACTION_PATH/select-artifacts.js" "${OUTPUT_DIR}" "${BUNDLE_PATH}"
+          SELECT_EXIT=$?
+          set -e
 
-          ZIP_FILE="$(sed -n 's/.*Package created: \([^[:space:]]\+\).*/\1/p' veracode_package.log | tail -n 1 || true)"
-
-          if [ -z "${ZIP_FILE:-}" ]; then
-            shopt -s nullglob
-            zips=( veracode-artifact-*.zip )
-            if [ ${#zips[@]} -eq 0 ]; then
-              zips=( *.zip )
+          if [ "${SELECT_EXIT}" -ne 0 ]; then
+            if [ "${PACKAGE_EXIT}" -ne 0 ]; then
+              echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error PACKAGE_FAILED_NO_ARTIFACTS "code=${PACKAGE_EXIT}")"
             fi
-            shopt -u nullglob
-            if [ ${#zips[@]} -eq 0 ]; then
-              echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning NO_ZIP_FALLBACK)"
-              echo "needs_fallback=true" >> "$GITHUB_OUTPUT"
-              echo "::endgroup::"
-              exit 0
-            fi
-            ZIP_FILE="${zips[0]}"
-          fi
-
-          if [ ! -f "${ZIP_FILE}" ]; then
-            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error PACKAGE_FILE_MISSING "file=${ZIP_FILE}")"
             echo "::endgroup::"
             exit 1
           fi
 
-          TARGET="app.zip"
-
-          if [ "${TARGET}" != "${ZIP_FILE}" ]; then
-            cp "${ZIP_FILE}" "${TARGET}"
+          if [ "${PACKAGE_EXIT}" -ne 0 ]; then
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning PACKAGE_EXIT_WITH_ARTIFACTS "code=${PACKAGE_EXIT}")"
           fi
 
-          echo "scan_file=${TARGET}" >> "$GITHUB_OUTPUT"
-          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_PACKAGED "file=${TARGET}" "source=${ZIP_FILE}")"
-          ls -lh "${TARGET}" || true
+          echo "Artefatos gerados pelo Auto Packager:"
+          ls -lh "${OUTPUT_DIR}" || true
           echo "::endgroup::"
         else
           echo "::group::Preparar scan file (arquivo informado)"
@@ -142,46 +133,21 @@ runs:
           echo "::endgroup::"
         fi
 
-    - name: Fallback ZIP (zip-release)
-      if: steps.prepare.outputs.needs_fallback == 'true'
-      uses: TheDoctor0/zip-release@b57d897cb5d60cb78b51a507f63fa184cfe35554 # 0.7.6
-      with:
-        type: 'zip'
-        filename: 'app.zip'
-        exclusions: '*.git* /*node_modules/* veracode veracode.exe veracode-cli_* app.zip results.json filtered_results.json baseline.json baseline-response.json veracode_*.log iac-results/* .next/* dist/* build/* target/* .gradle/* __pycache__/* *.pyc *.class coverage/* .cache/* .pytest_cache/* *.log bin/* obj/*'
-
-    - name: Concluir Fallback ZIP
-      if: steps.prepare.outputs.needs_fallback == 'true'
-      shell: bash
-      run: |
-        echo "::group::Concluir Fallback ZIP"
-        if [ ! -f "app.zip" ]; then
-          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FALLBACK_ZIP_FAILED)"
-          echo "::endgroup::"
-          exit 1
-        fi
-        echo "scan_file=app.zip" >> "$GITHUB_OUTPUT"
-        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FALLBACK_ZIP_OK)"
-        ls -lh app.zip || true
-        echo "::endgroup::"
-      id: fallback_output
-
     - name: Consolidar Saida
       id: final_output
       shell: bash
       env:
         PREP_FILE: ${{ steps.prepare.outputs.scan_file }}
-        FALL_FILE: ${{ steps.fallback_output.outputs.scan_file }}
       run: |
         set -euo pipefail
         echo "::group::Consolidar saída do scan file"
-        if [ -n "${FALL_FILE:-}" ]; then
-          echo "scan_file=${FALL_FILE}" >> "$GITHUB_OUTPUT"
-          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${FALL_FILE}" "source=fallback ZIP")"
-        else
-          echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
-          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${PREP_FILE}" "source=prepare")"
+        if [ -z "${PREP_FILE:-}" ]; then
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error NO_PACKAGER_ARTIFACTS "dir=.veracode-connect/packaged")"
+          echo "::endgroup::"
+          exit 1
         fi
+        echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${PREP_FILE}" "source=prepare")"
         echo "::endgroup::"
 
     - name: Gerar Summary do Auto Packager
@@ -189,7 +155,9 @@ runs:
       shell: bash
       env:
         SCAN_FILE: ${{ steps.final_output.outputs.scan_file }}
-        NEEDS_FALLBACK: ${{ steps.prepare.outputs.needs_fallback }}
+        ARTIFACT_COUNT: ${{ steps.prepare.outputs.artifact_count }}
+        ARTIFACT_NAMES: ${{ steps.prepare.outputs.artifact_names }}
+        BUNDLED: ${{ steps.prepare.outputs.bundled }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Auto Packager"
@@ -206,15 +174,21 @@ runs:
             FILE_NAME=$(basename "${SCAN_FILE}")
 
             METHOD="Veracode CLI"
-            if [ "${NEEDS_FALLBACK:-}" = "true" ]; then
-              METHOD="Fallback (zip-release)"
+            if [ "${BUNDLED:-}" = "true" ]; then
+              METHOD="Veracode CLI (${ARTIFACT_COUNT} artefatos descompactados e reunidos)"
             fi
 
             echo "| Propriedade | Valor |"
             echo "|---|---|"
-            echo "| Artefato | \`${FILE_NAME}\` |"
+            echo "| Artefato enviado | \`${FILE_NAME}\` |"
             echo "| Tamanho | ${FILE_SIZE} (${FILE_SIZE_BYTES} bytes) |"
             echo "| Método | ${METHOD} |"
+            if [ -n "${ARTIFACT_COUNT:-}" ]; then
+              echo "| Artefatos gerados | ${ARTIFACT_COUNT} |"
+            fi
+            if [ -n "${ARTIFACT_NAMES:-}" ]; then
+              echo "| Pacotes da CLI | \`${ARTIFACT_NAMES}\` |"
+            fi
           else
             echo "> ⚠️ Nenhum artefato gerado pelo Auto Packager."
           fi

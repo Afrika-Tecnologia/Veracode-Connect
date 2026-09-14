@@ -13,7 +13,7 @@ Uso (exemplo rapido):
 1) (Opcional) Veracode SCA (`enable_sca: 'true'`)
 2) (Opcional) Veracode IaC/Secrets (`enable_iac: 'true'`)
 3) Define o `.zip` do scan:
-   - `enable_auto_packager: 'true'` -> tenta Auto Packager (com fallback para `app.zip`)
+   - `enable_auto_packager: 'true'` -> gera artefatos com o Auto Packager (falha se a CLI nao produzir pacotes validos; nao usa ZIP aleatorio do workspace)
    - `enable_auto_packager: 'false'` -> usa o `scan_file` que voce fornecer
 4) (Opcional) Baseline (`baseline_mode: 'portal_afrika'` | `'repo'`) — Pipeline Scan com provedor de baseline
 5) (Opcional) Pipeline Scan sem baseline (`baseline_mode: 'none'` + `enable_pipelinescan: 'true'`)
@@ -36,7 +36,7 @@ Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-req
 |---|---:|---:|---|
 | `veracode_api_id` | sim | - | VID do Veracode. |
 | `veracode_api_key` | sim | - | VKEY do Veracode. |
-| `enable_auto_packager` | nao | `'false'` | Se `'true'`, tenta gerar `app.zip` automaticamente; senao usa `scan_file`. |
+| `enable_auto_packager` | nao | `'false'` | Se `'true'`, empacota com a Veracode CLI e usa só os artefatos gerados no diretório de saída; senao usa `scan_file`. |
 | `scan_file` | nao* | - | Obrigatorio na pratica quando `enable_auto_packager: 'false'`. |
 | `enable_pipelinescan` | nao | `'true'` | Usado quando `baseline_mode: 'none'`. Desative para rodar so Upload & Scan. |
 | `baseline_mode` | nao | `'none'` | `none` \| `portal_afrika` \| `repo`. |
@@ -244,6 +244,8 @@ Escolha um exemplo e copie para `.github/workflows/`.
 - SCA + IaC + Auto Packager + Repo Baseline + Upload & Scan -> [abrir](examples/autopackager-with-repo-baseline-sca-iac-upload.yml)
 
 ### Autopackager (gera o `.zip` automaticamente)
+
+A CLI grava os pacotes em `.veracode-connect/packaged/` (isolado do workspace). Um artefato é enviado como está; vários (por módulo/linguagem) são **descompactados** (cada ZIP numa pasta) e reunidos em `.veracode-connect/veracode-packager-bundle.zip` — sem ZIP dentro de ZIP, porque a Veracode não analisa arquivo aninhado. JAR/WAR/EAR/APK entram como módulos. Se a CLI não gerar nenhum artefato válido, o job **falha** — ZIP já existente no repositório não é usado.
 
 - Auto Packager + Baseline -> [abrir](examples/autopackager-with-baseline.yml)
 - Auto Packager + Repo Baseline -> [abrir](examples/autopackager-with-repo-baseline.yml)

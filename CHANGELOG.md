@@ -6,6 +6,17 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.14] - 2026-09-14
+
+### Fixed
+
+- Auto Packager deixa de selecionar um `.zip` qualquer do workspace quando a Veracode CLI gera artefatos (`veracode-auto-pack-*.zip`, JAR, WAR, APK, etc.). O empacotamento grava só em `.veracode-connect/packaged/`; se esse diretório ficar vazio, o step falha em vez de copiar/renomear outro ZIP para `app.zip` ou acionar o fallback `zip-release`.
+- Com vários artefatos da CLI, cada `.zip` é descompactado numa pasta e o conteúdo é reunido num único ZIP plano (JAR/WAR/EAR/APK entram como módulos). Pipeline Scan e Upload & Scan recebem esse arquivo — **sem ZIP aninhado**, que a Veracode não analisa.
+
+### Removed
+
+- Fallback silencioso do Auto Packager para `TheDoctor0/zip-release` e para o glob `*.zip` no workspace.
+
 ## [1.3.13] - 2026-09-14
 
 ### Changed

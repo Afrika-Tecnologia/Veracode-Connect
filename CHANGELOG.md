@@ -6,6 +6,20 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.3.13] - 2026-09-14
+
+### Changed
+
+- Step Summary e comentário do PR padronizam severidade em **Very High**, **High**, **Medium**, **Low** e **Very Low** (SCA, IaC/Secrets e Pipeline Scan).
+- Com baseline ativo, as tabelas SAST passam a **SAST - Vulnerabilidades Bloqueantes de Esteira** e **SAST - Todas Vulnerabilidades**, cada uma com o detalhamento logo abaixo (`Detalhamento de …`).
+- Sem baseline, o Pipeline Scan usa **SAST - Vulnerabilidades** e **Detalhamento de Vulnerabilidades**. SCA e IaC usam **Detalhamento de SCA** e **Detalhamento de IaC / Secrets**.
+- O link **Relatório completo no Veracode** (SCA) vai para o bloco **Veracode Connect — Resumo Final**.
+- Banner de falha com `fail_build=true`: **Build travado - Falhas detectadas**.
+
+### Removed
+
+- Do Step Summary e do comentário do PR: caminho do store de baseline, aviso de baseline encontrado, **Issues GitHub: desabilitado** e a linha **Status interno** do SCA.
+
 ## [1.3.12] - 2026-09-13
 
 ### Changed

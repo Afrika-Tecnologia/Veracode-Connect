@@ -419,17 +419,18 @@ runs:
           echo "### 🔬 Veracode Pipeline Scan (Portal Afrika Baseline)"
           echo ""
 
-          if [ "${HAS_BASELINE}" = "true" ]; then
-            echo "> 📁 Baseline encontrado no Portal Afrika — scan executado **com baseline**"
-          elif [ "${CAN_SEED}" = "true" ]; then
-            echo "> 🆕 Sem baseline no Portal Afrika — scan executado **sem baseline** (baseline enviado após scan na default_branch \`${DEFAULT_BRANCH}\`)"
-          else
-            echo "> ⚠️ Sem baseline no Portal Afrika — scan executado **sem baseline** e seed **não enviado** (branch \`${CURRENT_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`). Rode na default_branch para criar o baseline."
+          if [ "${HAS_BASELINE}" != "true" ]; then
+            if [ "${CAN_SEED}" = "true" ]; then
+              echo "> 🆕 Sem baseline no Portal Afrika — scan executado **sem baseline** (baseline enviado após scan na default_branch \`${DEFAULT_BRANCH}\`)"
+            else
+              echo "> ⚠️ Sem baseline no Portal Afrika — scan executado **sem baseline** e seed **não enviado** (branch \`${CURRENT_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`). Rode na default_branch para criar o baseline."
+            fi
+            echo ""
           fi
           if [ "${CREATE_ISSUES}" = "true" ]; then
             echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
+            echo ""
           fi
-          echo ""
 
           if [ -f "results.json" ]; then
             SPLIT="false"

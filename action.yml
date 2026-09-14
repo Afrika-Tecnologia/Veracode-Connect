@@ -325,6 +325,7 @@ runs:
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
+        sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
 
     # ── 9. Comentário no PR (opcional) ───────────────────────────────
     - name: Comentário no PR

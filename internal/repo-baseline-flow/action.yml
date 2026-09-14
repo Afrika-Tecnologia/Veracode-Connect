@@ -359,20 +359,19 @@ runs:
         {
           echo "### 🔬 Veracode Pipeline Scan (Repo Baseline)"
           echo ""
-          echo "> 📦 Store: \`${BASELINE_ORG}/${BASELINE_REPO_NAME}/${SCAN_REPOSITORY}/baseline.json\` @ \`${BASELINE_REPO_BRANCH:-default_branch}\`"
-          echo ""
 
-          if [ "${HAS_BASELINE}" = "true" ]; then
-            echo "> 📁 Baseline encontrado no repositório — scan executado **com baseline** (write-once, não alterado)"
-          elif [ "${CAN_SEED}" = "true" ]; then
-            echo "> 🆕 Sem baseline no repositório — scan executado **sem baseline** (baseline.json gravado após o scan na default_branch \`${DEFAULT_BRANCH}\`)"
-          else
-            echo "> ⚠️ Sem baseline no repositório — scan executado **sem baseline** e seed **não gravado** (branch \`${CURRENT_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`). Rode na default_branch para criar o baseline."
+          if [ "${HAS_BASELINE}" != "true" ]; then
+            if [ "${CAN_SEED}" = "true" ]; then
+              echo "> 🆕 Sem baseline no repositório — scan executado **sem baseline** (baseline.json gravado após o scan na default_branch \`${DEFAULT_BRANCH}\`)"
+            else
+              echo "> ⚠️ Sem baseline no repositório — scan executado **sem baseline** e seed **não gravado** (branch \`${CURRENT_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`). Rode na default_branch para criar o baseline."
+            fi
+            echo ""
           fi
           if [ "${CREATE_ISSUES}" = "true" ]; then
             echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
+            echo ""
           fi
-          echo ""
 
           if [ -f "results.json" ]; then
             SPLIT="false"

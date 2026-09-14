@@ -70,7 +70,7 @@ test('countBySeverity trata severity numérica e string', () => {
         { severity: 2 },
         { severity: 1 }
     ]);
-    assert.deepEqual(counts, { veryHigh: 1, high: 1, medium: 1, low: 2, total: 5 });
+    assert.deepEqual(counts, { veryHigh: 1, high: 1, medium: 1, low: 1, veryLow: 1, total: 5 });
 });
 
 test('findingKey usa flaw_match e não issue_id', () => {
@@ -109,15 +109,20 @@ test('summary-md com baseline não usa filtered vazio nas novas', () => {
         filteredPath: path.join(dir, 'filtered_results.json'),
         split: true
     });
-    assert.match(md, /#### Novas \(pós-baseline\)/);
-    assert.match(md, /#### Todas \(este scan\)/);
+    assert.match(md, /#### SAST - Vulnerabilidades Bloqueantes de Esteira/);
+    assert.match(md, /#### SAST - Todas Vulnerabilidades/);
     assert.match(md, /\| 🟠 High \| 1 \|/);
     assert.match(md, /\| 🔴 Very High \| 1 \|/);
     assert.match(md, /\*\*1\*\*/);
     assert.match(md, /\*\*2\*\*/);
-    assert.match(md, /📋 Novas \(não presentes no baseline\) \(1\)/);
-    assert.match(md, /📋 Todas as vulnerabilidades do scan \(2\)/);
-    assert.doesNotMatch(md, /#### Vulnerabilidades/);
+    assert.match(md, /Detalhamento de Vulnerabilidades Bloqueantes de Esteira \(1\)/);
+    assert.match(md, /Detalhamento de Todas Vulnerabilidades \(2\)/);
+    assert.doesNotMatch(md, /#### SAST - Vulnerabilidades\n/);
+    const blockingIdx = md.indexOf('#### SAST - Vulnerabilidades Bloqueantes de Esteira');
+    const blockingDetailsIdx = md.indexOf('Detalhamento de Vulnerabilidades Bloqueantes de Esteira');
+    const allIdx = md.indexOf('#### SAST - Todas Vulnerabilidades');
+    const allDetailsIdx = md.indexOf('Detalhamento de Todas Vulnerabilidades');
+    assert.ok(blockingIdx < blockingDetailsIdx && blockingDetailsIdx < allIdx && allIdx < allDetailsIdx);
 });
 
 test('CLI summary-md escreve as duas tabelas', () => {
@@ -134,6 +139,6 @@ test('CLI summary-md escreve as duas tabelas', () => {
         '--split', 'true'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Novas \(pós-baseline\)/);
+    assert.match(result.stdout, /SAST - Vulnerabilidades Bloqueantes de Esteira/);
     assert.match(result.stdout, /\*\*1\*\*/);
 });

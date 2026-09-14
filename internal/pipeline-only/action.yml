@@ -179,19 +179,23 @@ runs:
             VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' results.json 2>/dev/null || echo "0")
             HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' results.json 2>/dev/null || echo "0")
             MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' results.json 2>/dev/null || echo "0")
-            LOW=$(jq '[.findings[] | select(.severity <= 2)] | length' results.json 2>/dev/null || echo "0")
+            LOW=$(jq '[.findings[] | select(.severity == 2)] | length' results.json 2>/dev/null || echo "0")
+            VERY_LOW=$(jq '[.findings[] | select(.severity <= 1)] | length' results.json 2>/dev/null || echo "0")
 
+            echo "#### SAST - Vulnerabilidades"
+            echo ""
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
             echo "| 🔴 Very High | ${VERY_HIGH} |"
             echo "| 🟠 High | ${HIGH} |"
             echo "| 🟡 Medium | ${MEDIUM} |"
-            echo "| 🔵 Low / Very Low | ${LOW} |"
+            echo "| 🔵 Low | ${LOW} |"
+            echo "| ⚪ Very Low | ${VERY_LOW} |"
             echo "| **Total** | **${TOTAL}** |"
             echo ""
 
             if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
-              echo "<details><summary>📋 Detalhes das vulnerabilidades (${TOTAL})</summary>"
+              echo "<details><summary>Detalhamento de Vulnerabilidades (${TOTAL})</summary>"
               echo ""
               echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
               echo "|---|---|---|---|---|---|"

@@ -65,7 +65,7 @@ function severityNumber(finding) {
 }
 
 function countBySeverity(findings) {
-    const counts = { veryHigh: 0, high: 0, medium: 0, low: 0, total: findings.length };
+    const counts = { veryHigh: 0, high: 0, medium: 0, low: 0, veryLow: 0, total: findings.length };
     for (const finding of findings) {
         const severity = severityNumber(finding);
         if (severity === 5) {
@@ -74,8 +74,10 @@ function countBySeverity(findings) {
             counts.high += 1;
         } else if (severity === 3) {
             counts.medium += 1;
-        } else if (severity >= 0 && severity <= 2) {
+        } else if (severity === 2) {
             counts.low += 1;
+        } else if (severity >= 0 && severity <= 1) {
+            counts.veryLow += 1;
         }
     }
     return counts;
@@ -146,7 +148,8 @@ function countTable(heading, counts) {
         `| 🔴 Very High | ${counts.veryHigh} |`,
         `| 🟠 High | ${counts.high} |`,
         `| 🟡 Medium | ${counts.medium} |`,
-        `| 🔵 Low / Very Low | ${counts.low} |`,
+        `| 🔵 Low | ${counts.low} |`,
+        `| ⚪ Very Low | ${counts.veryLow} |`,
         `| **Total** | **${counts.total}** |`,
         ''
     ].join('\n');
@@ -183,8 +186,8 @@ function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split }
     if (!split) {
         const counts = countBySeverity(scanFindings);
         return [
-            countTable('Vulnerabilidades', counts),
-            detailsTable('📋 Detalhes das vulnerabilidades', scanFindings)
+            countTable('SAST - Vulnerabilidades', counts),
+            detailsTable('Detalhamento de Vulnerabilidades', scanFindings)
         ].filter(Boolean).join('\n');
     }
 
@@ -193,10 +196,10 @@ function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split }
     const novas = resolveNovas(scanFindings, baselineFindings, filteredFindings);
 
     return [
-        countTable('Novas (pós-baseline)', countBySeverity(novas)),
-        countTable('Todas (este scan)', countBySeverity(scanFindings)),
-        detailsTable('📋 Novas (não presentes no baseline)', novas),
-        detailsTable('📋 Todas as vulnerabilidades do scan', scanFindings)
+        countTable('SAST - Vulnerabilidades Bloqueantes de Esteira', countBySeverity(novas)),
+        detailsTable('Detalhamento de Vulnerabilidades Bloqueantes de Esteira', novas),
+        countTable('SAST - Todas Vulnerabilidades', countBySeverity(scanFindings)),
+        detailsTable('Detalhamento de Todas Vulnerabilidades', scanFindings)
     ].filter(Boolean).join('\n');
 }
 

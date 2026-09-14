@@ -38,6 +38,10 @@ inputs:
     description: 'Modo de baseline resolvido (none | portal_afrika | repo).'
     required: false
     default: 'none'
+  sca_scan_url:
+    description: 'URL do relatório SCA no Veracode.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -122,6 +126,7 @@ runs:
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
         VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
+        SCA_SCAN_URL: ${{ inputs.sca_scan_url }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary Final"
@@ -170,7 +175,7 @@ runs:
 
           if [ "${has_failure}" = "true" ]; then
             if [ "${FAIL_BUILD}" = "true" ]; then
-              echo "> ❌ **Build travado** — Falhas detectadas e \`fail_build=true\`"
+              echo "> ❌ **Build travado** - Falhas detectadas"
             else
               echo "> ⚠️ **Falhas detectadas** mas build **não travado** (\`fail_build=false\`)"
             fi
@@ -189,6 +194,10 @@ runs:
           append_row_if_active "Upload & Scan" "${UPLOAD_OUTCOME}"
 
           echo ""
+          if [ -n "${SCA_SCAN_URL:-}" ]; then
+            echo "> 🔗 [Relatório completo no Veracode](${SCA_SCAN_URL})"
+            echo ""
+          fi
           echo "---"
           echo ""
           echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"

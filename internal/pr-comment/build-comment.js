@@ -58,10 +58,11 @@ function parseIacResults(workspace) {
     const findings = extractIacFindings(data);
 
     return {
-        critical: findings.filter((f) => f.vulnerability?.severity === 'Critical').length,
+        veryHigh: findings.filter((f) => f.vulnerability?.severity === 'Critical').length,
         high: findings.filter((f) => f.vulnerability?.severity === 'High').length,
         medium: findings.filter((f) => f.vulnerability?.severity === 'Medium').length,
-        low: findings.filter((f) => /^(Low|Negligible)$/i.test(f.vulnerability?.severity || '')).length,
+        low: findings.filter((f) => f.vulnerability?.severity === 'Low').length,
+        veryLow: findings.filter((f) => f.vulnerability?.severity === 'Negligible').length,
         total: findings.length
     };
 }
@@ -81,15 +82,17 @@ function parseScaLog(workspace) {
         const critical = pick(/Critical\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         const high = pick(/High\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         const medium = pick(/Medium\s+Risk\s+Vulnerabilities\s+(\d+)/i);
-        const low = pick(/Low\s+Risk\s+Vulnerabilities\s+(\d+)/i);
+        const low = pick(/(?<!Very )Low\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         const libTotal = pick(/Total\s+Libraries\s+(\d+)/i);
         const directLibs = pick(/Direct\s+Libraries\s+(\d+)/i);
+        const veryLow = pick(/Very Low\s+Risk\s+Vulnerabilities\s+(\d+)/i);
         return {
-            critical,
+            veryHigh: critical,
             high,
             medium,
             low,
-            total: critical + high + medium + low,
+            veryLow,
+            total: critical + high + medium + low + veryLow,
             vulnLibs: pick(/Vulnerable\s+Libraries\s+(\d+)/i),
             libTotal,
             directLibs,
@@ -153,7 +156,7 @@ function resolveBanner(inputs) {
     const { failures } = collectModuleStatuses(inputs);
     if (failures.length > 0) {
         if (inputs.fail_build === 'true') {
-            return '> ❌ **Build travado** — Falhas detectadas e `fail_build=true`';
+            return '> ❌ **Build travado** - Falhas detectadas';
         }
         return '> ⚠️ **Falhas detectadas** mas build **não travado** (`fail_build=false`)';
     }
@@ -167,7 +170,8 @@ function severityCountTable(counts) {
         `| 🔴 Very High | ${counts.veryHigh} |`,
         `| 🟠 High | ${counts.high} |`,
         `| 🟡 Medium | ${counts.medium} |`,
-        `| 🔵 Low / Very Low | ${counts.low} |`,
+        `| 🔵 Low | ${counts.low} |`,
+        `| ⚪ Very Low | ${counts.veryLow} |`,
         `| **Total** | **${counts.total}** |`
     ].join('\n');
 }
@@ -199,13 +203,9 @@ function pipelineSection(workspace, inputs) {
     return `${heading}\n\n${tables}`;
 }
 
-function scaSection(workspace, scanUrl, scaStatus) {
+function scaSection(workspace) {
     const counts = parseScaLog(workspace);
     const lines = ['### 🔍 Veracode SCA (Software Composition Analysis)', ''];
-    if (scanUrl) {
-        lines.push(`> 🔗 [Relatório completo no Veracode](${scanUrl})`);
-        lines.push('');
-    }
     if (!counts) {
         lines.push('> ⚠️ Nenhum artefato de resultado SCA encontrado.');
         lines.push('');
@@ -213,10 +213,11 @@ function scaSection(workspace, scanUrl, scaStatus) {
     }
     lines.push('| Severidade | Quantidade |');
     lines.push('|---|---|');
-    lines.push(`| 🔴 Critical Risk | ${counts.critical} |`);
-    lines.push(`| 🟠 High Risk | ${counts.high} |`);
-    lines.push(`| 🟡 Medium Risk | ${counts.medium} |`);
-    lines.push(`| 🔵 Low Risk | ${counts.low} |`);
+    lines.push(`| 🔴 Very High | ${counts.veryHigh} |`);
+    lines.push(`| 🟠 High | ${counts.high} |`);
+    lines.push(`| 🟡 Medium | ${counts.medium} |`);
+    lines.push(`| 🔵 Low | ${counts.low} |`);
+    lines.push(`| ⚪ Very Low | ${counts.veryLow} |`);
     lines.push(`| **Total Vulnerabilidades** | **${counts.total}** |`);
     lines.push(`| Bibliotecas vulneráveis | ${counts.vulnLibs} |`);
     if (counts.libTotal > 0) {
@@ -225,10 +226,6 @@ function scaSection(workspace, scanUrl, scaStatus) {
         lines.push(`| Bibliotecas transitivas | ${counts.transitiveLibs} |`);
     }
     lines.push('');
-    if (scaStatus) {
-        lines.push(`| Status interno | \`${scaStatus}\` |`);
-        lines.push('');
-    }
     return `${lines.join('\n')}\n`;
 }
 
@@ -242,10 +239,11 @@ function iacSection(workspace) {
     }
     lines.push('| Severidade | Quantidade |');
     lines.push('|---|---|');
-    lines.push(`| 🔴 Critical | ${counts.critical} |`);
+    lines.push(`| 🔴 Very High | ${counts.veryHigh} |`);
     lines.push(`| 🟠 High | ${counts.high} |`);
     lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low / Negligible | ${counts.low} |`);
+    lines.push(`| 🔵 Low | ${counts.low} |`);
+    lines.push(`| ⚪ Very Low | ${counts.veryLow} |`);
     lines.push(`| **Total Findings** | **${counts.total}** |`);
     lines.push('');
     return `${lines.join('\n')}\n`;
@@ -307,6 +305,10 @@ function resumoFinalSection(inputs, workflowRunUrl) {
         lines.push(...rows);
         lines.push('');
     }
+    if (inputs.sca_scan_url) {
+        lines.push(`> 🔗 [Relatório completo no Veracode](${inputs.sca_scan_url})`);
+        lines.push('');
+    }
     lines.push('---');
     lines.push('');
     lines.push(`[Mais detalhes no Step Summary](${workflowRunUrl})`);
@@ -339,7 +341,7 @@ function buildCommentBody(options) {
         lines.push(pipelineSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.sca_status)) {
-        lines.push(scaSection(workspace, inputs.sca_scan_url, inputs.sca_status));
+        lines.push(scaSection(workspace));
     }
     if (isActiveStatus(inputs.iac_outcome)) {
         lines.push(iacSection(workspace));

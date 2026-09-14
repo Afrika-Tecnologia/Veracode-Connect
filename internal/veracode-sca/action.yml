@@ -113,8 +113,6 @@ runs:
       if: always()
       shell: bash
       env:
-        SCA_STATUS: ${{ steps.run_sca.outputs.sca_status }}
-        SCAN_URL: ${{ steps.veracode_sca_run.outputs.scan-url }}
         CREATE_ISSUES: ${{ inputs.create_issues }}
       run: |
         set -euo pipefail
@@ -126,17 +124,10 @@ runs:
           echo "### 🔍 Veracode SCA (Software Composition Analysis)"
           echo ""
 
-          if [ -n "${SCAN_URL:-}" ]; then
-            echo "> 🔗 [Relatório completo no Veracode](${SCAN_URL})"
-            echo ""
-          fi
-
           if [ "${CREATE_ISSUES}" = "true" ]; then
             echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\`)"
-          else
-            echo "> 📝 Issues GitHub: desabilitado"
+            echo ""
           fi
-          echo ""
 
           SCA_LOG=""
           if [ -f "scaResults.txt" ]; then
@@ -149,18 +140,20 @@ runs:
             VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
             VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
             VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_LOW=$(grep -oiP 'Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} ))
+            VULN_LOW=$(grep -oiP '(?<!Very )Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_VERY_LOW=$(grep -oiP 'Very Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
+            VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} + ${VULN_VERY_LOW:-0} ))
             LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
             DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
             VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
 
             echo "| Severidade | Quantidade |"
             echo "|---|---|"
-            echo "| 🔴 Critical Risk | ${VULN_CRITICAL} |"
-            echo "| 🟠 High Risk | ${VULN_HIGH} |"
-            echo "| 🟡 Medium Risk | ${VULN_MEDIUM} |"
-            echo "| 🔵 Low Risk | ${VULN_LOW} |"
+            echo "| 🔴 Very High | ${VULN_CRITICAL} |"
+            echo "| 🟠 High | ${VULN_HIGH} |"
+            echo "| 🟡 Medium | ${VULN_MEDIUM} |"
+            echo "| 🔵 Low | ${VULN_LOW} |"
+            echo "| ⚪ Very Low | ${VULN_VERY_LOW} |"
             echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
             echo "| Bibliotecas vulneráveis | ${VULN_LIBS} |"
             echo "| Total de bibliotecas analisadas | ${LIB_TOTAL} |"
@@ -171,7 +164,7 @@ runs:
 
             VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' "${SCA_LOG}" 2>/dev/null || echo "0")
             if [ "${VULN_LINES}" -gt 0 ] 2>/dev/null; then
-              echo "<details><summary>📋 Detalhes das vulnerabilidades (${VULN_LINES})</summary>"
+              echo "<details><summary>Detalhamento de SCA (${VULN_LINES})</summary>"
               echo ""
               echo "| # | Severidade | CVE | Descrição | Biblioteca |"
               echo "|---|---|---|---|---|"
@@ -183,12 +176,13 @@ runs:
                 gsub(/^[ \t]+|[ \t]+$/, "", sev);
                 gsub(/^[ \t]+|[ \t]+$/, "", desc);
                 gsub(/^[ \t]+|[ \t]+$/, "", lib);
-                icon="⚪"; order=5;
-                if (sev ~ /Critical/) { icon="🔴"; order=1; }
-                else if (sev ~ /High/) { icon="🟠"; order=2; }
-                else if (sev ~ /Medium/) { icon="🟡"; order=3; }
-                else if (sev ~ /Low/) { icon="🔵"; order=4; }
-                printf "%d\t| - | %s %s | %s | %s | %s |\n", order, icon, sev, cve, desc, lib
+                icon="⚪"; order=5; label=sev;
+                if (sev ~ /Critical/) { icon="🔴"; order=1; label="Very High"; }
+                else if (sev ~ /High/) { icon="🟠"; order=2; label="High"; }
+                else if (sev ~ /Medium/) { icon="🟡"; order=3; label="Medium"; }
+                else if (sev ~ /Very Low/) { icon="⚪"; order=5; label="Very Low"; }
+                else if (sev ~ /Low/) { icon="🔵"; order=4; label="Low"; }
+                printf "%d\t| - | %s %s | %s | %s | %s |\n", order, icon, label, cve, desc, lib
               }' | sort -t$'\t' -k1,1n | cut -f2- | awk '{ gsub(/^\| - \|/, "| " NR " |"); print }' || true
 
               echo ""
@@ -201,8 +195,6 @@ runs:
             echo "> ⚠️ Nenhum artefato de resultado SCA encontrado."
           fi
 
-          echo ""
-          echo "| Status interno | \`${SCA_STATUS}\` |"
           echo ""
         } > "${FRAG_DIR}/sca.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"

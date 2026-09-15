@@ -21,6 +21,10 @@ test('message resolve catálogo e interpola', () => {
         'retry 1/5 HTTP 409: ff'
     );
     assert.equal(message('success', 'AUTH', { source: 'github_app' }), 'auth=github_app');
+    assert.equal(
+        message('warning', 'SEED_BLOCKED_PARTIAL', { failed: 2, planned: 4 }),
+        'seed bloqueado: 2 de 4 Pipeline Scans falharam; baseline não gravado para evitar união incompleta.'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

@@ -30,7 +30,9 @@ const errors = {
     RESULTS_MISSING_POLICY_CHECK:
         'Falha na verificação do Pipeline Scan: results.json não encontrado após o scan.',
     POLICY_FAIL_TRUE:
-        'Pipeline Scan falhou e policy_fail=true — o job será interrompido.'
+        'Pipeline Scan falhou e policy_fail=true — o job será interrompido.',
+    SCAN_ERROR:
+        'Pipeline Scan falhou em {count} artefato(s) (timeout, credencial, linguagem não suportada ou 429). Findings de policy não se aplicam a este erro.'
 };
 
 const warnings = {
@@ -45,7 +47,9 @@ const warnings = {
     POLICY_FAIL_FALSE:
         'Pipeline Scan reportou falhas, mas policy_fail=false (o job continua).',
     FILTERED_RESULTS_MISSING:
-        'filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado.'
+        'filtered_results.json não encontrado; import de issues do Pipeline Scan ignorado.',
+    SEED_BLOCKED_PARTIAL:
+        'seed bloqueado: {failed} de {planned} Pipeline Scans falharam; baseline não gravado para evitar união incompleta.'
 };
 
 const success = {

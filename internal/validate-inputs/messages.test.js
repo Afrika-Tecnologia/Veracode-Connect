@@ -16,6 +16,10 @@ test('message resolve catálogo e interpola', () => {
         "portal_afrika_base_url não deve terminar com barra (/). Atual: 'https://x.io/'"
     );
     assert.equal(message('success', 'BASELINE_MODE_RESOLVED', { mode: 'repo' }), 'baseline_mode=repo');
+    assert.equal(
+        message('error', 'UPLOAD_SCAN_ARTIFACTS_INVALID'),
+        "upload_scan_artifacts deve ser 'all' ou 'primary'."
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

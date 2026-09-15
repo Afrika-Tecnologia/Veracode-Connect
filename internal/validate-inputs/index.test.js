@@ -160,6 +160,41 @@ test('resolveBaselineMode: repo explicito', () => {
     assert.equal(result.mode, 'repo');
 });
 
-test('baselineContentPath monta ORG/REPO/baseline.json', () => {
-    assert.equal(baselineContentPath('Afrika-Tecnologia/meu-app'), 'Afrika-Tecnologia/meu-app/baseline.json');
+test('validate-inputs falha quando upload_scan_artifacts é inválido', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            UPLOAD_SCAN_ARTIFACTS: 'both'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /upload_scan_artifacts deve ser 'all' ou 'primary'\./);
+});
+
+test('validate-inputs falha quando pipeline_scan_max_artifacts está fora de 1-6', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            PIPELINE_SCAN_MAX_ARTIFACTS: '7'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /pipeline_scan_max_artifacts deve ser um inteiro entre 1 e 6\./);
+});
+
+test('validate-inputs falha quando pipeline_scan_retry não é booleano', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            PIPELINE_SCAN_RETRY: 'maybe'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /pipeline_scan_retry deve ser 'true' ou 'false'\./);
 });

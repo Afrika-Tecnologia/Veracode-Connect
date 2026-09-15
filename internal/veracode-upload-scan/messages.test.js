@@ -17,6 +17,14 @@ test('message resolve catálogo e interpola', () => {
         'Falha ao resolver filepath: arquivo não encontrado: /tmp/app.zip'
     );
     assert.equal(
+        message('error', 'FILEPATH_EMPTY_DIR', { path: '/tmp/upload/' }),
+        'Falha ao resolver filepath: diretório de upload vazio: /tmp/upload/'
+    );
+    assert.equal(
+        message('success', 'FILEPATH_DIR_RESOLVED', { path: '/tmp/upload/', count: 3 }),
+        'filepath=/tmp/upload/ arquivos=3'
+    );
+    assert.equal(
         message('success', 'PREP_OK', { sandbox: 'true', mode: 'auto', branch: 'feat' }),
         'upload_scan preparado: sandbox=true mode=auto branch=feat'
     );

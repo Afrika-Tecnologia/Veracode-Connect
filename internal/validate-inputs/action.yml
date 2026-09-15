@@ -84,6 +84,18 @@ inputs:
     description: 'Nome da sandbox (obrigatório quando veracode_sandbox=true).'
     required: false
     default: ''
+  upload_scan_artifacts:
+    description: 'all | primary.'
+    required: false
+    default: 'all'
+  pipeline_scan_max_artifacts:
+    description: 'Teto de slots (1-6).'
+    required: false
+    default: '6'
+  pipeline_scan_retry:
+    description: 'true/false.'
+    required: false
+    default: 'true'
 
 outputs:
   baseline_mode:
@@ -129,6 +141,9 @@ runs:
         BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
         VERACODE_SANDBOX: ${{ inputs.veracode_sandbox }}
         VERACODE_SANDBOX_NAME: ${{ inputs.veracode_sandbox_name }}
+        UPLOAD_SCAN_ARTIFACTS: ${{ inputs.upload_scan_artifacts }}
+        PIPELINE_SCAN_MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
+        PIPELINE_SCAN_RETRY: ${{ inputs.pipeline_scan_retry }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

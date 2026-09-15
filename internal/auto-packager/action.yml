@@ -1,5 +1,5 @@
 name: 'Auto Packager'
-description: 'Prepara o artefato a ser enviado ao Veracode Pipeline Scan usando a Veracode CLI (Auto Packager) ou um zip informado.'
+description: 'Prepara os artefatos do Veracode Auto Packager (zips intactos) para Pipeline Scan e Upload & Scan.'
 
 inputs:
   enable_auto_packager:
@@ -17,14 +17,33 @@ inputs:
     description: 'Prefixo para a chave de cache da Veracode CLI.'
     required: false
     default: 'veracode-cli'
+  pipeline_scan_max_artifacts:
+    description: 'Teto de artefatos enviados ao Pipeline Scan (1-6).'
+    required: false
+    default: '6'
 
 outputs:
   scan_file:
-    description: 'Caminho efetivo do arquivo a ser usado no Veracode Pipeline Scan e no Upload & Scan.'
+    description: 'Caminho do primeiro artefato scannable (back-compat).'
     value: ${{ steps.final_output.outputs.scan_file }}
+  scan_files:
+    description: 'JSON array dos artefatos a enviar ao Pipeline Scan.'
+    value: ${{ steps.final_output.outputs.scan_files }}
+  upload_dir:
+    description: 'Diretório plano com cópias byte-idênticas de todos os artefatos (barra final).'
+    value: ${{ steps.final_output.outputs.upload_dir }}
+  packaged_dir:
+    description: 'Diretório original de saída da CLI.'
+    value: ${{ steps.final_output.outputs.packaged_dir }}
   artifact_count:
     description: 'Quantidade de artefatos gerados pelo Auto Packager (vazio quando o packager nao rodou).'
     value: ${{ steps.prepare.outputs.artifact_count || '' }}
+  scan_count:
+    description: 'Quantidade de artefatos selecionados para Pipeline Scan.'
+    value: ${{ steps.prepare.outputs.scan_count || '' }}
+  skipped_count:
+    description: 'Quantidade de artefatos descartados do Pipeline Scan.'
+    value: ${{ steps.prepare.outputs.skipped_count || '' }}
 
 runs:
   using: 'composite'
@@ -44,6 +63,7 @@ runs:
         ENABLE: ${{ inputs.enable_auto_packager }}
         INPUT_SCAN_FILE: ${{ inputs.scan_file }}
         CLI_VERSION: ${{ inputs.cli_version }}
+        MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
       run: |
         set -euo pipefail
 
@@ -53,6 +73,12 @@ runs:
           if [ -n "${INPUT_SCAN_FILE:-}" ] && [ -f "${INPUT_SCAN_FILE}" ]; then
             echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SCAN_FILE_OVERRIDES_PACKAGER)"
             echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+            echo "scan_files=[\"${INPUT_SCAN_FILE}\"]" >> "$GITHUB_OUTPUT"
+            echo "upload_dir=" >> "$GITHUB_OUTPUT"
+            echo "packaged_dir=" >> "$GITHUB_OUTPUT"
+            echo "artifact_count=1" >> "$GITHUB_OUTPUT"
+            echo "scan_count=1" >> "$GITHUB_OUTPUT"
+            echo "skipped_count=0" >> "$GITHUB_OUTPUT"
             echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_SET "file=${INPUT_SCAN_FILE}")"
             echo "::endgroup::"
             exit 0
@@ -81,9 +107,10 @@ runs:
           fi
 
           OUTPUT_DIR="${WORKSPACE}/.veracode-connect/packaged"
-          BUNDLE_PATH="${WORKSPACE}/.veracode-connect/veracode-packager-bundle.zip"
-          rm -rf "${OUTPUT_DIR}"
-          rm -f "${BUNDLE_PATH}"
+          UPLOAD_DIR="${WORKSPACE}/.veracode-connect/upload"
+          MANIFEST_PATH="${WORKSPACE}/.veracode-connect/artifacts.json"
+          rm -rf "${OUTPUT_DIR}" "${UPLOAD_DIR}"
+          rm -f "${WORKSPACE}/.veracode-connect/veracode-packager-bundle.zip"
           mkdir -p "${OUTPUT_DIR}"
 
           "${VERACODE_CMD}" version || true
@@ -95,7 +122,7 @@ runs:
           set -e
 
           set +e
-          node "$GITHUB_ACTION_PATH/select-artifacts.js" "${OUTPUT_DIR}" "${BUNDLE_PATH}"
+          node "$GITHUB_ACTION_PATH/classify-artifacts.js" "${OUTPUT_DIR}" "${UPLOAD_DIR}" "${MAX_ARTIFACTS}" "${MANIFEST_PATH}"
           SELECT_EXIT=$?
           set -e
 
@@ -113,6 +140,8 @@ runs:
 
           echo "Artefatos gerados pelo Auto Packager:"
           ls -lh "${OUTPUT_DIR}" || true
+          echo "Cópia íntegra para Upload & Scan:"
+          ls -lh "${UPLOAD_DIR}" || true
           echo "::endgroup::"
         else
           echo "::group::Preparar scan file (arquivo informado)"
@@ -129,6 +158,12 @@ runs:
           fi
 
           echo "scan_file=${INPUT_SCAN_FILE}" >> "$GITHUB_OUTPUT"
+          echo "scan_files=[\"${INPUT_SCAN_FILE}\"]" >> "$GITHUB_OUTPUT"
+          echo "upload_dir=" >> "$GITHUB_OUTPUT"
+          echo "packaged_dir=" >> "$GITHUB_OUTPUT"
+          echo "artifact_count=1" >> "$GITHUB_OUTPUT"
+          echo "scan_count=1" >> "$GITHUB_OUTPUT"
+          echo "skipped_count=0" >> "$GITHUB_OUTPUT"
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_VALIDATED "file=${INPUT_SCAN_FILE}")"
           echo "::endgroup::"
         fi
@@ -138,6 +173,12 @@ runs:
       shell: bash
       env:
         PREP_FILE: ${{ steps.prepare.outputs.scan_file }}
+        PREP_FILES: ${{ steps.prepare.outputs.scan_files }}
+        PREP_UPLOAD: ${{ steps.prepare.outputs.upload_dir }}
+        PREP_PACKAGED: ${{ steps.prepare.outputs.packaged_dir }}
+        PREP_COUNT: ${{ steps.prepare.outputs.artifact_count }}
+        PREP_SCAN_COUNT: ${{ steps.prepare.outputs.scan_count }}
+        PREP_SKIPPED: ${{ steps.prepare.outputs.skipped_count }}
       run: |
         set -euo pipefail
         echo "::group::Consolidar saída do scan file"
@@ -147,6 +188,16 @@ runs:
           exit 1
         fi
         echo "scan_file=${PREP_FILE}" >> "$GITHUB_OUTPUT"
+        {
+          echo "scan_files<<EOF"
+          echo "${PREP_FILES}"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        echo "upload_dir=${PREP_UPLOAD}" >> "$GITHUB_OUTPUT"
+        echo "packaged_dir=${PREP_PACKAGED}" >> "$GITHUB_OUTPUT"
+        echo "artifact_count=${PREP_COUNT}" >> "$GITHUB_OUTPUT"
+        echo "scan_count=${PREP_SCAN_COUNT}" >> "$GITHUB_OUTPUT"
+        echo "skipped_count=${PREP_SKIPPED}" >> "$GITHUB_OUTPUT"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCAN_FILE_CONSOLIDATED "file=${PREP_FILE}" "source=prepare")"
         echo "::endgroup::"
 
@@ -156,39 +207,40 @@ runs:
       env:
         SCAN_FILE: ${{ steps.final_output.outputs.scan_file }}
         ARTIFACT_COUNT: ${{ steps.prepare.outputs.artifact_count }}
-        ARTIFACT_NAMES: ${{ steps.prepare.outputs.artifact_names }}
-        BUNDLED: ${{ steps.prepare.outputs.bundled }}
+        SCAN_COUNT: ${{ steps.prepare.outputs.scan_count }}
+        SKIPPED_COUNT: ${{ steps.prepare.outputs.skipped_count }}
+        UPLOAD_DIR: ${{ steps.final_output.outputs.upload_dir }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Auto Packager"
 
         FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
         mkdir -p "${FRAG_DIR}"
+        MANIFEST="${GITHUB_WORKSPACE}/.veracode-connect/artifacts.json"
         {
           echo "### 📦 Auto Packager"
           echo ""
 
-          if [ -n "${SCAN_FILE:-}" ] && [ -f "${SCAN_FILE}" ]; then
-            FILE_SIZE=$(du -h "${SCAN_FILE}" | cut -f1)
-            FILE_SIZE_BYTES=$(stat -c%s "${SCAN_FILE}" 2>/dev/null || stat -f%z "${SCAN_FILE}" 2>/dev/null || echo "N/A")
-            FILE_NAME=$(basename "${SCAN_FILE}")
-
-            METHOD="Veracode CLI"
-            if [ "${BUNDLED:-}" = "true" ]; then
-              METHOD="Veracode CLI (${ARTIFACT_COUNT} artefatos descompactados e reunidos)"
+          if [ -f "${MANIFEST}" ]; then
+            echo "| Artefato | Tamanho | Linguagem | Código | Teste | Ruído | Decisão | Motivo |"
+            echo "|---|---:|---|---:|---:|---:|---|---|"
+            jq -r '.artifacts[] |
+              "| `\(.name)` | \(.size) | \(.language // "—") | \(.counts.code) | \(.counts.test) | \(.counts.noise) | \(.decision) | \(.reason) |"' \
+              "${MANIFEST}"
+            echo ""
+            echo "Pipeline Scan: **${SCAN_COUNT:-0}** artefato(s). Upload & Scan recebe **${ARTIFACT_COUNT:-0}** artefato(s) íntegros."
+            if [ -n "${SKIPPED_COUNT:-}" ] && [ "${SKIPPED_COUNT}" != "0" ]; then
+              echo ""
+              echo "> ${SKIPPED_COUNT} artefato(s) ficaram de fora do Pipeline Scan (ruído, redundância ou limite de slots). Os zips originais seguem no diretório de upload."
             fi
-
+          elif [ -n "${SCAN_FILE:-}" ] && [ -f "${SCAN_FILE}" ]; then
+            FILE_SIZE=$(du -h "${SCAN_FILE}" | cut -f1)
+            FILE_NAME=$(basename "${SCAN_FILE}")
             echo "| Propriedade | Valor |"
             echo "|---|---|"
-            echo "| Artefato enviado | \`${FILE_NAME}\` |"
-            echo "| Tamanho | ${FILE_SIZE} (${FILE_SIZE_BYTES} bytes) |"
-            echo "| Método | ${METHOD} |"
-            if [ -n "${ARTIFACT_COUNT:-}" ]; then
-              echo "| Artefatos gerados | ${ARTIFACT_COUNT} |"
-            fi
-            if [ -n "${ARTIFACT_NAMES:-}" ]; then
-              echo "| Pacotes da CLI | \`${ARTIFACT_NAMES}\` |"
-            fi
+            echo "| Artefato | \`${FILE_NAME}\` |"
+            echo "| Tamanho | ${FILE_SIZE} |"
+            echo "| Método | Arquivo informado |"
           else
             echo "> ⚠️ Nenhum artefato gerado pelo Auto Packager."
           fi

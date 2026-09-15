@@ -30,7 +30,10 @@ const {
     BASELINE_GITHUB_APP_INSTALLATION_ID,
     BASELINE_GITHUB_TOKEN,
     VERACODE_SANDBOX,
-    VERACODE_SANDBOX_NAME
+    VERACODE_SANDBOX_NAME,
+    UPLOAD_SCAN_ARTIFACTS,
+    PIPELINE_SCAN_MAX_ARTIFACTS,
+    PIPELINE_SCAN_RETRY
 } = process.env;
 
 console.log("::group::Validar inputs condicionais");
@@ -117,6 +120,22 @@ if (sandboxFlag && sandboxFlag !== 'true' && sandboxFlag !== 'false') {
 }
 if (sandboxFlag === 'true' && !sandboxName) {
     erros.push(message('error', 'SANDBOX_NAME_REQUIRED'));
+}
+
+const uploadScanArtifacts = (UPLOAD_SCAN_ARTIFACTS || 'all').trim().toLowerCase();
+if (uploadScanArtifacts !== 'all' && uploadScanArtifacts !== 'primary') {
+    erros.push(message('error', 'UPLOAD_SCAN_ARTIFACTS_INVALID'));
+}
+
+const maxArtifactsRaw = (PIPELINE_SCAN_MAX_ARTIFACTS || '6').trim();
+const maxArtifacts = Number.parseInt(maxArtifactsRaw, 10);
+if (!Number.isInteger(maxArtifacts) || maxArtifacts < 1 || maxArtifacts > 6) {
+    erros.push(message('error', 'PIPELINE_SCAN_MAX_ARTIFACTS_INVALID'));
+}
+
+const retryRaw = (PIPELINE_SCAN_RETRY || 'true').trim().toLowerCase();
+if (retryRaw !== 'true' && retryRaw !== 'false') {
+    erros.push(message('error', 'PIPELINE_SCAN_RETRY_INVALID'));
 }
 
 function failValidation() {

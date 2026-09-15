@@ -74,14 +74,12 @@ const errors = {
     UNKNOWN_COMMAND:
         'Comando desconhecido: {command}',
     POLICY_FAIL_TRUE:
-        'Pipeline Scan falhou e policy_fail=true.'
+        'Pipeline Scan falhou e policy_fail=true.',
+    SCAN_ERROR:
+        'Pipeline Scan falhou em {count} artefato(s) (timeout, credencial, linguagem não suportada ou 429). Findings de policy não se aplicam a este erro.'
 };
 
 const warnings = {
-    EXISTS_WRITE_ONCE:
-        'baseline já existe (write-once): {store}',
-    EXISTS_AFTER_HTTP:
-        'baseline já existe após HTTP {status} (write-once): {store}',
     RETRY:
         'retry {attempt}/{max} HTTP {status}: {detail}',
     SEED_NOT_DEFAULT_BRANCH:
@@ -89,7 +87,9 @@ const warnings = {
     POLICY_FAIL_FALSE:
         'Pipeline Scan falhou; policy_fail=false.',
     FILTERED_RESULTS_MISSING:
-        'filtered_results.json ausente; import de issues ignorado.'
+        'filtered_results.json ausente; import de issues ignorado.',
+    SEED_BLOCKED_PARTIAL:
+        'seed bloqueado: {failed} de {planned} Pipeline Scans falharam; baseline não gravado para evitar união incompleta.'
 };
 
 const success = {
@@ -101,6 +101,7 @@ const success = {
     BASELINE_FOUND: 'baseline=encontrado path={store}',
     LOCAL_FILE: 'local_file={file}',
     BASELINE_WRITTEN: 'baseline gravado: {store} branch={branch} sha={sha}',
+    BASELINE_UPDATED: 'baseline atualizado: {store} branch={branch} sha={sha}',
     GIT_REF_FALLBACK: 'GET /git/ref HTTP 404; usando GET /git/refs.',
     SEED_ELIGIBLE: 'seed=elegível branch={branch}',
     PIPELINE_STATUS_SET: 'pipeline_status={status}',

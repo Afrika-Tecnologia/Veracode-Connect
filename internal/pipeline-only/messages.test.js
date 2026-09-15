@@ -24,6 +24,10 @@ test('message resolve catálogo e interpola', () => {
         message('success', 'PIPELINE_STATUS_SET', { status: 'scan_completed_without_portal_afrika' }),
         'pipeline_status=scan_completed_without_portal_afrika'
     );
+    assert.equal(
+        message('error', 'SCAN_ERROR', { count: 2 }),
+        'Pipeline Scan falhou em 2 artefato(s) (timeout, credencial, linguagem não suportada ou 429). Findings de policy não se aplicam a este erro.'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

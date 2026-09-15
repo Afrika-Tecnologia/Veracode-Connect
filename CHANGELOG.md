@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-09-15
+
+### Changed
+
+- Upload & Scan passa `policy` para a `veracode/uploadandscan-action` quando `veracode_policy_name` está preenchido. Vazio continua com a policy do perfil/org. Sem input novo.
+
+A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a enviar a policy depois que a tag `v1` apontar para este commit.
+
 ## [1.4.2] - 2026-09-15
 
 ### Fixed

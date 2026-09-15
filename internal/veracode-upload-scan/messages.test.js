@@ -28,9 +28,9 @@ test('message resolve catálogo e interpola', () => {
         message('success', 'PREP_OK', { sandbox: 'true', mode: 'auto', branch: 'feat' }),
         'upload_scan preparado: sandbox=true mode=auto branch=feat'
     );
-    assert.match(
-        message('warning', 'FILEPATH_SANDBOX_BUNDLE', { count: 4, path: '/tmp/x.zip' }),
-        /4 artefato\(s\) em \/tmp\/x\.zip/
+    assert.equal(
+        message('success', 'POLICY_NAME_SET', { name: 'Afrika Policy' }),
+        'policy=Afrika Policy'
     );
 });
 

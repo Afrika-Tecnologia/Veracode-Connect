@@ -56,7 +56,7 @@ Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-req
 | `policy_fail` | nao | `'false'` | Controla `fail_build` do Pipeline Scan. |
 | `fail_build` | nao | `'true'` | Se `'true'`, trava a esteira quando qualquer scan falhar. |
 | `fail_on_severity` | nao | - | Aplicado apenas quando existir baseline (ex.: `Very High, High`). |
-| `veracode_policy_name` | nao | `''` | Nome da policy a ser usada no scan do Veracode. |
+| `veracode_policy_name` | nao | `''` | Nome da policy no Veracode. Pipeline Scan sempre recebe o valor. Upload & Scan só envia `policy` à plataforma quando o input está preenchido (vazio = policy do perfil/org). |
 | `create_issues` | nao | `'false'` | Cria issues no repositório: SCA (`veracode-sca` → `create-issues`) e Pipeline Scan (`veracode-flaws-to-issues`). Requer `issues: write` no workflow. |
 | `comment_pr` | nao | `'false'` | Comentário sticky no PR com tabelas resumidas dos scans. Requer `pull-requests: write` e evento de Pull Request. |
 | `enable_upload_scan` | nao | `'false'` | Upload & Scan (static) roda por ultimo. |
@@ -236,6 +236,7 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 - `appname` = input `veracode_appname` (default `${{ github.repository }}`)
 - `filepath` = diretório plano `.veracode-connect/upload/` (todos os zips, barra final obrigatória) quando `upload_scan_artifacts: 'all'` e o Auto Packager rodou **sem sandbox**. Em sandbox a action oficial da Veracode não concatena `diretório+arquivo`; a Connect envia o zip único ou um ZIP STORE dos artefatos. Sem Auto Packager, usa o `scan_file`.
 - `createprofile: true` + `gitRepositoryUrl` = `{server_url}/{org/repo}` (sem `.git`)
+- `policy` = `veracode_policy_name` quando preenchido; omitido/vazio deixa a policy do app na plataforma
 - nao espera o scan finalizar (submit assincrono). `failbuild: true` (fixo): falha de upload/prescan falha o step. Policy do scan estático não entra nesta trava (sem `scantimeout`); a trava de esteira continua no `build-gate` / `fail_build`
 - `deleteincompletescan: true`
 - sandbox (quando ativo): auto por branch (default branch → app principal; demais → sandbox) ou `'true'`/`'false'` explicito

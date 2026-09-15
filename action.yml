@@ -117,7 +117,7 @@ inputs:
     required: false
     default: '${{ github.repository }}'
   veracode_policy_name:
-    description: 'Nome da policy a ser usada no scan do Veracode.'
+    description: 'Nome da policy no Veracode (Pipeline Scan; Upload & Scan só se preenchido).'
     required: false
     default: ''
   create_issues:
@@ -341,6 +341,7 @@ runs:
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
         filepath: ${{ inputs.upload_scan_artifacts == 'primary' && steps.prepare_scan_file.outputs.scan_file || steps.prepare_scan_file.outputs.upload_dir || steps.prepare_scan_file.outputs.scan_file }}
         veracode_appname: ${{ inputs.veracode_appname }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 8. Trava de Build (step final obrigatório) ───────────────────

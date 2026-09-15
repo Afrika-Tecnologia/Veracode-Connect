@@ -37,6 +37,7 @@ const success = {
     FILEPATH_DIR_RESOLVED: 'filepath={path} arquivos={count}',
     FILEPATH_RESOLVED: 'filepath={path}',
     SANDBOX_NAME_SET: 'sandboxname={name}',
+    POLICY_NAME_SET: 'policy={name}',
     GIT_REPO_URL: 'git_repository_url={url}',
     SUMMARY_WRITTEN: 'summary=escrito'
 };

@@ -19,7 +19,10 @@ const errors = {
     SCAN_FILE_NOT_PROVIDED: "Falha ao preparar o scan file: scan_file não foi fornecido e enable_auto_packager está 'false'.",
     SCAN_FILE_NOT_FOUND: "Falha ao preparar o scan file: arquivo '{file}' não encontrado.",
     NO_PACKAGER_ARTIFACTS: "Falha no Auto Packager: nenhum artefato gerado pela Veracode CLI no diretório de saída '{dir}'. Nenhum ZIP do workspace será usado.",
-    PACKAGE_FAILED_NO_ARTIFACTS: "Falha no Auto Packager: 'veracode package' saiu com código {code} e nenhum artefato válido foi gerado. Nenhum ZIP do workspace será usado."
+    PACKAGE_FAILED_NO_ARTIFACTS: "Falha no Auto Packager: 'veracode package' saiu com código {code} e nenhum artefato válido foi gerado. Nenhum ZIP do workspace será usado.",
+    GIT_REPO_MISSING: "Falha no Auto Packager: o workspace não é um repositório Git. O empacotamento usa o tree do commit (git archive), não o diretório de trabalho do job.",
+    GIT_ARCHIVE_FAILED: "Falha no Auto Packager: não foi possível materializar o commit '{sha}' com git archive. Confirme que o job fez checkout desse SHA.",
+    GIT_TREE_EMPTY: "Falha no Auto Packager: git archive do commit '{sha}' não produziu arquivos."
 };
 
 const warnings = {
@@ -36,7 +39,8 @@ const success = {
     SCAN_FILE_VALIDATED: 'scan_file={file}',
     SCAN_FILE_CONSOLIDATED: 'scan_file={file} (origem: {source})',
     ARTIFACTS_SELECTED: 'artefatos={count} scan_file={file}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    SUMMARY_WRITTEN: 'summary=escrito',
+    CLEAN_TREE_READY: 'package_source={dir} sha={sha}'
 };
 
 const catalogs = {

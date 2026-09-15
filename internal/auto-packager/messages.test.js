@@ -28,6 +28,14 @@ test('message resolve catálogo e interpola', () => {
         message('warning', 'COVERAGE_GUARD', { count: 3 }),
         'Nenhum artefato passou no filtro de conteúdo; 3 artefato(s) serão enviados ao Pipeline Scan por guarda de cobertura.'
     );
+    assert.equal(
+        message('error', 'GIT_ARCHIVE_FAILED', { sha: 'abc123' }),
+        "Falha no Auto Packager: não foi possível materializar o commit 'abc123' com git archive. Confirme que o job fez checkout desse SHA."
+    );
+    assert.equal(
+        message('success', 'CLEAN_TREE_READY', { dir: '/tmp/veracode-connect-auto-pack', sha: 'abc123' }),
+        'package_source=/tmp/veracode-connect-auto-pack sha=abc123'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

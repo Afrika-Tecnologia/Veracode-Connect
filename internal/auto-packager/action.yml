@@ -1,5 +1,5 @@
 name: 'Auto Packager'
-description: 'Prepara os artefatos do Veracode Auto Packager (zips intactos) para Pipeline Scan e Upload & Scan.'
+description: 'Prepara os artefatos do Veracode Auto Packager a partir do tree do commit (zips intactos) para Pipeline Scan e Upload & Scan.'
 
 inputs:
   enable_auto_packager:
@@ -64,6 +64,7 @@ runs:
         INPUT_SCAN_FILE: ${{ inputs.scan_file }}
         CLI_VERSION: ${{ inputs.cli_version }}
         MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         set -euo pipefail
 
@@ -109,15 +110,44 @@ runs:
           OUTPUT_DIR="${WORKSPACE}/.veracode-connect/packaged"
           UPLOAD_DIR="${WORKSPACE}/.veracode-connect/upload"
           MANIFEST_PATH="${WORKSPACE}/.veracode-connect/artifacts.json"
-          rm -rf "${OUTPUT_DIR}" "${UPLOAD_DIR}"
+          PACKAGE_SOURCE="${RUNNER_TEMP:-/tmp}/veracode-connect-auto-pack"
+          rm -rf "${OUTPUT_DIR}" "${UPLOAD_DIR}" "${PACKAGE_SOURCE}"
           rm -f "${WORKSPACE}/.veracode-connect/veracode-packager-bundle.zip"
-          mkdir -p "${OUTPUT_DIR}"
+          mkdir -p "${OUTPUT_DIR}" "${PACKAGE_SOURCE}"
+          trap 'rm -rf "${PACKAGE_SOURCE}"' EXIT
+
+          if [ ! -e "${WORKSPACE}/.git" ]; then
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error GIT_REPO_MISSING)"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          SHA="${GITHUB_SHA:-}"
+          if [ -z "${SHA}" ]; then
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error GIT_ARCHIVE_FAILED "sha=")"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if ! git -C "${WORKSPACE}" archive "${SHA}" | tar -x -C "${PACKAGE_SOURCE}"; then
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error GIT_ARCHIVE_FAILED "sha=${SHA}")"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [ "$(find "${PACKAGE_SOURCE}" -type f | wc -l | tr -d ' ')" = "0" ]; then
+            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error GIT_TREE_EMPTY "sha=${SHA}")"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success CLEAN_TREE_READY "dir=${PACKAGE_SOURCE}" "sha=${SHA}")"
 
           "${VERACODE_CMD}" version || true
 
-          "${VERACODE_CMD}" package discover . || true
+          "${VERACODE_CMD}" package discover "${PACKAGE_SOURCE}" || true
           set +e
-          "${VERACODE_CMD}" package --trust --source . --type directory --output "${OUTPUT_DIR}" 2>&1 | tee veracode_package.log
+          "${VERACODE_CMD}" package --trust --source "${PACKAGE_SOURCE}" --type directory --output "${OUTPUT_DIR}" 2>&1 | tee veracode_package.log
           PACKAGE_EXIT=${PIPESTATUS[0]}
           set -e
 
@@ -210,6 +240,7 @@ runs:
         SCAN_COUNT: ${{ steps.prepare.outputs.scan_count }}
         SKIPPED_COUNT: ${{ steps.prepare.outputs.skipped_count }}
         UPLOAD_DIR: ${{ steps.final_output.outputs.upload_dir }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Auto Packager"
@@ -229,6 +260,8 @@ runs:
               "${MANIFEST}"
             echo ""
             echo "Pipeline Scan: **${SCAN_COUNT:-0}** artefato(s). Upload & Scan recebe **${ARTIFACT_COUNT:-0}** artefato(s) íntegros."
+            echo ""
+            echo "Origem: tree do commit \`${GITHUB_SHA:-}\` (\`git archive\` em \`\$RUNNER_TEMP\`, não o workspace do job)."
             if [ -n "${SKIPPED_COUNT:-}" ] && [ "${SKIPPED_COUNT}" != "0" ]; then
               echo ""
               echo "> ${SKIPPED_COUNT} artefato(s) ficaram de fora do Pipeline Scan (ruído, redundância ou limite de slots). Os zips originais seguem no diretório de upload."

@@ -125,6 +125,7 @@ runs:
       shell: bash
       env:
         INPUT_FILEPATH: ${{ inputs.filepath }}
+        ENABLE_SANDBOX: ${{ steps.vars.outputs.enable_sandbox }}
       run: |
         set -euo pipefail
         echo "::group::Resolver filepath absoluto"
@@ -164,6 +165,36 @@ runs:
             echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FILEPATH_EMPTY_DIR "path=${ABS_PATH}")"
             echo "::endgroup::"
             exit 1
+          fi
+
+          # veracode/uploadandscan-action: em Policy Scan (sem sandbox) concatena
+          # filepath+file (por isso a barra final). Em sandbox passa só o diretório
+          # ao Java wrapper, que abre como arquivo e falha (FileNotFoundException).
+          if [ "${ENABLE_SANDBOX}" = "true" ]; then
+            if [ "${FILE_COUNT}" -eq 1 ]; then
+              ONLY_FILE="${ABS_PATH}${ARTIFACT_NAMES}"
+              echo "filepath=${ONLY_FILE}" >> "$GITHUB_OUTPUT"
+              echo "artifact_path=${ONLY_FILE}" >> "$GITHUB_OUTPUT"
+              echo "artifact_name=${ARTIFACT_NAMES}" >> "$GITHUB_OUTPUT"
+              echo "artifact_size=${ARTIFACT_SIZES}" >> "$GITHUB_OUTPUT"
+              echo "artifact_count=${FILE_COUNT}" >> "$GITHUB_OUTPUT"
+              echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ONLY_FILE}")"
+              echo "::endgroup::"
+              exit 0
+            fi
+
+            BUNDLE="${RUNNER_TEMP}/veracode-connect-upload-files.zip"
+            rm -f "${BUNDLE}"
+            node "$GITHUB_ACTION_PATH/bundle-upload-dir.js" "${ABS_PATH}" "${BUNDLE}"
+            BUNDLE_SIZE=$(du -h "${BUNDLE}" | cut -f1)
+            echo "filepath=${BUNDLE}" >> "$GITHUB_OUTPUT"
+            echo "artifact_path=${BUNDLE}" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=${ARTIFACT_NAMES}" >> "$GITHUB_OUTPUT"
+            echo "artifact_size=${BUNDLE_SIZE}" >> "$GITHUB_OUTPUT"
+            echo "artifact_count=${FILE_COUNT}" >> "$GITHUB_OUTPUT"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" warning FILEPATH_SANDBOX_BUNDLE "count=${FILE_COUNT}" "path=${BUNDLE}")"
+            echo "::endgroup::"
+            exit 0
           fi
 
           echo "filepath=${ABS_PATH}" >> "$GITHUB_OUTPUT"
@@ -208,7 +239,7 @@ runs:
         createsandbox: ${{ steps.vars.outputs.enable_sandbox }}
         sandboxname: ${{ steps.vars.outputs.sandbox_name }}
         deleteincompletescan: 'true'
-        failbuild: 'false'
+        failbuild: 'true'
         gitRepositoryUrl: ${{ steps.vars.outputs.git_repository_url }}
         platformType: ${{ inputs.platform_type }}
 

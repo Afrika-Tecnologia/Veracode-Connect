@@ -28,12 +28,14 @@ const errors = {
     FILEPATH_HAS_SUBDIR: 'Falha ao resolver filepath: o diretório de upload deve ser plano (sem subpastas): {path}'
 };
 
-const warnings = {};
+const warnings = {
+    FILEPATH_SANDBOX_BUNDLE: 'Upload & Scan em sandbox: a action oficial ignora o nome do arquivo e envia o diretório ao Java. Empacotando {count} artefato(s) em {path} (ZIP STORE) para um único -filepath de arquivo.'
+};
 
 const success = {
     PREP_OK: 'upload_scan preparado: sandbox={sandbox} mode={mode} branch={branch}',
-    FILEPATH_RESOLVED: 'filepath={path}',
     FILEPATH_DIR_RESOLVED: 'filepath={path} arquivos={count}',
+    FILEPATH_RESOLVED: 'filepath={path}',
     SANDBOX_NAME_SET: 'sandboxname={name}',
     GIT_REPO_URL: 'git_repository_url={url}',
     SUMMARY_WRITTEN: 'summary=escrito'

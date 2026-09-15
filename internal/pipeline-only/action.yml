@@ -189,7 +189,6 @@ runs:
       shell: bash
       env:
         CREATE_ISSUES: ${{ inputs.create_issues }}
-        ARTIFACTS_MD: ${{ steps.pipeline_set.outputs.artifacts_md }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Pipeline Scan"
@@ -199,12 +198,6 @@ runs:
         {
           echo "### 🔬 Veracode Pipeline Scan"
           echo ""
-          if [ -n "${ARTIFACTS_MD:-}" ]; then
-            echo "Artefatos analisados:"
-            echo ""
-            echo "${ARTIFACTS_MD}"
-            echo ""
-          fi
           if [ "${CREATE_ISSUES}" = "true" ]; then
             echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
             echo ""

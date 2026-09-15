@@ -415,7 +415,6 @@ runs:
         CAN_SEED: ${{ steps.seed_gate.outputs.can_seed }}
         CURRENT_BRANCH: ${{ steps.seed_gate.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.seed_gate.outputs.default_branch }}
-        ARTIFACTS_MD: ${{ steps.pipeline_set.outputs.artifacts_md }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Baseline Pipeline Scan"
@@ -427,12 +426,6 @@ runs:
           echo "### 🔬 Veracode Pipeline Scan (Portal Afrika Baseline)"
           echo ""
 
-          if [ -n "${ARTIFACTS_MD:-}" ]; then
-            echo "Artefatos analisados:"
-            echo ""
-            echo "${ARTIFACTS_MD}"
-            echo ""
-          fi
           if [ "${HAS_BASELINE}" != "true" ]; then
             if [ "${CAN_SEED}" = "true" ]; then
               echo "> 🆕 Sem baseline no Portal Afrika — scan executado **sem baseline** (baseline enviado após scan na default_branch \`${DEFAULT_BRANCH}\`)"

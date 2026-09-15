@@ -65,6 +65,7 @@ runs:
         CLI_VERSION: ${{ inputs.cli_version }}
         MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
         GITHUB_SHA: ${{ github.sha }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
@@ -110,11 +111,14 @@ runs:
           OUTPUT_DIR="${WORKSPACE}/.veracode-connect/packaged"
           UPLOAD_DIR="${WORKSPACE}/.veracode-connect/upload"
           MANIFEST_PATH="${WORKSPACE}/.veracode-connect/artifacts.json"
-          PACKAGE_SOURCE="${RUNNER_TEMP:-/tmp}/veracode-connect-auto-pack"
-          rm -rf "${OUTPUT_DIR}" "${UPLOAD_DIR}" "${PACKAGE_SOURCE}"
+          PACKAGE_ROOT="${RUNNER_TEMP:-/tmp}/veracode-connect-auto-pack"
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          REPO_NAME="${REPO_NAME:-repo}"
+          PACKAGE_SOURCE="${PACKAGE_ROOT}/${REPO_NAME}"
+          rm -rf "${OUTPUT_DIR}" "${UPLOAD_DIR}" "${PACKAGE_ROOT}"
           rm -f "${WORKSPACE}/.veracode-connect/veracode-packager-bundle.zip"
           mkdir -p "${OUTPUT_DIR}" "${PACKAGE_SOURCE}"
-          trap 'rm -rf "${PACKAGE_SOURCE}"' EXIT
+          trap 'rm -rf "${PACKAGE_ROOT}"' EXIT
 
           if [ ! -e "${WORKSPACE}/.git" ]; then
             echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error GIT_REPO_MISSING)"

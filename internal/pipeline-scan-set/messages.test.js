@@ -1,3 +1,5 @@
+'use strict';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const cp = require('node:child_process');
@@ -8,47 +10,40 @@ const cli = path.join(__dirname, 'messages.js');
 
 test('format interpola placeholders e preserva chaves ausentes', () => {
     assert.equal(format('a={x} b={y}', { x: 1 }), 'a=1 b={y}');
-    assert.equal(format('exit code {code}', { code: 42 }), 'exit code 42');
 });
 
 test('message resolve catálogo e interpola', () => {
     assert.equal(
-        message('error', 'PACKAGE_FILE_MISSING', { file: 'app.zip' }),
-        "Falha no Auto Packager: arquivo 'app.zip' não encontrado após o empacotamento."
+        message('success', 'PLAN_OK', { count: 2 }),
+        'pipeline-scan-set: 2 artefato(s) planejado(s)'
     );
     assert.equal(
-        message('warning', 'PACKAGE_EXIT_WITH_ARTIFACTS', { code: 1 }),
-        "'veracode package' retornou exit code 1; usando os artefato(s) gerados pela CLI no diretório de saída."
-    );
-    assert.equal(
-        message('success', 'SCAN_FILE_SET', { file: 'build.zip' }),
-        'scan_file=build.zip (Auto Packager ignorado — arquivo já informado)'
-    );
-    assert.equal(
-        message('warning', 'COVERAGE_GUARD', { count: 3 }),
-        'Nenhum artefato passou no filtro de conteúdo; 3 artefato(s) serão enviados ao Pipeline Scan por guarda de cobertura.'
+        message('warning', 'SCAN_ERROR', { file: 'app.zip' }),
+        'Pipeline Scan do artefato app.zip falhou (scan_error).'
     );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {
-    assert.throws(() => message('info', 'CLI_NOT_FOUND'), /Catálogo desconhecido/);
+    assert.throws(() => message('info', 'NO_SCAN_FILES'), /Catálogo desconhecido/);
     assert.throws(() => message('error', 'NAO_EXISTE'), /Mensagem desconhecida/);
 });
 
 test('fail devolve Error com texto do catálogo', () => {
-    const err = fail('SCAN_FILE_NOT_FOUND', { file: 'missing.jar' });
-    assert.equal(err.message, errors.SCAN_FILE_NOT_FOUND.replace('{file}', 'missing.jar'));
+    const err = fail('NO_SCAN_FILES');
+    assert.equal(err.message, errors.NO_SCAN_FILES);
 });
 
 test('CLI imprime mensagem interpolada em stdout', () => {
     const result = cp.spawnSync(process.execPath, [
         cli,
-        'warning',
-        'PACKAGE_EXIT_WITH_ARTIFACTS',
-        'code=127'
+        'success',
+        'MERGE_OK',
+        'scanned=2',
+        'errors=0',
+        'policy=1'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0);
-    assert.equal(result.stdout, warnings.PACKAGE_EXIT_WITH_ARTIFACTS.replace('{code}', '127'));
+    assert.equal(result.stdout, success.MERGE_OK.replace('{scanned}', '2').replace('{errors}', '0').replace('{policy}', '1'));
 });
 
 test('CLI falha com chave desconhecida', () => {

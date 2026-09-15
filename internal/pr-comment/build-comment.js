@@ -186,11 +186,27 @@ function pipelineHeading(baselineMode) {
     return '### 🔬 Veracode Pipeline Scan';
 }
 
+function pipelineArtifactsLine(workspace) {
+    const manifestPath = path.join(workspace, '.veracode-connect', 'scans', 'manifest.json');
+    const data = readJsonFile(manifestPath);
+    if (!data || !Array.isArray(data.scans) || data.scans.length === 0) {
+        return '';
+    }
+    const lines = ['Artefatos analisados:', ''];
+    for (const scan of data.scans) {
+        const mark = scan.classification === 'scan_error' ? 'erro' : scan.classification;
+        lines.push(`- \`${scan.artifact}\` — ${mark} (${scan.findings} finding(s), scan_id=${scan.scan_id || '—'})`);
+    }
+    lines.push('');
+    return `${lines.join('\n')}\n`;
+}
+
 function pipelineSection(workspace, inputs) {
     const heading = pipelineHeading(inputs.baseline_mode);
+    const artifacts = pipelineArtifactsLine(workspace);
     const resultsPath = path.join(workspace, 'results.json');
     if (!fs.existsSync(resultsPath)) {
-        return `${heading}\n\n> ⚠️ Arquivo results.json não encontrado.\n`;
+        return `${heading}\n\n${artifacts}> ⚠️ Arquivo results.json não encontrado.\n`;
     }
 
     const split = hasBaseline(inputs);
@@ -200,7 +216,7 @@ function pipelineSection(workspace, inputs) {
         filteredPath: path.join(workspace, 'filtered_results.json'),
         split
     });
-    return `${heading}\n\n${tables}`;
+    return `${heading}\n\n${artifacts}${tables}`;
 }
 
 function scaSection(workspace) {
@@ -379,5 +395,6 @@ module.exports = {
     isFailureStatus,
     collectModuleStatuses,
     severityCountTable,
-    resolveBanner
+    resolveBanner,
+    pipelineArtifactsLine
 };

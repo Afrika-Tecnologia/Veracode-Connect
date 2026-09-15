@@ -24,6 +24,10 @@ test('message resolve catálogo e interpola', () => {
         message('success', 'BASELINE_FOUND', { repo: 'org/app' }),
         'baseline=encontrado repo=org/app'
     );
+    assert.equal(
+        message('warning', 'SEED_BLOCKED_PARTIAL', { failed: 1, planned: 3 }),
+        'seed bloqueado: 1 de 3 Pipeline Scans falharam; baseline não gravado para evitar união incompleta.'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

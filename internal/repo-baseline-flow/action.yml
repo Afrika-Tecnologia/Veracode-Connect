@@ -1,5 +1,5 @@
 name: 'Repo baseline flow'
-description: 'Consulta baseline no repositório GitHub, roda Pipeline Scan com ou sem baseline e grava baseline.json uma única vez (write-once).'
+description: 'Consulta baseline no repositório GitHub, roda Pipeline Scan com ou sem baseline e grava/atualiza baseline.json na default_branch após scan bem-sucedido.'
 
 inputs:
   baseline_org:
@@ -40,7 +40,12 @@ inputs:
     required: true
   scan_file:
     description: 'Arquivo compactado enviado ao Pipeline Scan.'
-    required: true
+    required: false
+    default: ''
+  scan_files:
+    description: 'JSON array de artefatos para Pipeline Scan (um scan por arquivo).'
+    required: false
+    default: ''
   policy_fail:
     description: 'Define se o scan deve quebrar o build por policy (true/false).'
     required: false
@@ -64,6 +69,18 @@ inputs:
     description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
     required: false
     default: 'CLOUD'
+  pipeline_scan_max_artifacts:
+    description: 'Teto de slots do Pipeline Scan (1-6).'
+    required: false
+    default: '6'
+  pipeline_scan_pace_seconds:
+    description: 'Espera entre starts de Pipeline Scan.'
+    required: false
+    default: '12'
+  pipeline_scan_retry:
+    description: 'Repete uma vez slots sem resultado válido (true/false).'
+    required: false
+    default: 'true'
 
 outputs:
   has_baseline:
@@ -97,43 +114,26 @@ runs:
         node "$GITHUB_ACTION_PATH/github-baseline.js" get-baseline
         echo "::endgroup::"
 
-    - name: Rodar Veracode Pipeline Scan com baseline
-      id: pipeline_with_baseline
-      if: steps.check_baseline.outputs.has_baseline == 'true'
-      continue-on-error: true
-      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+    - name: Rodar Veracode Pipeline Scan
+      id: pipeline_set
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1
       with:
-        vid: ${{ inputs.veracode_api_id }}
-        vkey: ${{ inputs.veracode_api_key }}
-        file: ${{ inputs.scan_file }}
-        token: ${{ github.token }}
-        baseline_file: 'baseline.json'
-        fail_build: ${{ inputs.policy_fail }}
-        fail_on_severity: ${{ inputs.fail_on_severity }}
-        json_output: 'true'
-        json_output_file: 'results.json'
+        veracode_api_id: ${{ inputs.veracode_api_id }}
+        veracode_api_key: ${{ inputs.veracode_api_key }}
+        scan_files: ${{ inputs.scan_files }}
+        scan_file: ${{ inputs.scan_file }}
+        max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
+        baseline_file: ${{ steps.check_baseline.outputs.has_baseline == 'true' && 'baseline.json' || '' }}
+        fail_on_severity: ${{ steps.check_baseline.outputs.has_baseline == 'true' && inputs.fail_on_severity || '' }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
-        platformType: ${{ inputs.platform_type }}
-
-    - name: Rodar Veracode Pipeline Scan sem baseline
-      id: pipeline_without_baseline
-      if: steps.check_baseline.outputs.has_baseline == 'false'
-      continue-on-error: true
-      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
-      with:
-        vid: ${{ inputs.veracode_api_id }}
-        vkey: ${{ inputs.veracode_api_key }}
-        file: ${{ inputs.scan_file }}
-        token: ${{ github.token }}
-        fail_build: ${{ inputs.policy_fail }}
-        json_output: 'true'
-        json_output_file: 'results.json'
-        veracode_policy_name: ${{ inputs.veracode_policy_name }}
-        platformType: ${{ inputs.platform_type }}
+        artifact_suffix: ${{ inputs.artifact_suffix }}
+        platform_type: ${{ inputs.platform_type }}
+        pipeline_scan_pace_seconds: ${{ inputs.pipeline_scan_pace_seconds }}
+        pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
 
     - name: Calcular nome do artefato Pipeline Scan
       id: artifact_name
-      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      if: steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
         SUFFIX: ${{ inputs.artifact_suffix }}
@@ -150,24 +150,26 @@ runs:
         echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
-      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      if: steps.pipeline_set.outcome != 'skipped'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: ${{ steps.artifact_name.outputs.name }}
         path: |
           results.json
           filtered_results.json
+          results-*.json
+          filtered-*.json
         if-no-files-found: warn
         retention-days: 3
 
     - name: Resolver elegibilidade do seed de baseline
       id: seed_gate
-      if: steps.check_baseline.outputs.has_baseline == 'false'
       shell: bash
       env:
         HEAD_REF: ${{ github.head_ref }}
         REF_NAME: ${{ github.ref_name }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
       run: |
         set -euo pipefail
         echo "::group::Resolver elegibilidade do seed de baseline"
@@ -186,13 +188,24 @@ runs:
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SEED_ELIGIBLE "branch=${branch}")"
         else
           echo "can_seed=false" >> "$GITHUB_OUTPUT"
-          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_NOT_DEFAULT_BRANCH "branch=${branch}" "default_branch=${default_branch}")"
+          if [ "${HAS_BASELINE}" != "true" ]; then
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_NOT_DEFAULT_BRANCH "branch=${branch}" "default_branch=${default_branch}")"
+          fi
         fi
         echo "::endgroup::"
 
-    - name: Gravar baseline no repositório (write-once)
+    - name: Avisar seed bloqueado por scan_error
+      if: steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count != '0'
+      shell: bash
+      env:
+        SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
+        PLANNED_COUNT: ${{ steps.pipeline_set.outputs.planned_count }}
+      run: |
+        echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_BLOCKED_PARTIAL "failed=${SCAN_ERROR_COUNT}" "planned=${PLANNED_COUNT}")"
+
+    - name: Gravar baseline no repositório
       id: seed_baseline
-      if: steps.check_baseline.outputs.has_baseline == 'false' && steps.seed_gate.outputs.can_seed == 'true'
+      if: steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count == '0'
       shell: bash
       env:
         BASELINE_ORG: ${{ inputs.baseline_org }}
@@ -208,7 +221,7 @@ runs:
         GITHUB_API_URL: ${{ github.api_url }}
       run: |
         set -euo pipefail
-        echo "::group::Repo baseline (seed write-once)"
+        echo "::group::Repo baseline (gravar results.json)"
         if [ ! -f "results.json" ]; then
           echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_AFTER_SCAN)"
           echo "::endgroup::"
@@ -222,11 +235,13 @@ runs:
       if: steps.check_baseline.outputs.has_baseline == 'true'
       shell: bash
       env:
-        OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
+        SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
+        POLICY_VIOLATIONS: ${{ steps.pipeline_set.outputs.policy_violations }}
+        POLICY_FAIL: ${{ inputs.policy_fail }}
       run: |
         set -euo pipefail
         echo "::group::Definir status do Pipeline Scan (com baseline)"
-        if [ "${OUTCOME}" = "failure" ]; then
+        if [ "${SCAN_ERROR_COUNT:-0}" != "0" ] || { [ "${POLICY_FAIL}" = "true" ] && [ "${POLICY_VIOLATIONS:-0}" != "0" ]; }; then
           echo "pipeline_status=scan_failed_with_baseline" >> "$GITHUB_OUTPUT"
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_with_baseline")"
         else
@@ -240,13 +255,20 @@ runs:
       if: steps.check_baseline.outputs.has_baseline == 'false'
       shell: bash
       env:
-        OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+        SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
+        POLICY_VIOLATIONS: ${{ steps.pipeline_set.outputs.policy_violations }}
+        POLICY_FAIL: ${{ inputs.policy_fail }}
         CAN_SEED: ${{ steps.seed_gate.outputs.can_seed }}
+        SEEDED: ${{ steps.seed_baseline.outcome }}
       run: |
         set -euo pipefail
         echo "::group::Definir status do Pipeline Scan (sem baseline)"
-        if [ "${CAN_SEED}" = "true" ]; then
-          if [ "${OUTCOME}" = "failure" ]; then
+        failed=false
+        if [ "${SCAN_ERROR_COUNT:-0}" != "0" ] || { [ "${POLICY_FAIL}" = "true" ] && [ "${POLICY_VIOLATIONS:-0}" != "0" ]; }; then
+          failed=true
+        fi
+        if [ "${CAN_SEED}" = "true" ] && [ "${SEEDED}" != "skipped" ]; then
+          if [ "${failed}" = "true" ]; then
             echo "pipeline_status=scan_failed_without_baseline_and_uploaded" >> "$GITHUB_OUTPUT"
             echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_without_baseline_and_uploaded")"
           else
@@ -254,7 +276,7 @@ runs:
             echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_completed_without_baseline_and_uploaded")"
           fi
         else
-          if [ "${OUTCOME}" = "failure" ]; then
+          if [ "${failed}" = "true" ]; then
             echo "pipeline_status=scan_failed_without_baseline" >> "$GITHUB_OUTPUT"
             echo "$(node "$GITHUB_ACTION_PATH/messages.js" success PIPELINE_STATUS_SET "status=scan_failed_without_baseline")"
           else
@@ -265,30 +287,28 @@ runs:
         echo "::endgroup::"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
-      if: steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped'
+      if: steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
         POLICY_FAIL: ${{ inputs.policy_fail }}
-        WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
-        WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
+        SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
+        POLICY_VIOLATIONS: ${{ steps.pipeline_set.outputs.policy_violations }}
       run: |
         set -euo pipefail
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
+        if [ "${SCAN_ERROR_COUNT:-0}" != "0" ]; then
+          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SCAN_ERROR "count=${SCAN_ERROR_COUNT}")"
+          echo "::endgroup::"
+          exit 1
+        fi
+
         if [ ! -f "results.json" ]; then
           echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_POLICY_CHECK)"
           echo "::endgroup::"
           exit 1
         fi
 
-        outcome="skipped"
-        for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
-          if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
-            outcome="${o}"
-            break
-          fi
-        done
-
-        if [ "${outcome}" = "failure" ]; then
+        if [ "${POLICY_VIOLATIONS:-0}" != "0" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
             echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
             echo "::endgroup::"
@@ -303,7 +323,7 @@ runs:
 
     - name: Verificar filtered_results para import de issues
       id: check_filtered_results
-      if: inputs.create_issues == 'true' && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
+      if: inputs.create_issues == 'true' && steps.pipeline_set.outcome != 'skipped'
       shell: bash
       run: |
         set -euo pipefail
@@ -327,12 +347,10 @@ runs:
         fail_build: 'false'
 
     - name: Gerar Summary do Repo Baseline Pipeline Scan
-      if: always() && (steps.pipeline_with_baseline.outcome != 'skipped' || steps.pipeline_without_baseline.outcome != 'skipped')
+      if: always() && steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
         HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
-        WITH_BASELINE_OUTCOME: ${{ steps.pipeline_with_baseline.outcome }}
-        WITHOUT_BASELINE_OUTCOME: ${{ steps.pipeline_without_baseline.outcome }}
         CREATE_ISSUES: ${{ inputs.create_issues }}
         BASELINE_ORG: ${{ inputs.baseline_org }}
         BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
@@ -341,6 +359,7 @@ runs:
         CAN_SEED: ${{ steps.seed_gate.outputs.can_seed }}
         CURRENT_BRANCH: ${{ steps.seed_gate.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.seed_gate.outputs.default_branch }}
+        ARTIFACTS_MD: ${{ steps.pipeline_set.outputs.artifacts_md }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Repo Baseline Pipeline Scan"
@@ -348,24 +367,25 @@ runs:
         FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
         mkdir -p "${FRAG_DIR}"
 
-        OUTCOME="skipped"
-        for o in "${WITH_BASELINE_OUTCOME}" "${WITHOUT_BASELINE_OUTCOME}"; do
-          if [ -n "${o}" ] && [ "${o}" != "skipped" ] && [ "${o}" != "cancelled" ]; then
-            OUTCOME="${o}"
-            break
-          fi
-        done
-
         {
           echo "### 🔬 Veracode Pipeline Scan (Repo Baseline)"
           echo ""
 
+          if [ -n "${ARTIFACTS_MD:-}" ]; then
+            echo "Artefatos analisados:"
+            echo ""
+            echo "${ARTIFACTS_MD}"
+            echo ""
+          fi
           if [ "${HAS_BASELINE}" != "true" ]; then
             if [ "${CAN_SEED}" = "true" ]; then
               echo "> 🆕 Sem baseline no repositório — scan executado **sem baseline** (baseline.json gravado após o scan na default_branch \`${DEFAULT_BRANCH}\`)"
             else
               echo "> ⚠️ Sem baseline no repositório — scan executado **sem baseline** e seed **não gravado** (branch \`${CURRENT_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`). Rode na default_branch para criar o baseline."
             fi
+            echo ""
+          elif [ "${CAN_SEED}" = "true" ]; then
+            echo "> Baseline existente — scan com baseline; \`baseline.json\` regravado na default_branch \`${DEFAULT_BRANCH}\` após o scan."
             echo ""
           fi
           if [ "${CREATE_ISSUES}" = "true" ]; then

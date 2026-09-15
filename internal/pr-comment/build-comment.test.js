@@ -108,6 +108,7 @@ test('buildCommentBody inclui marker e seções ativas', () => {
     assert.match(body, /## 🛡️ Veracode Connect — Resumo Final/);
     assert.match(body, /\[Mais detalhes no Step Summary\]/);
     assert.doesNotMatch(body, /### 🔍 Veracode SCA/);
+    assert.doesNotMatch(body, /Artefatos analisados/);
 });
 
 test('buildCommentBody com baseline destaca tabela de novas', () => {
@@ -229,4 +230,50 @@ test('buildCommentBody coloca o relatório SCA no Resumo Final', () => {
     assert.match(body, /\| 🔴 Very High \| 2 \|/);
     assert.doesNotMatch(body, /Status interno/);
     assert.doesNotMatch(body, /Issues GitHub: desabilitado/);
+});
+
+test('buildCommentBody lista artefatos do manifesto de scans', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-arts-'));
+    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
+        findings: [{ severity: 4 }]
+    }));
+    fs.mkdirSync(path.join(dir, '.veracode-connect', 'scans'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.veracode-connect', 'scans', 'manifest.json'), JSON.stringify({
+        scans: [
+            {
+                slot: 1,
+                artifact: 'veracode-auto-pack-app-java.zip',
+                scan_id: 'abc',
+                findings: 1,
+                classification: 'policy'
+            },
+            {
+                slot: 2,
+                artifact: 'veracode-auto-pack-app-js.zip',
+                scan_id: '',
+                findings: 0,
+                classification: 'scan_error'
+            }
+        ]
+    }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: {
+            sca_status: 'skipped',
+            iac_outcome: 'skipped',
+            pipeline_outcome: 'success',
+            baseline_outcome: 'skipped',
+            repo_baseline_outcome: 'skipped',
+            upload_outcome: 'skipped',
+            validate_outcome: 'success',
+            baseline_mode: 'none'
+        }
+    });
+
+    assert.match(body, /Artefatos analisados:/);
+    assert.match(body, /`veracode-auto-pack-app-java\.zip` — policy \(1 finding\(s\), scan_id=abc\)/);
+    assert.match(body, /`veracode-auto-pack-app-js\.zip` — erro \(0 finding\(s\), scan_id=—\)/);
+    assert.match(body, /\| 🟠 High \| 1 \|/);
 });

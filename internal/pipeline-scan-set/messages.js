@@ -1,17 +1,10 @@
 'use strict';
 
 /**
- * Catálogo de mensagens do Veracode Upload & Scan (erros, avisos, sucesso).
- *
- * Fica nesta pasta porque GitHub só envia o diretório da sub-action
- * (`Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1`).
+ * Catálogo de mensagens do Pipeline Scan Set.
  *
  * Node:  const { message, fail } = require('./messages');
  * Bash:  node "$GITHUB_ACTION_PATH/messages.js" error CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" warning CHAVE [k=v ...]
- *        node "$GITHUB_ACTION_PATH/messages.js" success CHAVE [k=v ...]
- *
- * Placeholders: {nome} interpolados por format().
  */
 
 function format(template, vars = {}) {
@@ -21,22 +14,21 @@ function format(template, vars = {}) {
 }
 
 const errors = {
-    SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
-    SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name (sandboxname).',
-    FILEPATH_NOT_FOUND: 'Falha ao resolver filepath: arquivo não encontrado: {path}',
-    FILEPATH_EMPTY_DIR: 'Falha ao resolver filepath: diretório de upload vazio: {path}',
-    FILEPATH_HAS_SUBDIR: 'Falha ao resolver filepath: o diretório de upload deve ser plano (sem subpastas): {path}'
+    NO_SCAN_FILES: 'Nenhum artefato informado para o Pipeline Scan.',
+    RESULTS_MISSING: 'Nenhum results-K.json válido após os Pipeline Scans.',
+    CLI_USAGE: 'Uso: node merge-results.js <plan|retry-plan|merge>'
 };
 
-const warnings = {};
+const warnings = {
+    SCAN_ERROR: 'Pipeline Scan do artefato {file} falhou (scan_error).',
+    RETRY_WAIT: 'Aguardando {seconds}s antes de repetir {count} Pipeline Scan(s) sem resultado válido.',
+    SLOT_RETRY: 'Repetindo Pipeline Scan do slot {slot} ({file}).'
+};
 
 const success = {
-    PREP_OK: 'upload_scan preparado: sandbox={sandbox} mode={mode} branch={branch}',
-    FILEPATH_RESOLVED: 'filepath={path}',
-    FILEPATH_DIR_RESOLVED: 'filepath={path} arquivos={count}',
-    SANDBOX_NAME_SET: 'sandboxname={name}',
-    GIT_REPO_URL: 'git_repository_url={url}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    PLAN_OK: 'pipeline-scan-set: {count} artefato(s) planejado(s)',
+    MERGE_OK: 'pipeline-scan-set: scanned={scanned} errors={errors} policy={policy}',
+    NO_RETRY: 'Nenhum slot exige retry.'
 };
 
 const catalogs = {

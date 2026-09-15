@@ -6,6 +6,34 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-15
+
+### Changed
+
+- **Mudança de comportamento.** Com 2+ artefatos do Auto Packager, o Veracode Connect deixa de descompactar e remisturar os zips num bundle plano único. Cada artefato original permanece íntegro. O Pipeline Scan roda **um scan em série por artefato** (até 6 slots, pacing de 12s entre starts). O Upload & Scan recebe o diretório `.veracode-connect/upload/` com cópia **byte-idêntica** de todos os zips (um build, N módulos). `results.json` continua unificado para baseline, Portal Afrika, `veracode-flaws-to-issues`, Step Summary e comentário de PR.
+- A classificação de artefatos é por **conteúdo** (central directory do ZIP), não pelo sufixo de linguagem no nome. Código forte alinhado às linguagens do Pipeline Scan; HTML/SQL/Perl sozinhos não justificam um slot (seguem no Upload & Scan). `node_modules`/`vendor`/`.venv` saem da contagem de fonte; binários (`.dll`/`.jar`/`.class`) continuam contando em qualquer diretório.
+- Policy e erro de scan são classificados pelos arquivos (`filtered-K.json` vs `results-K.json`/`scan_status`), nunca pelo `outcome` do step. `scan_outcome=success` só quando `scan_error_count == 0`.
+- Seed de baseline **não é gravado** se algum slot falhou (`scan_error_count != 0`), para não envenenar comparações seguintes com uma união incompleta.
+- Repo Baseline deixa de ser write-once: na `default_branch`, após um scan bem-sucedido, o store recebe o `results.json` atual (cria ou substitui `{org}/{repo}/baseline.json`), no mesmo espírito do upload do Portal Afrika. Pull requests continuam só lendo o baseline.
+
+**Atenção — baseline exige re-seed.** O baseline gravado a partir do bundle antigo (entradas com prefixo `<nome-do-zip>/…`) não casa com os N zips originais. O primeiro run após 1.4.0 mostra findings antigos como novos. Não é regressão: é consequência de parar de remisturar.
+
+Procedimento de re-seed (Portal Afrika e modo repo): rode na `default_branch`; o próximo envio de `results.json` regrava o baseline. Não é preciso apagar arquivo no store.
+
+A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` só resolve depois que a tag `v1` apontar para este commit (igual às outras internas). Validar na tag **antes** de anunciar: repositório multi-linguagem com 3+ artefatos (N scans, `results.json` unificado), sandbox real conferindo N módulos no mesmo build (confirma o default `upload_scan_artifacts: all`; se o wrapper reenviar o diretório a cada iteração, o mesmo release sai com default `primary`) e um run com baseline legado para confirmar a quebra esperada e o re-seed.
+
+### Added
+
+- Sub-action `internal/pipeline-scan-set`: até 6 Pipeline Scans em série (action oficial pinada), pacing (`pipeline_scan_pace_seconds`, default 12), um passe de retry opcional (`pipeline_scan_retry`) e merge deduplicado por `flaw_match`. Sem timeout próprio por slot: vale o default da action oficial da Veracode.
+- Inputs `pipeline_scan_max_artifacts` (1–6, default 6), `pipeline_scan_pace_seconds`, `pipeline_scan_retry` e `upload_scan_artifacts` (`all` \| `primary`).
+- Manifestos `.veracode-connect/artifacts.json` (decisão por artefato) e `.veracode-connect/scans/manifest.json` (outcome por slot). Step Summary e comentário de PR listam os artefatos analisados.
+- Upload & Scan aceita diretório plano com barra final (obrigatório: o upstream concatena `filepath + file` sem separador).
+
+### Removed
+
+- Remistura de artefatos (`flattenArtifacts` / `zipDirectory` / bundle único `.veracode-connect/veracode-packager-bundle.zip`).
+- Mensagens `BUNDLE_FAILED` e `MULTIPLE_ARTIFACTS_BUNDLED` do Auto Packager.
+
 ## [1.3.14] - 2026-09-14
 
 ### Fixed

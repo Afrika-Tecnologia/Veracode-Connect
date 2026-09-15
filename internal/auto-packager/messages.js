@@ -19,14 +19,15 @@ const errors = {
     SCAN_FILE_NOT_PROVIDED: "Falha ao preparar o scan file: scan_file não foi fornecido e enable_auto_packager está 'false'.",
     SCAN_FILE_NOT_FOUND: "Falha ao preparar o scan file: arquivo '{file}' não encontrado.",
     NO_PACKAGER_ARTIFACTS: "Falha no Auto Packager: nenhum artefato gerado pela Veracode CLI no diretório de saída '{dir}'. Nenhum ZIP do workspace será usado.",
-    PACKAGE_FAILED_NO_ARTIFACTS: "Falha no Auto Packager: 'veracode package' saiu com código {code} e nenhum artefato válido foi gerado. Nenhum ZIP do workspace será usado.",
-    BUNDLE_FAILED: 'Falha ao descompactar e reunir {count} artefatos do Auto Packager em {file}.'
+    PACKAGE_FAILED_NO_ARTIFACTS: "Falha no Auto Packager: 'veracode package' saiu com código {code} e nenhum artefato válido foi gerado. Nenhum ZIP do workspace será usado."
 };
 
 const warnings = {
     SCAN_FILE_OVERRIDES_PACKAGER: 'Auto Packager está ativo, mas scan_file foi fornecido. Usando o arquivo informado em vez de empacotar.',
     PACKAGE_EXIT_WITH_ARTIFACTS: "'veracode package' retornou exit code {code}; usando os artefato(s) gerados pela CLI no diretório de saída.",
-    MULTIPLE_ARTIFACTS_BUNDLED: "{count} artefatos do Auto Packager foram descompactados e reunidos em '{file}' (sem ZIP aninhado) para Pipeline Scan e Upload & Scan."
+    COVERAGE_GUARD: 'Nenhum artefato passou no filtro de conteúdo; {count} artefato(s) serão enviados ao Pipeline Scan por guarda de cobertura.',
+    ARTIFACTS_SKIPPED: '{skipped} de {total} artefato(s) do Auto Packager foram descartados do Pipeline Scan (ruído, redundância ou acima do limite). Os zips originais seguem íntegros no diretório de Upload & Scan.',
+    ABOVE_SLOT_LIMIT: '{skipped} artefato(s) ficaram acima do limite de {max} slots do Pipeline Scan e não serão analisados nesta execução.'
 };
 
 const success = {

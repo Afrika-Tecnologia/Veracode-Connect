@@ -1,0 +1,36 @@
+# Repositório multi-linguagem: o Auto Packager gera um zip por linguagem.
+# Cada zip com código analisável pelo Pipeline Scan vira um scan em série
+# (até 6, com pacing). O Upload & Scan recebe todos os zips originais
+# no mesmo application profile (um build, N módulos).
+name: Security Scan (Auto Packager + multi-linguagem)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Pipeline Scan + Upload & Scan (Auto Packager multi-linguagem)
+        uses: Afrika-Tecnologia/Veracode-Connect@v1
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'true'
+          baseline_mode: 'none'
+          enable_pipelinescan: 'true'
+          enable_upload_scan: 'true'
+          veracode_sandbox: 'true'
+          veracode_sandbox_name: 'dev'
+          policy_fail: 'false'
+          pipeline_scan_max_artifacts: '6'
+          pipeline_scan_pace_seconds: '12'
+          pipeline_scan_retry: 'true'
+          upload_scan_artifacts: 'all'

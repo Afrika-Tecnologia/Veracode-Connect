@@ -1,0 +1,459 @@
+name: 'Pipeline Scan Set'
+description: 'Roda até 6 Pipeline Scans em série (um artefato por invocação), com pacing, retry opcional e results.json unificado.'
+
+inputs:
+  veracode_api_id:
+    description: 'ID da API do Veracode.'
+    required: true
+  veracode_api_key:
+    description: 'Key da API do Veracode.'
+    required: true
+  scan_files:
+    description: 'JSON array dos artefatos a escanear.'
+    required: false
+    default: ''
+  scan_file:
+    description: 'Artefato único (fallback quando scan_files está vazio).'
+    required: false
+    default: ''
+  max_artifacts:
+    description: 'Teto de slots (1-6).'
+    required: false
+    default: '6'
+  baseline_file:
+    description: 'Arquivo de baseline.json (vazio = sem baseline).'
+    required: false
+    default: ''
+  fail_on_severity:
+    description: 'Severidades que fazem o scan falhar quando há baseline.'
+    required: false
+    default: ''
+  veracode_policy_name:
+    description: 'Nome da policy a ser usada no scan do Veracode.'
+    required: false
+    default: ''
+  artifact_suffix:
+    description: 'Sufixo único para artefatos do GitHub.'
+    required: false
+    default: ''
+  platform_type:
+    description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
+    required: false
+    default: 'CLOUD'
+  pipeline_scan_pace_seconds:
+    description: 'Espera entre starts de Pipeline Scan neste job.'
+    required: false
+    default: '12'
+  pipeline_scan_retry:
+    description: 'Repete uma vez slots sem results válido (true/false).'
+    required: false
+    default: 'true'
+
+outputs:
+  scan_outcome:
+    description: 'success se nenhum slot teve scan_error; failure caso contrário.'
+    value: ${{ steps.merge.outputs.scan_outcome }}
+  scanned_count:
+    description: 'Slots com results.json válido.'
+    value: ${{ steps.merge.outputs.scanned_count }}
+  scan_error_count:
+    description: 'Slots sem resultado válido.'
+    value: ${{ steps.merge.outputs.scan_error_count }}
+  policy_violations:
+    description: 'Slots cujo filtered_results tem findings.'
+    value: ${{ steps.merge.outputs.policy_violations }}
+  planned_count:
+    description: 'Slots planejados.'
+    value: ${{ steps.merge.outputs.planned_count }}
+  artifacts_md:
+    description: 'Markdown com o resultado por artefato.'
+    value: ${{ steps.merge.outputs.artifacts_md }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Planejar slots do Pipeline Scan
+      id: plan
+      shell: bash
+      env:
+        SCAN_FILES: ${{ inputs.scan_files }}
+        SCAN_FILE: ${{ inputs.scan_file }}
+        MAX_ARTIFACTS: ${{ inputs.max_artifacts }}
+      run: |
+        set -euo pipefail
+        echo "::group::Planejar Pipeline Scan Set"
+        node "$GITHUB_ACTION_PATH/merge-results.js" plan
+        echo "::endgroup::"
+
+    - name: Pipeline Scan slot 1
+      id: slot_1
+      if: steps.plan.outputs.file_1 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_1 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-1.json'
+        filtered_json_output_file: 'filtered-1.json'
+        summary_output_file: 'results-1.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-1'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_1 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before slot 2
+      if: steps.plan.outputs.file_2 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan slot 2
+      id: slot_2
+      if: steps.plan.outputs.file_2 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_2 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-2.json'
+        filtered_json_output_file: 'filtered-2.json'
+        summary_output_file: 'results-2.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-2'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_2 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before slot 3
+      if: steps.plan.outputs.file_3 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan slot 3
+      id: slot_3
+      if: steps.plan.outputs.file_3 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_3 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-3.json'
+        filtered_json_output_file: 'filtered-3.json'
+        summary_output_file: 'results-3.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-3'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_3 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before slot 4
+      if: steps.plan.outputs.file_4 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan slot 4
+      id: slot_4
+      if: steps.plan.outputs.file_4 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_4 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-4.json'
+        filtered_json_output_file: 'filtered-4.json'
+        summary_output_file: 'results-4.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-4'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_4 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before slot 5
+      if: steps.plan.outputs.file_5 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan slot 5
+      id: slot_5
+      if: steps.plan.outputs.file_5 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_5 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-5.json'
+        filtered_json_output_file: 'filtered-5.json'
+        summary_output_file: 'results-5.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-5'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_5 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before slot 6
+      if: steps.plan.outputs.file_6 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan slot 6
+      id: slot_6
+      if: steps.plan.outputs.file_6 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.plan.outputs.file_6 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-6.json'
+        filtered_json_output_file: 'filtered-6.json'
+        summary_output_file: 'results-6.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-6'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_6 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Decidir retry
+      id: retry_plan
+      if: always() && inputs.pipeline_scan_retry == 'true'
+      shell: bash
+      env:
+        FILE_1: ${{ steps.plan.outputs.file_1 }}
+        FILE_2: ${{ steps.plan.outputs.file_2 }}
+        FILE_3: ${{ steps.plan.outputs.file_3 }}
+        FILE_4: ${{ steps.plan.outputs.file_4 }}
+        FILE_5: ${{ steps.plan.outputs.file_5 }}
+        FILE_6: ${{ steps.plan.outputs.file_6 }}
+      run: |
+        set -euo pipefail
+        echo "::group::Decidir retry do Pipeline Scan"
+        node "$GITHUB_ACTION_PATH/merge-results.js" retry-plan
+        echo "::endgroup::"
+
+    - name: Aguardar janela de rate limit
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.needs_retry == 'true'
+      shell: bash
+      run: sleep 60
+
+    - name: Pipeline Scan retry slot 1
+      id: retry_1
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_1 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_1 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-1.json'
+        filtered_json_output_file: 'filtered-1.json'
+        summary_output_file: 'results-1.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-1-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_1 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before retry slot 2
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_2 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan retry slot 2
+      id: retry_2
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_2 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_2 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-2.json'
+        filtered_json_output_file: 'filtered-2.json'
+        summary_output_file: 'results-2.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-2-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_2 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before retry slot 3
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_3 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan retry slot 3
+      id: retry_3
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_3 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_3 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-3.json'
+        filtered_json_output_file: 'filtered-3.json'
+        summary_output_file: 'results-3.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-3-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_3 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before retry slot 4
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_4 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan retry slot 4
+      id: retry_4
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_4 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_4 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-4.json'
+        filtered_json_output_file: 'filtered-4.json'
+        summary_output_file: 'results-4.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-4-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_4 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before retry slot 5
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_5 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan retry slot 5
+      id: retry_5
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_5 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_5 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-5.json'
+        filtered_json_output_file: 'filtered-5.json'
+        summary_output_file: 'results-5.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-5-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_5 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Pace before retry slot 6
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_6 != ''
+      shell: bash
+      env:
+        PACE: ${{ inputs.pipeline_scan_pace_seconds }}
+      run: sleep "${PACE:-12}"
+
+    - name: Pipeline Scan retry slot 6
+      id: retry_6
+      if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_6 != ''
+      continue-on-error: true
+      uses: veracode/Veracode-pipeline-scan-action@3abab7b7c22fed566017eab5b272de18fd6a170a # v1.0.23
+      with:
+        vid: ${{ inputs.veracode_api_id }}
+        vkey: ${{ inputs.veracode_api_key }}
+        file: ${{ steps.retry_plan.outputs.retry_6 }}
+        token: ${{ github.token }}
+        fail_build: 'false'
+        json_output: 'true'
+        json_output_file: 'results-6.json'
+        filtered_json_output_file: 'filtered-6.json'
+        summary_output_file: 'results-6.txt'
+        artifact_name: '${{ inputs.artifact_suffix }}-6-retry'
+        baseline_file: ${{ inputs.baseline_file }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
+        project_name: ${{ steps.plan.outputs.label_6 }}
+        platformType: ${{ inputs.platform_type }}
+
+    - name: Unir resultados dos Pipeline Scans
+      id: merge
+      if: always() && steps.plan.outputs.planned_count != '' && steps.plan.outputs.planned_count != '0'
+      shell: bash
+      env:
+        FILE_1: ${{ steps.plan.outputs.file_1 }}
+        FILE_2: ${{ steps.plan.outputs.file_2 }}
+        FILE_3: ${{ steps.plan.outputs.file_3 }}
+        FILE_4: ${{ steps.plan.outputs.file_4 }}
+        FILE_5: ${{ steps.plan.outputs.file_5 }}
+        FILE_6: ${{ steps.plan.outputs.file_6 }}
+      run: |
+        set -euo pipefail
+        echo "::group::Unir resultados do Pipeline Scan Set"
+        node "$GITHUB_ACTION_PATH/merge-results.js" merge
+        echo "::endgroup::"

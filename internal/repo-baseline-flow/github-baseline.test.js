@@ -182,13 +182,15 @@ test('putBaseline grava na branch informada', async () => {
     assert.ok(calls.some((c) => c.method === 'GET' && c.url.includes('heads/develop')));
 });
 
-test('putBaseline ignora seed quando o arquivo já existe (GET 200)', async () => {
+test('putBaseline atualiza o arquivo quando ele já existe', async () => {
     const { file } = writeResults();
-    mockGitData({ fileExists: true });
+    const calls = mockGitData({ fileExists: true, patchStatuses: [200] });
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
-    assert.equal(result.seeded, false);
+    assert.equal(result.seeded, true);
     assert.equal(result.alreadyExists, true);
+    assert.equal(result.updated, true);
+    assert.ok(calls.some((c) => c.method === 'PATCH' && c.url.includes('/git/refs/')));
 });
 
 test('putBaseline grava commit filho em cima do HEAD (README preservado)', async () => {
@@ -203,17 +205,19 @@ test('putBaseline grava commit filho em cima do HEAD (README preservado)', async
     assert.equal(calls.some((c) => c.method === 'PUT' && c.url.includes('/contents/')), false);
 });
 
-test('putBaseline trata conflito como write-once só se o GET posterior achar o arquivo', async () => {
+test('putBaseline faz retry de fast-forward mesmo se o arquivo passar a existir', async () => {
     const { file } = writeResults();
-    mockGitData({
+    process.env.BASELINE_PUT_MAX_ATTEMPTS = '3';
+    process.env.BASELINE_PUT_RETRY_MS = '0';
+    const calls = mockGitData({
         fileExists: false,
         fileExistsAfterPatch: true,
-        patchStatuses: [422]
+        patchStatuses: [422, 200]
     });
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
-    assert.equal(result.seeded, false);
-    assert.equal(result.alreadyExists, true);
+    assert.equal(result.seeded, true);
+    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
 });
 
 test('putBaseline faz retry quando o fast-forward falha e o arquivo ainda não existe', async () => {

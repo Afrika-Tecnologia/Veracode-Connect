@@ -24,7 +24,9 @@ const errors = {
     RESULTS_MISSING_POLICY_CHECK:
         'Falha na verificação do Pipeline Scan: results.json não encontrado após o scan.',
     POLICY_FAIL_TRUE:
-        'Pipeline Scan falhou e policy_fail=true — o job será interrompido.'
+        'Pipeline Scan falhou e policy_fail=true — o job será interrompido.',
+    SCAN_ERROR:
+        'Pipeline Scan falhou em {count} artefato(s) (timeout, credencial, linguagem não suportada ou 429). Findings de policy não se aplicam a este erro.'
 };
 
 const warnings = {

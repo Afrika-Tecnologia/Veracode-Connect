@@ -12,8 +12,8 @@ Uso (exemplo rapido):
 
 1) (Opcional) Veracode SCA (`enable_sca: 'true'`)
 2) (Opcional) Veracode IaC/Secrets (`enable_iac: 'true'`)
-3) Define o `.zip` do scan:
-   - `enable_auto_packager: 'true'` -> gera artefatos com o Auto Packager (falha se a CLI nao produzir pacotes validos; nao usa ZIP aleatorio do workspace)
+3) Define o artefato do scan:
+   - `enable_auto_packager: 'true'` -> gera artefatos com o Auto Packager (falha se a CLI nao produzir pacotes validos; nao usa ZIP aleatorio do workspace). Cada zip com código analisável pelo Pipeline Scan vira um scan em série; o Upload & Scan recebe todos os zips originais.
    - `enable_auto_packager: 'false'` -> usa o `scan_file` que voce fornecer
 4) (Opcional) Baseline (`baseline_mode: 'portal_afrika'` | `'repo'`) — Pipeline Scan com provedor de baseline
 5) (Opcional) Pipeline Scan sem baseline (`baseline_mode: 'none'` + `enable_pipelinescan: 'true'`)
@@ -36,8 +36,12 @@ Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-req
 |---|---:|---:|---|
 | `veracode_api_id` | sim | - | VID do Veracode. |
 | `veracode_api_key` | sim | - | VKEY do Veracode. |
-| `enable_auto_packager` | nao | `'false'` | Se `'true'`, empacota com a Veracode CLI e usa só os artefatos gerados no diretório de saída; senao usa `scan_file`. |
+| `enable_auto_packager` | nao | `'false'` | Se `'true'`, empacota com a Veracode CLI e classifica os artefatos por conteúdo; senao usa `scan_file`. |
 | `scan_file` | nao* | - | Obrigatorio na pratica quando `enable_auto_packager: 'false'`. |
+| `pipeline_scan_max_artifacts` | nao | `'6'` | Teto de artefatos no Pipeline Scan (1–6). Cada um é um scan em série. Limite da composite/pacing, não da Veracode (a conta tem 6 starts / 60 s). |
+| `pipeline_scan_pace_seconds` | nao | `'12'` | Espera entre starts neste job (folga para o limite 6/60 s da conta). |
+| `pipeline_scan_retry` | nao | `'true'` | Repete uma vez os slots sem `results.json` válido (429, timeout transitório, download do jar). |
+| `upload_scan_artifacts` | nao | `'all'` | `all` = diretório com todos os zips do Auto Packager; `primary` = só o primeiro artefato scannable. |
 | `enable_pipelinescan` | nao | `'true'` | Usado quando `baseline_mode: 'none'`. Desative para rodar so Upload & Scan. |
 | `baseline_mode` | nao | `'none'` | `none` \| `portal_afrika` \| `repo`. |
 | `portal_afrika_api_key` | nao* | - | Obrigatorio quando `baseline_mode: 'portal_afrika'`. |
@@ -71,9 +75,18 @@ O baseline é criado **somente na `default_branch`** do repositório (ex.: `main
 |---|---|
 | Sem baseline + execução na `default_branch` | Pipeline Scan sem baseline e **grava/envia** o seed |
 | Sem baseline + execução em outra branch/PR | Pipeline Scan sem baseline; seed **não** é gravado (warning no log) |
-| Com baseline existente | Pipeline Scan **com** baseline (qualquer branch) |
+| Com baseline existente + `default_branch` | Pipeline Scan **com** baseline; depois o `results.json` **regrava** o store (Portal e repo) |
+| Com baseline existente + outra branch/PR | Pipeline Scan **com** baseline; o store **não** é alterado (modo repo). Portal Afrika reenvia o resultado. |
 
 Assim o baseline reflete a linha principal, não a primeira feature branch que rodou o job.
+
+### Re-seed após a 1.4.0 (bundle → zips originais)
+
+A 1.4.0 parou de remisturar os zips do Auto Packager. O baseline gravado sobre o bundle antigo (caminhos com prefixo `<nome-do-zip>/…`) **não casa** com os artefatos originais. O primeiro run mostra findings antigos como novos.
+
+Rode na `default_branch` (Portal Afrika e modo repo). O próximo envio de `results.json` regrava o baseline. Não é preciso apagar `{org}/{repo}/baseline.json` no store.
+
+Seed com resultado parcial (`scan_error_count != 0`) é bloqueado: união incompleta envenenaria as comparações seguintes.
 
 ## Repo Baseline (`baseline_mode: 'repo'`)
 
@@ -83,7 +96,7 @@ O nome do repositório de store é `Afrika-Veracode-Connect-Baseline` por defaul
 
 A branch do store é a `default_branch` do repositório (em geral `main`). Passe `baseline_repo_branch` se quiser ler e gravar o baseline em outra branch.
 
-O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed adiciona `{org-do-app}/{repo-do-app}/baseline.json` (ex.: `Afrika-Tecnologia/exemplo-app/baseline.json`) sem substituir o README.
+O store **não** deve estar vazio: a API do GitHub exige pelo menos um commit inicial. Um `README.md` na raiz é o jeito certo de inicializar. O seed adiciona `{org-do-app}/{repo-do-app}/baseline.json` (ex.: `Afrika-Tecnologia/exemplo-app/baseline.json`) sem substituir o README. Nas execuções seguintes na `default_branch`, o mesmo arquivo é **atualizado** com o `results.json` do scan (como o Portal Afrika). Pull requests só leem o baseline.
 
 Auth (escolha uma):
 
@@ -195,7 +208,13 @@ O comentário segue o mesmo formato do Step Summary (títulos, tabelas de severi
 
 - `sca-results`: `veracode_sca.log`, `scaResults.txt` ou `scaResults.json` (conforme `create_issues`)
 - `iac-results`: pasta `iac-results/` com `results.json`, `results.txt` e SBOMs (se gerados)
-- `pipescan-results`: `results.json` e `filtered_results.json` (se existir)
+- `pipescan-results`: `results.json`, `filtered_results.json`, `results-*.json` e `filtered-*.json` (um par por slot)
+
+## Pipeline Scan — vários artefatos
+
+Com Auto Packager, a CLI pode gerar um zip por linguagem/módulo. Cada zip com código analisável pelo [Pipeline Scan](https://docs.veracode.com/r/Pipeline_Scan_Supported_Languages) vira um scan em série (`internal/pipeline-scan-set`). Artefatos só com HTML, lockfile, teste ou dependência ficam de fora do Pipeline Scan, mas seguem íntegros no Upload & Scan.
+
+O teto de 6 slots é da composite (pacing). A Veracode limita **6 starts / 60 s por conta**; o default `pipeline_scan_pace_seconds: '12'` deixa folga para outros jobs.
 
 ## SCA — comportamento fixo
 
@@ -213,6 +232,7 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 ## Upload & Scan (static) - comportamento fixo
 
 - `appname` = input `veracode_appname` (default `${{ github.repository }}`)
+- `filepath` = diretório plano `.veracode-connect/upload/` (todos os zips, barra final obrigatória) quando `upload_scan_artifacts: 'all'` e o Auto Packager rodou; senão o `scan_file`
 - `createprofile: true` + `gitRepositoryUrl` = `{server_url}/{org/repo}` (sem `.git`)
 - nao espera o scan finalizar (submit assincrono; `failbuild: false` — trava final via `build-gate`)
 - `deleteincompletescan: true`
@@ -245,8 +265,9 @@ Escolha um exemplo e copie para `.github/workflows/`.
 
 ### Autopackager (gera o `.zip` automaticamente)
 
-A CLI grava os pacotes em `.veracode-connect/packaged/` (isolado do workspace). Um artefato é enviado como está; vários (por módulo/linguagem) são **descompactados** (cada ZIP numa pasta) e reunidos em `.veracode-connect/veracode-packager-bundle.zip` — sem ZIP dentro de ZIP, porque a Veracode não analisa arquivo aninhado. JAR/WAR/EAR/APK entram como módulos. Se a CLI não gerar nenhum artefato válido, o job **falha** — ZIP já existente no repositório não é usado.
+A CLI grava os pacotes em `.veracode-connect/packaged/` (isolado do workspace). A action classifica cada artefato pelo conteúdo do ZIP (sem extrair nem recompactar): código de linguagens do Pipeline Scan entra no scan; ruído, teste (segmento exato `test`/`tests`/`spec`/`__tests__`/`e2e` ou glob `*.test.*`) e dependências (`node_modules`, `vendor`, `.venv`) não. Cópia byte-idêntica de **todos** os artefatos vai para `.veracode-connect/upload/` (Upload & Scan, um build / N módulos). Se a CLI não gerar nenhum artefato válido, o job **falha** — ZIP já existente no repositório não é usado.
 
+- Auto Packager + Pipeline Scan (multi-linguagem) -> [abrir](examples/autopackager-without-baseline-multi-language.yml)
 - Auto Packager + Baseline -> [abrir](examples/autopackager-with-baseline.yml)
 - Auto Packager + Repo Baseline -> [abrir](examples/autopackager-with-repo-baseline.yml)
 - Auto Packager + Pipeline Scan -> [abrir](examples/autopackager-without-baseline.yml)
@@ -313,3 +334,13 @@ A CLI grava os pacotes em `.veracode-connect/packaged/` (isolado do workspace). 
 - Pipeline Scan + SCA (auto packager) -> [abrir](examples/pipeline-only-with-sca.yml)
 - Pipeline Scan + IaC (auto packager) -> [abrir](examples/pipeline-only-with-iac.yml)
 - Pipeline Scan + SCA + IaC (auto packager) -> [abrir](examples/pipeline-only-with-sca-iac.yml)
+
+## Ordem de release (sub-actions `@v1`)
+
+As sub-actions internas (`internal/pipeline-scan-set`, `internal/auto-packager`, fluxos de scan, etc.) são referenciadas como `Afrika-Tecnologia/Veracode-Connect/internal/<nome>@v1`. `uses: ./internal/...` **não** funciona dentro de uma composite consumida de outro repositório.
+
+Por isso a tag `v1` precisa apontar para o commit da release **antes** de anunciar. Validação na tag, antes de mover/anunciar:
+
+1. Repositório multi-linguagem com 3+ artefatos do Auto Packager — N Pipeline Scans, `results.json` unificado, manifesto em `.veracode-connect/scans/manifest.json`.
+2. Sandbox real — N módulos no mesmo build. Confirma o default `upload_scan_artifacts: all`. Se o wrapper Java reenviar o diretório a cada iteração, o mesmo release sai com default `primary`.
+3. Primeiro run com baseline legado (bundle antigo) — findings antigos aparecem como novos; depois o re-seed (apagar `baseline.json` no store no modo repo, ou próximo run na `default_branch` no Portal Afrika).

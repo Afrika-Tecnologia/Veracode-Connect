@@ -443,19 +443,15 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     const storeLabel = `${baselineOrg}/${baselineRepoName}/${relativePath}`;
     setOutput('baseline_repo_branch', targetBranch);
 
-    // Write-once: if already exists, do not overwrite
     const existing = await getFileExists(token, url);
-    if (existing.exists) {
-        console.log(`::warning::${message('warning', 'EXISTS_WRITE_ONCE', { store: storeLabel })}`);
-        setOutput('baseline_seeded', 'false');
-        setOutput('baseline_already_exists', 'true');
-        return { seeded: false, alreadyExists: true };
-    }
+    const alreadyExists = Boolean(existing.exists);
 
     console.log(message('success', 'API', { api }));
     const appName = String(scanRepository).split('/')[1] || scanRepository;
     const raw = fs.readFileSync(resultsFile);
-    const commitMessage = `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
+    const commitMessage = alreadyExists
+        ? `Baseline atualizado para a aplicação "${appName}" (${scanRepository})`
+        : `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
     const contentBase64 = raw.toString('base64');
 
     const maxAttempts = putMaxAttempts();
@@ -476,13 +472,14 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
         if (result.response.ok) {
             setOutput('baseline_seeded', 'true');
-            setOutput('baseline_already_exists', 'false');
-            console.log(message('success', 'BASELINE_WRITTEN', {
+            setOutput('baseline_already_exists', alreadyExists ? 'true' : 'false');
+            setOutput('baseline_updated', alreadyExists ? 'true' : 'false');
+            console.log(message('success', alreadyExists ? 'BASELINE_UPDATED' : 'BASELINE_WRITTEN', {
                 store: storeLabel,
                 branch: targetBranch,
                 sha: result.commitSha
             }));
-            return { seeded: true, alreadyExists: false };
+            return { seeded: true, alreadyExists, updated: alreadyExists };
         }
 
         lastDetail = githubErrorDetail(result.json, result.text);
@@ -493,17 +490,6 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
         if (isRulesetViolation(lastDetail)) {
             throw fail('RULESET_PR_REQUIRED', { store: storeLabel });
-        }
-
-        const verified = await getFileExists(token, url);
-        if (verified.exists) {
-            console.log(`::warning::${message('warning', 'EXISTS_AFTER_HTTP', {
-                status: result.response.status,
-                store: storeLabel
-            })}`);
-            setOutput('baseline_seeded', 'false');
-            setOutput('baseline_already_exists', 'true');
-            return { seeded: false, alreadyExists: true };
         }
 
         const retriable = result.response.status === 409

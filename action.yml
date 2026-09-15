@@ -68,6 +68,22 @@ inputs:
     description: 'Ativa/desativa o uso do Veracode Auto Packager antes do scan (true/false).'
     required: false
     default: 'false'
+  pipeline_scan_max_artifacts:
+    description: 'Teto de artefatos enviados ao Pipeline Scan (1-6). Cada artefato é um scan em série.'
+    required: false
+    default: '6'
+  pipeline_scan_pace_seconds:
+    description: 'Espera em segundos entre starts de Pipeline Scan neste job (rate limit 6/60s por conta).'
+    required: false
+    default: '12'
+  pipeline_scan_retry:
+    description: 'Repete uma vez slots sem results.json válido (true/false).'
+    required: false
+    default: 'true'
+  upload_scan_artifacts:
+    description: 'Upload & Scan: all = diretório com todos os zips do autopackager; primary = só o primeiro artefato scannable.'
+    required: false
+    default: 'all'
   veracode_api_id:
     description: 'ID da API do Veracode.'
     required: true
@@ -181,6 +197,9 @@ runs:
         comment_pr: ${{ inputs.comment_pr }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
+        upload_scan_artifacts: ${{ inputs.upload_scan_artifacts }}
+        pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
+        pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
         baseline_org: ${{ inputs.baseline_org }}
         baseline_repo_name: ${{ inputs.baseline_repo_name }}
         baseline_repo_branch: ${{ inputs.baseline_repo_branch }}
@@ -218,6 +237,7 @@ runs:
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
+        pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
 
     # ── 5. Resolver nome do repositório ──────────────────────────────
     - name: Resolver nome do repositório
@@ -237,12 +257,16 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        scan_files: ${{ steps.prepare_scan_file.outputs.scan_files }}
         policy_fail: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
+        pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
+        pipeline_scan_pace_seconds: ${{ inputs.pipeline_scan_pace_seconds }}
+        pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
 
     # ── 6b. Repo baseline flow ───────────────────────────────────────
     - name: Repo baseline flow
@@ -261,12 +285,16 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        scan_files: ${{ steps.prepare_scan_file.outputs.scan_files }}
         policy_fail: ${{ inputs.policy_fail }}
         fail_on_severity: ${{ inputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
+        pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
+        pipeline_scan_pace_seconds: ${{ inputs.pipeline_scan_pace_seconds }}
+        pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
 
     # ── 6c. Pipeline Scan sem baseline provider ──────────────────────
     - name: Pipeline Scan (sem baseline provider)
@@ -277,11 +305,15 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        scan_files: ${{ steps.prepare_scan_file.outputs.scan_files }}
         policy_fail: ${{ inputs.policy_fail }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
+        pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
+        pipeline_scan_pace_seconds: ${{ inputs.pipeline_scan_pace_seconds }}
+        pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
 
     # ── 6d. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)
@@ -307,7 +339,7 @@ runs:
         repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
-        filepath: ${{ steps.prepare_scan_file.outputs.scan_file }}
+        filepath: ${{ inputs.upload_scan_artifacts == 'primary' && steps.prepare_scan_file.outputs.scan_file || steps.prepare_scan_file.outputs.upload_dir || steps.prepare_scan_file.outputs.scan_file }}
         veracode_appname: ${{ inputs.veracode_appname }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 

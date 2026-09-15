@@ -232,7 +232,7 @@ test('buildCommentBody coloca o relatório SCA no Resumo Final', () => {
     assert.doesNotMatch(body, /Issues GitHub: desabilitado/);
 });
 
-test('buildCommentBody lista artefatos do manifesto de scans', () => {
+test('buildCommentBody não lista artefatos do manifesto de scans', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-arts-'));
     fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
         findings: [{ severity: 4 }]
@@ -246,13 +246,6 @@ test('buildCommentBody lista artefatos do manifesto de scans', () => {
                 scan_id: 'abc',
                 findings: 1,
                 classification: 'policy'
-            },
-            {
-                slot: 2,
-                artifact: 'veracode-auto-pack-app-js.zip',
-                scan_id: '',
-                findings: 0,
-                classification: 'scan_error'
             }
         ]
     }));
@@ -272,8 +265,7 @@ test('buildCommentBody lista artefatos do manifesto de scans', () => {
         }
     });
 
-    assert.match(body, /Artefatos analisados:/);
-    assert.match(body, /`veracode-auto-pack-app-java\.zip` — policy \(1 finding\(s\), scan_id=abc\)/);
-    assert.match(body, /`veracode-auto-pack-app-js\.zip` — erro \(0 finding\(s\), scan_id=—\)/);
+    assert.doesNotMatch(body, /Artefatos analisados/);
+    assert.doesNotMatch(body, /veracode-auto-pack-app-java\.zip/);
     assert.match(body, /\| 🟠 High \| 1 \|/);
 });

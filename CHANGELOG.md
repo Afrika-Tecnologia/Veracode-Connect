@@ -6,6 +6,20 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-09-15
+
+### Fixed
+
+- Upload & Scan em **sandbox**: a `veracode/uploadandscan-action` manda o diretório ao Java wrapper sem concatenar o nome do zip (`FileNotFoundException: Is a directory`). Com 1 arquivo, passa o zip; com 2+, empacota os zips num ZIP STORE em `$RUNNER_TEMP` e envia como arquivo. Sem sandbox, o diretório com barra final segue igual.
+- Auto Packager: `git archive` extrai para `$RUNNER_TEMP/veracode-connect-auto-pack/<nome-do-repo>` para a CLI nomear `veracode-auto-pack-<repo>-python.zip` em vez de `veracode-auto-pack-veracode-connect-auto-pack-python.zip`.
+
+### Changed
+
+- Upload & Scan: `failbuild` da action oficial fica **fixo em `true`**. Falha de upload/prescan passa a marcar o step (e o Status do summary) como `failure`. O input `fail_build` do Connect continua só na trava final (`build-gate`).
+- Step Summary e comentário de PR deixam de listar **Artefatos analisados** (nome do zip, findings, `scan_id`).
+
+As sub-actions internas (`veracode-upload-scan`, `auto-packager`, `pipeline-only`, baseline flows, `pr-comment`) só passam a valer depois que a tag `v1` apontar para este commit.
+
 ## [1.4.1] - 2026-09-15
 
 ### Changed

@@ -234,9 +234,9 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 ## Upload & Scan (static) - comportamento fixo
 
 - `appname` = input `veracode_appname` (default `${{ github.repository }}`)
-- `filepath` = diretório plano `.veracode-connect/upload/` (todos os zips, barra final obrigatória) quando `upload_scan_artifacts: 'all'` e o Auto Packager rodou; senão o `scan_file`
+- `filepath` = diretório plano `.veracode-connect/upload/` (todos os zips, barra final obrigatória) quando `upload_scan_artifacts: 'all'` e o Auto Packager rodou **sem sandbox**. Em sandbox a action oficial da Veracode não concatena `diretório+arquivo`; a Connect envia o zip único ou um ZIP STORE dos artefatos. Sem Auto Packager, usa o `scan_file`.
 - `createprofile: true` + `gitRepositoryUrl` = `{server_url}/{org/repo}` (sem `.git`)
-- nao espera o scan finalizar (submit assincrono; `failbuild: false` — trava final via `build-gate`)
+- nao espera o scan finalizar (submit assincrono). `failbuild: true` (fixo): falha de upload/prescan falha o step. Policy do scan estático não entra nesta trava (sem `scantimeout`); a trava de esteira continua no `build-gate` / `fail_build`
 - `deleteincompletescan: true`
 - sandbox (quando ativo): auto por branch (default branch → app principal; demais → sandbox) ou `'true'`/`'false'` explicito
 - `sandboxname` (com sandbox): `veracode_sandbox_name` se informado; senão `{branch} - {appname}` (até 80 chars). Com `veracode_sandbox: 'true'`, `veracode_sandbox_name` é obrigatório.

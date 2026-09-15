@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-09-15
+
+### Changed
+
+- **Mudança de comportamento.** O Auto Packager deixa de empacotar o workspace do job (onde o Build pode ter gerado `build/`, `target/`, `agent.zip`, venv). Materializa o tree do `github.sha` com `git archive` em `$RUNNER_TEMP` e só então roda `veracode package --source`. Steps posteriores (zip, S3, Docker) não veem esse tree. Quem precisa de binários compilados no mesmo job usa `scan_file`. Submodules não entram no archive.
+
+A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1` só passa a usar o tree limpo depois que a tag `v1` apontar para este commit.
+
 ## [1.4.0] - 2026-09-15
 
 ### Changed

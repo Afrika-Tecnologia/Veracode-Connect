@@ -13,7 +13,7 @@ Uso (exemplo rapido):
 1) (Opcional) Veracode SCA (`enable_sca: 'true'`)
 2) (Opcional) Veracode IaC/Secrets (`enable_iac: 'true'`)
 3) Define o artefato do scan:
-   - `enable_auto_packager: 'true'` -> gera artefatos com o Auto Packager (falha se a CLI nao produzir pacotes validos; nao usa ZIP aleatorio do workspace). Cada zip com código analisável pelo Pipeline Scan vira um scan em série; o Upload & Scan recebe todos os zips originais.
+   - `enable_auto_packager: 'true'` -> gera artefatos com o Auto Packager a partir do **tree do commit** (`git archive` do `github.sha` em `$RUNNER_TEMP`, fora do workspace). Falha se a CLI nao produzir pacotes validos; nao usa ZIP aleatorio do job. Cada zip com código analisável pelo Pipeline Scan vira um scan em série; o Upload & Scan recebe todos os zips originais. Artefatos gerados no job (`build/`, `target/`, `agent.zip`) **nao** entram; use `scan_file` para binários compilados.
    - `enable_auto_packager: 'false'` -> usa o `scan_file` que voce fornecer
 4) (Opcional) Baseline (`baseline_mode: 'portal_afrika'` | `'repo'`) — Pipeline Scan com provedor de baseline
 5) (Opcional) Pipeline Scan sem baseline (`baseline_mode: 'none'` + `enable_pipelinescan: 'true'`)
@@ -36,8 +36,8 @@ Com `comment_pr: 'true'`, o workflow **precisa** declarar `permissions: pull-req
 |---|---:|---:|---|
 | `veracode_api_id` | sim | - | VID do Veracode. |
 | `veracode_api_key` | sim | - | VKEY do Veracode. |
-| `enable_auto_packager` | nao | `'false'` | Se `'true'`, empacota com a Veracode CLI e classifica os artefatos por conteúdo; senao usa `scan_file`. |
-| `scan_file` | nao* | - | Obrigatorio na pratica quando `enable_auto_packager: 'false'`. |
+| `enable_auto_packager` | nao | `'false'` | Se `'true'`, empacota o tree do SHA (não o workspace sujo do job) e classifica os artefatos por conteúdo; senao usa `scan_file`. |
+| `scan_file` | nao* | - | Obrigatorio quando `enable_auto_packager: 'false'`. Use tambem para JAR/WAR/binarios gerados no job (o Auto Packager so ve o tree do commit). |
 | `pipeline_scan_max_artifacts` | nao | `'6'` | Teto de artefatos no Pipeline Scan (1–6). Cada um é um scan em série. Limite da composite/pacing, não da Veracode (a conta tem 6 starts / 60 s). |
 | `pipeline_scan_pace_seconds` | nao | `'12'` | Espera entre starts neste job (folga para o limite 6/60 s da conta). |
 | `pipeline_scan_retry` | nao | `'true'` | Repete uma vez os slots sem `results.json` válido (429, timeout transitório, download do jar). |
@@ -212,7 +212,9 @@ O comentário segue o mesmo formato do Step Summary (títulos, tabelas de severi
 
 ## Pipeline Scan — vários artefatos
 
-Com Auto Packager, a CLI pode gerar um zip por linguagem/módulo. Cada zip com código analisável pelo [Pipeline Scan](https://docs.veracode.com/r/Pipeline_Scan_Supported_Languages) vira um scan em série (`internal/pipeline-scan-set`). Artefatos só com HTML, lockfile, teste ou dependência ficam de fora do Pipeline Scan, mas seguem íntegros no Upload & Scan.
+Com Auto Packager, a CLI gera zips a partir do **commit do job** (`git archive` em `$RUNNER_TEMP`), não do diretório de trabalho. Build, `node_modules`, `target/` e `agent.zip` criados no mesmo job ficam de fora. Quem precisa desses binários usa `enable_auto_packager: 'false'` e `scan_file`. Submodules não entram no archive.
+
+Cada zip com código analisável pelo [Pipeline Scan](https://docs.veracode.com/r/Pipeline_Scan_Supported_Languages) vira um scan em série (`internal/pipeline-scan-set`). Artefatos só com HTML, lockfile, teste ou dependência ficam de fora do Pipeline Scan, mas seguem íntegros no Upload & Scan.
 
 O teto de 6 slots é da composite (pacing). A Veracode limita **6 starts / 60 s por conta**; o default `pipeline_scan_pace_seconds: '12'` deixa folga para outros jobs.
 

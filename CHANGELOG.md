@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-09-17
+
+### Fixed
+
+- Repo Baseline trata HTTP 422 `Reference cannot be updated` como corrida no store compartilhado e refaz o commit em cima do HEAD novo, no mesmo espírito do `Update is not a fast forward`.
+
+A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1` só passa a valer depois que a tag `v1` apontar para este commit.
+
 ## [1.4.3] - 2026-09-15
 
 ### Changed

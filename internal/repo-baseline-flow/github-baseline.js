@@ -192,6 +192,14 @@ function isRulesetViolation(detail) {
     );
 }
 
+function isRetriableRefConflict(status, detail) {
+    if (Number(status) === 409) {
+        return true;
+    }
+    const text = String(detail || '');
+    return /not a fast forward/i.test(text) || /reference cannot be updated/i.test(text);
+}
+
 async function githubJson(token, url, options = {}) {
     const method = options.method || 'GET';
     const { response, json, text } = await fetchJson(url, {
@@ -492,8 +500,7 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
             throw fail('RULESET_PR_REQUIRED', { store: storeLabel });
         }
 
-        const retriable = result.response.status === 409
-            || /not a fast forward/i.test(lastDetail);
+        const retriable = isRetriableRefConflict(result.response.status, lastDetail);
 
         if (retriable && attempt < maxAttempts) {
             const wait = retryMs * attempt;
@@ -604,6 +611,7 @@ module.exports = {
     githubErrorDetail,
     isEmptyRepoConflict,
     isRulesetViolation,
+    isRetriableRefConflict,
     BASELINE_COMMIT_IDENTITY,
     DEFAULT_BASELINE_REPO_NAME,
     resolveBaselineRepoName,

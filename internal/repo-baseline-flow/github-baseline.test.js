@@ -8,6 +8,7 @@ const {
     githubErrorDetail,
     isEmptyRepoConflict,
     isRulesetViolation,
+    isRetriableRefConflict,
     baselineContentPath,
     githubApiBase,
     resolveBaselineRepoName,
@@ -152,6 +153,13 @@ test('isRulesetViolation detecta exigência de pull request', () => {
     assert.equal(isRulesetViolation('Update is not a fast forward'), false);
 });
 
+test('isRetriableRefConflict trata corrida no PATCH da ref', () => {
+    assert.equal(isRetriableRefConflict(409, 'anything'), true);
+    assert.equal(isRetriableRefConflict(422, 'Update is not a fast forward'), true);
+    assert.equal(isRetriableRefConflict(422, 'Reference cannot be updated'), true);
+    assert.equal(isRetriableRefConflict(422, 'Object does not exist'), false);
+});
+
 test('baselineContentPath monta org/repo/baseline.json', () => {
     assert.equal(
         baselineContentPath('Afrika-Tecnologia/exemplo-app'),
@@ -231,6 +239,22 @@ test('putBaseline faz retry quando o fast-forward falha e o arquivo ainda não e
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, true);
+    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
+});
+
+test('putBaseline faz retry quando PATCH devolve Reference cannot be updated', async () => {
+    const { file } = writeResults();
+    process.env.BASELINE_PUT_MAX_ATTEMPTS = '3';
+    process.env.BASELINE_PUT_RETRY_MS = '0';
+    const calls = mockGitData({
+        fileExists: true,
+        patchStatuses: [422, 200],
+        patchErrorMessage: 'Reference cannot be updated'
+    });
+
+    const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
+    assert.equal(result.seeded, true);
+    assert.equal(result.updated, true);
     assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
 });
 

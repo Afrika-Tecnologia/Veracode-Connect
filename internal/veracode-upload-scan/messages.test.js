@@ -32,6 +32,14 @@ test('message resolve catálogo e interpola', () => {
         message('success', 'POLICY_NAME_SET', { name: 'Afrika Policy' }),
         'policy=Afrika Policy'
     );
+    assert.equal(
+        message('success', 'WRAPPER_READY', { version: '26.3.19.0', jar: 'vosp-api-wrappers-java-26.3.19.0.jar' }),
+        'java_wrapper=local version=26.3.19.0 jar=vosp-api-wrappers-java-26.3.19.0.jar'
+    );
+    assert.equal(
+        message('error', 'WRAPPER_JAR_MISSING', { path: '/vendor/x.jar', version: '1.0' }),
+        'Java wrapper: jar vendorizado nao encontrado (/vendor/x.jar, versao 1.0).'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

@@ -237,6 +237,15 @@ runs:
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success FILEPATH_RESOLVED "path=${ABS_PATH}")"
         echo "::endgroup::"
 
+    - name: Preparar Java wrapper local
+      id: java_wrapper
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Preparar Java wrapper local (sem Maven)"
+        bash "$GITHUB_ACTION_PATH/prepare-java-wrapper.sh"
+        echo "::endgroup::"
+
     - name: Veracode Upload & Scan
       id: upload_and_scan
       uses: veracode/uploadandscan-action@d2deb5741e4216f9b3bcc0cd565c1716c6cc57d2 # v0.2.3

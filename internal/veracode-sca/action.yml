@@ -120,82 +120,8 @@ runs:
 
         FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
         mkdir -p "${FRAG_DIR}"
-        {
-          echo "### 🔍 Veracode SCA (Software Composition Analysis)"
-          echo ""
-
-          if [ "${CREATE_ISSUES}" = "true" ]; then
-            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\`)"
-            echo ""
-          fi
-
-          SCA_LOG=""
-          if [ -f "scaResults.txt" ]; then
-            SCA_LOG="scaResults.txt"
-          elif [ -f "veracode_sca.log" ]; then
-            SCA_LOG="veracode_sca.log"
-          fi
-
-          if [ -n "${SCA_LOG}" ]; then
-            VULN_CRITICAL=$(grep -oiP 'Critical\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_HIGH=$(grep -oiP 'High\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_MEDIUM=$(grep -oiP 'Medium\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_LOW=$(grep -oiP '(?<!Very )Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_VERY_LOW=$(grep -oiP 'Very Low\s+Risk\s+Vulnerabilities\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_TOTAL=$(( ${VULN_CRITICAL:-0} + ${VULN_HIGH:-0} + ${VULN_MEDIUM:-0} + ${VULN_LOW:-0} + ${VULN_VERY_LOW:-0} ))
-            LIB_TOTAL=$(grep -oiP 'Total\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            DIRECT_LIBS=$(grep -oiP 'Direct\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-            VULN_LIBS=$(grep -oiP 'Vulnerable\s+Libraries\s+\K\d+' "${SCA_LOG}" 2>/dev/null | head -1 || echo "0")
-
-            echo "| Severidade | Quantidade |"
-            echo "|---|---|"
-            echo "| 🔴 Very High | ${VULN_CRITICAL} |"
-            echo "| 🟠 High | ${VULN_HIGH} |"
-            echo "| 🟡 Medium | ${VULN_MEDIUM} |"
-            echo "| 🔵 Low | ${VULN_LOW} |"
-            echo "| ⚪ Very Low | ${VULN_VERY_LOW} |"
-            echo "| **Total Vulnerabilidades** | **${VULN_TOTAL}** |"
-            echo "| Bibliotecas vulneráveis | ${VULN_LIBS} |"
-            echo "| Total de bibliotecas analisadas | ${LIB_TOTAL} |"
-            echo "| Bibliotecas diretas | ${DIRECT_LIBS} |"
-            TRANSITIVE_LIBS=$(( ${LIB_TOTAL:-0} - ${DIRECT_LIBS:-0} ))
-            echo "| Bibliotecas transitivas | ${TRANSITIVE_LIBS} |"
-            echo ""
-
-            VULN_LINES=$(grep -cP '^\s*(CVE-\S+|NO-CVE)\s+' "${SCA_LOG}" 2>/dev/null || echo "0")
-            if [ "${VULN_LINES}" -gt 0 ] 2>/dev/null; then
-              echo "<details><summary>Detalhamento de SCA (${VULN_LINES})</summary>"
-              echo ""
-              echo "| # | Severidade | CVE | Descrição | Biblioteca |"
-              echo "|---|---|---|---|---|"
-
-              grep -P '^\s*(CVE-\S+|NO-CVE)\s+' "${SCA_LOG}" 2>/dev/null | awk -F'  +' '{
-                gsub(/^[ \t]+/, "", $0);
-                cve=$1; sev=$2; desc=$3; lib=$4;
-                gsub(/^[ \t]+|[ \t]+$/, "", cve);
-                gsub(/^[ \t]+|[ \t]+$/, "", sev);
-                gsub(/^[ \t]+|[ \t]+$/, "", desc);
-                gsub(/^[ \t]+|[ \t]+$/, "", lib);
-                icon="⚪"; order=5; label=sev;
-                if (sev ~ /Critical/) { icon="🔴"; order=1; label="Very High"; }
-                else if (sev ~ /High/) { icon="🟠"; order=2; label="High"; }
-                else if (sev ~ /Medium/) { icon="🟡"; order=3; label="Medium"; }
-                else if (sev ~ /Very Low/) { icon="⚪"; order=5; label="Very Low"; }
-                else if (sev ~ /Low/) { icon="🔵"; order=4; label="Low"; }
-                printf "%d\t| - | %s %s | %s | %s | %s |\n", order, icon, label, cve, desc, lib
-              }' | sort -t$'\t' -k1,1n | cut -f2- | awk '{ gsub(/^\| - \|/, "| " NR " |"); print }' || true
-
-              echo ""
-              echo "</details>"
-            fi
-          elif [ -f "scaResults.json" ]; then
-            TOTAL=$(jq '[.. | objects | select(has("vulnerability"))] | length' scaResults.json 2>/dev/null || echo "0")
-            echo "> Resultado em JSON (\`scaResults.json\`). Total aproximado de entradas: **${TOTAL}**"
-          else
-            echo "> ⚠️ Nenhum artefato de resultado SCA encontrado."
-          fi
-
-          echo ""
-        } > "${FRAG_DIR}/sca.md"
-        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
+        node "$GITHUB_ACTION_PATH/summary-findings.js" summary-md \
+          "${GITHUB_WORKSPACE}/scaResults.json" \
+          "${GITHUB_WORKSPACE}/scaResults.txt" \
+          > "${FRAG_DIR}/sca.md"
         echo "::endgroup::"

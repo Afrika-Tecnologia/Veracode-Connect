@@ -151,14 +151,81 @@ function filteredPath(workspace, slot) {
     return path.join(workspace, `filtered-${slot}.json`);
 }
 
+function summaryPath(workspace, slot) {
+    return path.join(workspace, `results-${slot}.txt`);
+}
+
+const UNSCANNABLE_PATTERNS = [
+    /no files found for scanning/i,
+    /there are no results to analyze/i
+];
+
+function isUnscannableText(text) {
+    const value = String(text || '');
+    if (!value) {
+        return false;
+    }
+    return UNSCANNABLE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function scanMessageFromResults(results) {
+    if (!results || typeof results !== 'object') {
+        return '';
+    }
+    return [
+        results.scan_message,
+        results.scanMessage,
+        results.message,
+        results.scan_status_message,
+        results.scanStatusMessage
+    ].filter(Boolean).map(String).join('\n');
+}
+
+function readSummaryText(workspace, slot) {
+    const filePath = summaryPath(workspace, slot);
+    try {
+        if (fs.existsSync(filePath)) {
+            return fs.readFileSync(filePath, 'utf8');
+        }
+    } catch (_) {
+        /* ignore */
+    }
+    return '';
+}
+
+function isUnscannableSlot(results, workspace, slot) {
+    if (isUnscannableText(scanMessageFromResults(results))) {
+        return true;
+    }
+    return isUnscannableText(readSummaryText(workspace, slot));
+}
+
 function isValidResults(data) {
     return Boolean(data) && data.scan_status === 'SUCCESS';
+}
+
+function emptySuccessResults() {
+    return {
+        scan_status: 'SUCCESS',
+        findings: [],
+        modules: [],
+        modules_count: 0
+    };
 }
 
 function classifySlot(workspace, slot) {
     const results = readJson(resultsPath(workspace, slot));
     const filtered = readJson(filteredPath(workspace, slot));
     if (!isValidResults(results)) {
+        if (isUnscannableSlot(results, workspace, slot)) {
+            return {
+                classification: 'unscannable',
+                results,
+                filtered,
+                scanId: results?.scan_id || '',
+                scanStatus: results?.scan_status || 'UNSCANNABLE'
+            };
+        }
         return {
             classification: 'scan_error',
             results,
@@ -256,30 +323,46 @@ function mergeSlots({ workspace, files, manifestPath }) {
             process.stdout.write(`::warning::${message('warning', 'SCAN_ERROR', { file: path.basename(file) })}\n`);
             continue;
         }
+        if (classified.classification === 'unscannable') {
+            process.stdout.write(`::warning::${message('warning', 'UNSCANNABLE', { file: path.basename(file) })}\n`);
+            continue;
+        }
         validResults.push(classified.results);
         if (classified.filtered) {
             validFiltered.push(classified.filtered);
         }
     }
 
-    const mergedResults = mergeScanDocuments(validResults);
+    let mergedResults = mergeScanDocuments(validResults);
     const mergedFiltered = mergeScanDocuments(validFiltered) || { findings: [] };
+
+    const scanErrorCount = scans.filter((item) => item.classification === 'scan_error').length;
+    const unscannableCount = scans.filter((item) => item.classification === 'unscannable').length;
+    const policyViolations = scans.filter((item) => item.classification === 'policy').length;
+    const scannedCount = scans.filter((item) => (
+        item.classification !== 'scan_error' && item.classification !== 'unscannable'
+    )).length;
+    const scanOutcome = scanErrorCount === 0 ? 'success' : 'failure';
+
+    if (!mergedResults && scans.length > 0 && scanErrorCount === 0 && unscannableCount === scans.length) {
+        mergedResults = emptySuccessResults();
+        process.stdout.write(`::warning::${message('warning', 'ALL_UNSCANNABLE')}\n`);
+    }
+
     if (mergedResults) {
         fs.writeFileSync(path.join(workspace, 'results.json'), `${JSON.stringify(mergedResults)}\n`);
     }
     fs.writeFileSync(path.join(workspace, 'filtered_results.json'), `${JSON.stringify(mergedFiltered)}\n`);
-
-    const scanErrorCount = scans.filter((item) => item.classification === 'scan_error').length;
-    const policyViolations = scans.filter((item) => item.classification === 'policy').length;
-    const scannedCount = scans.filter((item) => item.classification !== 'scan_error').length;
-    const scanOutcome = scanErrorCount === 0 ? 'success' : 'failure';
 
     const manifest = { scans };
     fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
     const artifactsMd = scans.map((item) => {
-        const mark = item.classification === 'scan_error' ? 'erro' : item.classification;
+        let mark = item.classification;
+        if (item.classification === 'scan_error') {
+            mark = 'erro';
+        }
         return `- \`${item.artifact}\` — ${mark} (${item.findings} finding(s), scan_id=${item.scan_id || '—'})`;
     }).join('\n');
 
@@ -294,6 +377,7 @@ function mergeSlots({ workspace, files, manifestPath }) {
         scanOutcome,
         scannedCount,
         scanErrorCount,
+        unscannableCount,
         policyViolations,
         scans,
         mergedResults,
@@ -363,6 +447,7 @@ module.exports = {
     planSlots,
     classifySlot,
     isValidResults,
+    isUnscannableText,
     retryPlan,
     mergeScanDocuments,
     mergeSlots

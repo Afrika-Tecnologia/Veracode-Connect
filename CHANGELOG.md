@@ -6,6 +6,16 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-09-22
+
+### Fixed
+
+- Pipeline Scan trata `No files found for scanning` / `there are no results to analyze` como `unscannable` (warning): não conta como `scan_error`, não entra no retry e não trava a esteira. Timeout, 429 e demais falhas continuam bloqueando.
+- Summary SCA: com `create_issues: true` (ou saída só em `scaResults.json`) as contagens por severidade deixam de sair zeradas — passam a ler o JSON (CVSS → faixa) em vez de grepar o texto ausente.
+- Summary IaC/Secrets: severidades `CRITICAL`/`HIGH`/… (uppercase no JSON da Veracode) passam a ser contadas; antes a comparação Title Case deixava todas as linhas em 0.
+
+As sub-actions `internal/pipeline-scan-set`, `internal/veracode-sca` e `internal/veracode-iac` só passam a valer depois que a tag `v1` apontar para este commit.
+
 ## [1.4.4] - 2026-09-17
 
 ### Fixed

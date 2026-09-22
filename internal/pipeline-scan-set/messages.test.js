@@ -21,6 +21,10 @@ test('message resolve catálogo e interpola', () => {
         message('warning', 'SCAN_ERROR', { file: 'app.zip' }),
         'Pipeline Scan do artefato app.zip falhou (scan_error).'
     );
+    assert.equal(
+        message('warning', 'UNSCANNABLE', { file: 'py.zip' }),
+        'Pipeline Scan do artefato py.zip: nada a analisar (unscannable) — slot ignorado, esteira não trava.'
+    );
 });
 
 test('message falha em catálogo ou chave desconhecida', () => {

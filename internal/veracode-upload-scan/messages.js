@@ -25,7 +25,12 @@ const errors = {
     SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name (sandboxname).',
     FILEPATH_NOT_FOUND: 'Falha ao resolver filepath: arquivo não encontrado: {path}',
     FILEPATH_EMPTY_DIR: 'Falha ao resolver filepath: diretório de upload vazio: {path}',
-    FILEPATH_HAS_SUBDIR: 'Falha ao resolver filepath: o diretório de upload deve ser plano (sem subpastas): {path}'
+    FILEPATH_HAS_SUBDIR: 'Falha ao resolver filepath: o diretório de upload deve ser plano (sem subpastas): {path}',
+    WRAPPER_VERSION_MISSING: 'Java wrapper: arquivo VERSION nao encontrado em {path}.',
+    WRAPPER_JAR_MISSING: 'Java wrapper: jar vendorizado nao encontrado ({path}, versao {version}).',
+    WRAPPER_OS_UNSUPPORTED: 'Java wrapper local so e suportado em runners Linux/macOS (Upload & Scan).',
+    WRAPPER_CURL_MISSING: 'Java wrapper: curl real nao encontrado para o shim.',
+    WRAPPER_WGET_MISSING: 'Java wrapper: wget real nao encontrado para o shim.'
 };
 
 const warnings = {
@@ -39,6 +44,7 @@ const success = {
     SANDBOX_NAME_SET: 'sandboxname={name}',
     POLICY_NAME_SET: 'policy={name}',
     GIT_REPO_URL: 'git_repository_url={url}',
+    WRAPPER_READY: 'java_wrapper=local version={version} jar={jar}',
     SUMMARY_WRITTEN: 'summary=escrito'
 };
 

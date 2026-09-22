@@ -243,6 +243,7 @@ A action `veracode/Veracode-pipeline-scan-action` **não** possui `create-issues
 - `sandboxname` (com sandbox): `veracode_sandbox_name` se informado; senão `{branch} - {appname}` (até 80 chars). Com `veracode_sandbox: 'true'`, `veracode_sandbox_name` é obrigatório.
 - `version`: `Scan via Veracode Connect: <repo_url> - <run_id>-<run_number>-<run_attempt>`
 - `platformType`: auto (`CLOUD` em github.com, `ENTERPRISE` em GHES)
+- **Java wrapper local**: o Connect embute `vosp-api-wrappers-java` em `internal/veracode-upload-scan/vendor/` e intercepta o download Maven da `uploadandscan-action` (evita 429 no Central). Atualização do jar é **manual** — ver `vendor/README.md`.
 
 ## Dependencias upstream (pinadas por SHA)
 

@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-22
+
+### Changed
+
+- Upload & Scan deixa de baixar o Java API wrapper do Maven Central em runtime. O jar `vosp-api-wrappers-java` fica vendorizado em `internal/veracode-upload-scan/vendor/` (bump manual; ver README da pasta). Shims `curl`/`wget` alimentam a `uploadandscan-action` com metadata/jar locais — evita 429/`undefined.jar`. Requer runner Linux (`ubuntu-latest` / self-hosted Linux).
+
+A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a valer depois que a tag `v1` apontar para este commit.
+
 ## [1.4.5] - 2026-09-22
 
 ### Fixed

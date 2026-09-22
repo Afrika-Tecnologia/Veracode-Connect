@@ -74,6 +74,109 @@ test('classifySlot: ausente ou scan_status ruim é scan_error; filtered com find
     assert.equal(classifySlot(dir, 4).classification, 'sem_findings');
 });
 
+test('classifySlot: No files found via JSON é unscannable', () => {
+    const dir = makeDir();
+    writeJson(dir, 'results-1.json', {
+        scan_id: 'u1',
+        scan_status: 'FAILURE',
+        scan_message: 'No files found for scanning'
+    });
+    assert.equal(classifySlot(dir, 1).classification, 'unscannable');
+    assert.equal(classifySlot(dir, 1).scanStatus, 'FAILURE');
+});
+
+test('classifySlot: mensagem no results-N.txt é unscannable mesmo sem JSON', () => {
+    const dir = makeDir();
+    fs.writeFileSync(
+        path.join(dir, 'results-2.txt'),
+        'PIPELINE-SCAN ERROR: The scan failed to complete: there are no results to analyze.\n'
+        + 'SCAN_STATUS: FAILURE\nSCAN_MESSAGE: No files found for scanning\n'
+    );
+    assert.equal(classifySlot(dir, 2).classification, 'unscannable');
+});
+
+test('classifySlot: FAILURE sem mensagem conhecida continua scan_error', () => {
+    const dir = makeDir();
+    writeJson(dir, 'results-1.json', {
+        scan_status: 'FAILURE',
+        scan_message: 'HTTP 429 Too Many Requests'
+    });
+    assert.equal(classifySlot(dir, 1).classification, 'scan_error');
+});
+
+test('mergeSlots: SUCCESS + unscannable não falha e não conta unscannable em scanned', () => {
+    const dir = makeDir();
+    writeJson(dir, 'results-1.json', {
+        scan_id: 's1',
+        scan_status: 'SUCCESS',
+        modules: ['a.js'],
+        findings: []
+    });
+    writeJson(dir, 'filtered-1.json', { findings: [] });
+    writeJson(dir, 'results-2.json', {
+        scan_id: 's2',
+        scan_status: 'FAILURE',
+        scan_message: 'No files found for scanning'
+    });
+
+    const result = mergeSlots({
+        workspace: dir,
+        files: ['app-js.zip', 'python-no-pm.zip'],
+        manifestPath: path.join(dir, 'manifest.json')
+    });
+
+    assert.equal(result.scanOutcome, 'success');
+    assert.equal(result.scanErrorCount, 0);
+    assert.equal(result.unscannableCount, 1);
+    assert.equal(result.scannedCount, 1);
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.scans[0].classification, 'sem_findings');
+    assert.equal(manifest.scans[1].classification, 'unscannable');
+    assert.equal(fs.existsSync(path.join(dir, 'results.json')), true);
+});
+
+test('mergeSlots: todos unscannable grava results.json vazio e outcome success', () => {
+    const dir = makeDir();
+    writeJson(dir, 'results-1.json', {
+        scan_status: 'FAILURE',
+        scan_message: 'No files found for scanning'
+    });
+    fs.writeFileSync(
+        path.join(dir, 'results-2.txt'),
+        'there are no results to analyze\n'
+    );
+
+    const result = mergeSlots({
+        workspace: dir,
+        files: ['a.zip', 'b.zip'],
+        manifestPath: path.join(dir, 'manifest.json')
+    });
+
+    assert.equal(result.scanOutcome, 'success');
+    assert.equal(result.scanErrorCount, 0);
+    assert.equal(result.unscannableCount, 2);
+    assert.equal(result.scannedCount, 0);
+    const merged = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+    assert.equal(merged.scan_status, 'SUCCESS');
+    assert.deepEqual(merged.findings, []);
+});
+
+test('retryPlan não marca unscannable', () => {
+    const dir = makeDir();
+    writeJson(dir, 'results-1.json', { scan_id: 's1', scan_status: 'SUCCESS', findings: [] });
+    writeJson(dir, 'results-2.json', {
+        scan_status: 'FAILURE',
+        scan_message: 'No files found for scanning'
+    });
+    const retries = retryPlan({
+        workspace: dir,
+        files: ['ok.zip', 'empty.zip', 'missing.zip']
+    });
+    assert.equal(retries.length, 1);
+    assert.equal(retries[0].slot, 3);
+    assert.equal(retries[0].file, 'missing.zip');
+});
+
 test('mergeScanDocuments une findings sem duplicar e sem chaves novas', () => {
     const a = {
         scan_id: 'one',

@@ -22,9 +22,9 @@ const errors = {
 const warnings = {
     SCAN_ERROR: 'Pipeline Scan do artefato {file} falhou (scan_error).',
     UNSCANNABLE:
-        'Pipeline Scan do artefato {file}: nada a analisar (unscannable) — slot ignorado, esteira não trava.',
+        'Pipeline Scan do artefato {file}: pacote sem fonte não vazia (unscannable); slot ignorado somente se houver outro scan válido.',
     ALL_UNSCANNABLE:
-        'Todos os artefatos do Pipeline Scan foram unscannable; results.json vazio gravado para o gate seguir.',
+        'Nenhum artefato produziu análise válida; baseline e gate permanecerão bloqueados.',
     RETRY_WAIT: 'Aguardando {seconds}s antes de repetir {count} Pipeline Scan(s) sem resultado válido.',
     SLOT_RETRY: 'Repetindo Pipeline Scan do slot {slot} ({file}).'
 };

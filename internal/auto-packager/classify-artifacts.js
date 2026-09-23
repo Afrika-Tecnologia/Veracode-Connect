@@ -396,10 +396,11 @@ function inspectZipEntry(relativeName, crc, size) {
     const isDep = segments.some((seg) => DEP_SEGMENTS.has(seg.toLowerCase()));
     const isBinary = BINARY_EXTENSIONS.has(ext);
     const kind = entryKind(ext);
-    const countsTowardFirstParty = kind === 'code' && !isTest && (!isDep || isBinary);
+    const countsTowardFirstParty = kind === 'code' && size > 0 && !isTest && (!isDep || isBinary);
     return {
         name: normalized,
         base,
+        ext,
         crc,
         size,
         kind,
@@ -442,11 +443,28 @@ function inspectArtifact(filePath) {
     const language = languageTag(name);
     const counts = {
         code: 0,
+        emptyCode: 0,
         test: 0,
         noise: 0,
         dependency: 0,
         weak: 0
     };
+
+    if (size === 0) {
+        return {
+            path: filePath,
+            name,
+            size,
+            language,
+            alwaysScan: false,
+            parseError: false,
+            emptySourceOnly: true,
+            firstPartyCode: 0,
+            codeBytes: 0,
+            identities: [],
+            counts
+        };
+    }
 
     if (ALWAYS_SCAN_EXTENSIONS.has(ext)) {
         return {
@@ -489,7 +507,9 @@ function inspectArtifact(filePath) {
         if (entry.isDep) {
             counts.dependency += 1;
         }
-        if (entry.kind === 'code') {
+        if (entry.kind === 'code' && entry.size === 0) {
+            counts.emptyCode += 1;
+        } else if (entry.kind === 'code') {
             counts.code += 1;
         } else if (entry.kind === 'weak') {
             counts.weak += 1;
@@ -503,6 +523,13 @@ function inspectArtifact(filePath) {
         }
     }
 
+    const hasPayload = inspected.entries.some((entry) => entry.size > 0);
+    const hasEmptySource = inspected.entries.some((entry) => (
+        entry.kind === 'code' && entry.size === 0 && !entry.isTest && !entry.isDep
+    ));
+    const hasNonEmptyPotential = inspected.entries.some((entry) => (
+        entry.size > 0 && (entry.kind !== 'noise' || !NOISE_EXTENSIONS.has(entry.ext))
+    ));
     return {
         path: filePath,
         name,
@@ -510,6 +537,7 @@ function inspectArtifact(filePath) {
         language,
         alwaysScan: false,
         parseError: false,
+        emptySourceOnly: !hasPayload || (hasEmptySource && !hasNonEmptyPotential),
         firstPartyCode,
         codeBytes,
         identities,
@@ -539,7 +567,9 @@ function classifyArtifacts(artifacts, maxArtifacts) {
 
     for (const item of inspected) {
         if (!item.alwaysScan && item.firstPartyCode === 0) {
-            skip.set(item.path, 'sem código analisável pelo Pipeline Scan');
+            skip.set(item.path, item.emptySourceOnly
+                ? 'artefato com conteúdo vazio; sem código analisável pelo Pipeline Scan'
+                : 'sem código analisável pelo Pipeline Scan');
         }
     }
 
@@ -572,11 +602,12 @@ function classifyArtifacts(artifacts, maxArtifacts) {
 
     let scanList = inspected.filter((item) => !skip.has(item.path));
     let coverageGuard = false;
-    if (scanList.length === 0 && inspected.length > 0) {
+    const guardCandidates = inspected.filter((item) => !item.emptySourceOnly);
+    if (scanList.length === 0 && guardCandidates.length > 0) {
         coverageGuard = true;
-        skip.clear();
-        scanList = inspected.slice();
-        for (const item of inspected) {
+        scanList = guardCandidates;
+        for (const item of guardCandidates) {
+            skip.delete(item.path);
             item.coverageGuard = true;
         }
     }
@@ -738,6 +769,9 @@ function classifyPackagerOutput({ outputDir, uploadDir, maxArtifacts, manifestPa
             ...item,
             path: toGithubPath(item.path, process.env.GITHUB_WORKSPACE || '')
         })));
+    }
+    if (scanFiles.length === 0) {
+        throw fail('NO_SCANNABLE_ARTIFACTS');
     }
     return {
         scanFile: scanFiles[0],

@@ -99,6 +99,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-1.json'
         filtered_json_output_file: 'filtered-1.json'
+        summary_output: 'true'
         summary_output_file: 'results-1.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-1'
         baseline_file: ${{ inputs.baseline_file }}
@@ -128,6 +129,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-2.json'
         filtered_json_output_file: 'filtered-2.json'
+        summary_output: 'true'
         summary_output_file: 'results-2.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-2'
         baseline_file: ${{ inputs.baseline_file }}
@@ -157,6 +159,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-3.json'
         filtered_json_output_file: 'filtered-3.json'
+        summary_output: 'true'
         summary_output_file: 'results-3.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-3'
         baseline_file: ${{ inputs.baseline_file }}
@@ -186,6 +189,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-4.json'
         filtered_json_output_file: 'filtered-4.json'
+        summary_output: 'true'
         summary_output_file: 'results-4.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-4'
         baseline_file: ${{ inputs.baseline_file }}
@@ -215,6 +219,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-5.json'
         filtered_json_output_file: 'filtered-5.json'
+        summary_output: 'true'
         summary_output_file: 'results-5.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-5'
         baseline_file: ${{ inputs.baseline_file }}
@@ -244,6 +249,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-6.json'
         filtered_json_output_file: 'filtered-6.json'
+        summary_output: 'true'
         summary_output_file: 'results-6.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-6'
         baseline_file: ${{ inputs.baseline_file }}
@@ -288,6 +294,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-1.json'
         filtered_json_output_file: 'filtered-1.json'
+        summary_output: 'true'
         summary_output_file: 'results-1.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-1-retry'
         baseline_file: ${{ inputs.baseline_file }}
@@ -317,6 +324,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-2.json'
         filtered_json_output_file: 'filtered-2.json'
+        summary_output: 'true'
         summary_output_file: 'results-2.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-2-retry'
         baseline_file: ${{ inputs.baseline_file }}
@@ -346,6 +354,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-3.json'
         filtered_json_output_file: 'filtered-3.json'
+        summary_output: 'true'
         summary_output_file: 'results-3.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-3-retry'
         baseline_file: ${{ inputs.baseline_file }}
@@ -375,6 +384,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-4.json'
         filtered_json_output_file: 'filtered-4.json'
+        summary_output: 'true'
         summary_output_file: 'results-4.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-4-retry'
         baseline_file: ${{ inputs.baseline_file }}
@@ -404,6 +414,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-5.json'
         filtered_json_output_file: 'filtered-5.json'
+        summary_output: 'true'
         summary_output_file: 'results-5.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-5-retry'
         baseline_file: ${{ inputs.baseline_file }}
@@ -433,6 +444,7 @@ runs:
         json_output: 'true'
         json_output_file: 'results-6.json'
         filtered_json_output_file: 'filtered-6.json'
+        summary_output: 'true'
         summary_output_file: 'results-6.txt'
         artifact_name: '${{ inputs.artifact_suffix }}-6-retry'
         baseline_file: ${{ inputs.baseline_file }}

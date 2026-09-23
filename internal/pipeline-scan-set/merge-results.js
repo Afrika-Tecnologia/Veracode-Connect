@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { message, fail } = require('./messages');
+const { inspectArtifact } = require('../auto-packager/classify-artifacts');
 
 const MAX_SLOTS = 6;
 
@@ -193,31 +194,29 @@ function readSummaryText(workspace, slot) {
     return '';
 }
 
-function isUnscannableSlot(results, workspace, slot) {
-    if (isUnscannableText(scanMessageFromResults(results))) {
-        return true;
+function isUnscannableSlot(results, workspace, slot, file) {
+    const reportedEmpty = isUnscannableText(scanMessageFromResults(results))
+        || isUnscannableText(readSummaryText(workspace, slot));
+    if (!reportedEmpty || !file) {
+        return false;
     }
-    return isUnscannableText(readSummaryText(workspace, slot));
+    const artifactPath = path.resolve(workspace, file);
+    if (!fs.existsSync(artifactPath)) {
+        return false;
+    }
+    const artifact = inspectArtifact(artifactPath);
+    return !artifact.parseError && artifact.emptySourceOnly === true;
 }
 
 function isValidResults(data) {
     return Boolean(data) && data.scan_status === 'SUCCESS';
 }
 
-function emptySuccessResults() {
-    return {
-        scan_status: 'SUCCESS',
-        findings: [],
-        modules: [],
-        modules_count: 0
-    };
-}
-
-function classifySlot(workspace, slot) {
+function classifySlot(workspace, slot, file) {
     const results = readJson(resultsPath(workspace, slot));
     const filtered = readJson(filteredPath(workspace, slot));
     if (!isValidResults(results)) {
-        if (isUnscannableSlot(results, workspace, slot)) {
+        if (isUnscannableSlot(results, workspace, slot, file)) {
             return {
                 classification: 'unscannable',
                 results,
@@ -252,7 +251,7 @@ function retryPlan({ workspace, files }) {
             appendOutput(`retry_${i}`, '');
             continue;
         }
-        const classified = classifySlot(workspace, i);
+        const classified = classifySlot(workspace, i, file);
         if (classified.classification === 'scan_error') {
             appendOutput(`retry_${i}`, file);
             retries.push({ slot: i, file });
@@ -307,7 +306,7 @@ function mergeSlots({ workspace, files, manifestPath }) {
         if (!file) {
             continue;
         }
-        const classified = classifySlot(workspace, i);
+        const classified = classifySlot(workspace, i, file);
         const attempt = fs.existsSync(resultsPath(workspace, i)) ? 1 : 0;
         scans.push({
             slot: i,
@@ -336,21 +335,23 @@ function mergeSlots({ workspace, files, manifestPath }) {
     let mergedResults = mergeScanDocuments(validResults);
     const mergedFiltered = mergeScanDocuments(validFiltered) || { findings: [] };
 
-    const scanErrorCount = scans.filter((item) => item.classification === 'scan_error').length;
+    const scanErrors = scans.filter((item) => item.classification === 'scan_error').length;
     const unscannableCount = scans.filter((item) => item.classification === 'unscannable').length;
     const policyViolations = scans.filter((item) => item.classification === 'policy').length;
     const scannedCount = scans.filter((item) => (
         item.classification !== 'scan_error' && item.classification !== 'unscannable'
     )).length;
+    const scanErrorCount = scannedCount === 0 ? scanErrors + unscannableCount : scanErrors;
     const scanOutcome = scanErrorCount === 0 ? 'success' : 'failure';
 
-    if (!mergedResults && scans.length > 0 && scanErrorCount === 0 && unscannableCount === scans.length) {
-        mergedResults = emptySuccessResults();
+    if (!mergedResults && scans.length > 0 && unscannableCount === scans.length) {
         process.stdout.write(`::warning::${message('warning', 'ALL_UNSCANNABLE')}\n`);
     }
 
     if (mergedResults) {
         fs.writeFileSync(path.join(workspace, 'results.json'), `${JSON.stringify(mergedResults)}\n`);
+    } else {
+        fs.rmSync(path.join(workspace, 'results.json'), { force: true });
     }
     fs.writeFileSync(path.join(workspace, 'filtered_results.json'), `${JSON.stringify(mergedFiltered)}\n`);
 

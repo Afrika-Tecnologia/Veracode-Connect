@@ -1,9 +1,9 @@
 name: 'Build Gate'
-description: 'Verificacao final de todos os steps. Trava o build se houver falhas e fail_build=true.'
+description: 'Resume os resultados; o orquestrador aplica o bloqueio apenas por policy.'
 
 inputs:
   fail_build:
-    description: 'Se true, trava o build caso qualquer step tenha falhado (true/false).'
+    description: 'Indica que uma violacao de policy deve bloquear a esteira (true/false).'
     required: false
     default: 'true'
   sca_status:
@@ -46,10 +46,10 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Trava de Build (verificacao final)
+    - name: Avaliar status final
+      id: gate_check
       shell: bash
       env:
-        FAIL_BUILD: ${{ inputs.fail_build }}
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
@@ -98,16 +98,8 @@ runs:
 
         if [ ${#falhas[@]} -gt 0 ]; then
           echo ""
-          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error STEPS_FAILED "steps=${falhas[*]}")"
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" error STEPS_FAILED "steps=${falhas[*]}")"
           echo ""
-
-          if [ "${FAIL_BUILD}" = "true" ]; then
-            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error FAIL_BUILD_TRUE)"
-            echo "::endgroup::"
-            exit 1
-          else
-            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning FAIL_BUILD_FALSE)"
-          fi
         else
           echo ""
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success ALL_PASSED)"
@@ -115,6 +107,7 @@ runs:
         echo "::endgroup::"
 
     - name: Gerar Summary Final
+      id: final_summary
       if: always()
       shell: bash
       env:
@@ -160,10 +153,12 @@ runs:
         }
 
         has_failure="false"
+        has_warning="false"
         for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${REPO_BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
           if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
             has_failure="true"
-            break
+          elif [ "${s}" = "warning" ]; then
+            has_warning="true"
           fi
         done
 
@@ -173,12 +168,10 @@ runs:
           echo "## 🛡️ Veracode Connect — Resumo Final"
           echo ""
 
-          if [ "${has_failure}" = "true" ]; then
-            if [ "${FAIL_BUILD}" = "true" ]; then
-              echo "> ❌ **Build travado** - Falhas detectadas"
-            else
-              echo "> ⚠️ **Falhas detectadas** mas build **não travado** (\`fail_build=false\`)"
-            fi
+          if [ "${has_failure}" = "true" ] && [ "${FAIL_BUILD}" = "true" ]; then
+            echo "> ❌ **Build travado por policy**"
+          elif [ "${has_failure}" = "true" ] || [ "${has_warning}" = "true" ]; then
+            echo "> ⚠️ **Falhas ou achados registrados; esteira preservada**"
           else
             echo "> ✅ **Todos os checks ativos passaram com sucesso**"
           fi
@@ -204,3 +197,14 @@ runs:
         } >> "$GITHUB_STEP_SUMMARY"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"
+
+    - name: Registrar falha do Summary Final
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: build_gate
+        VC_STEPS: |
+          gate_check=${{ steps.gate_check.outcome }}
+          final_summary=${{ steps.final_summary.outcome }}
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

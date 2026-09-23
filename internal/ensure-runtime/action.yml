@@ -12,6 +12,7 @@ runs:
   steps:
     # Bootstrap: node pode estar ausente — textos devem espelhar keys de messages.js
     - name: Garantir curl (bootstrap)
+      id: curl_bootstrap
       shell: bash
       run: |
         set -euo pipefail
@@ -33,6 +34,7 @@ runs:
         fi
 
     - name: 'Garantir Node.js ${{ inputs.node_version }}.x'
+      id: node_runtime
       shell: bash
       env:
         NODE_MAJOR: ${{ inputs.node_version }}
@@ -114,6 +116,7 @@ runs:
         echo "::endgroup::"
 
     - name: Garantir jq, git
+      id: tools_runtime
       shell: bash
       run: |
         set -euo pipefail
@@ -167,3 +170,15 @@ runs:
         done
 
         echo "::endgroup::"
+
+    - name: Registrar falhas de runtime
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: ensure_runtime
+        VC_STEPS: |
+          curl_bootstrap=${{ steps.curl_bootstrap.outcome }}
+          node_runtime=${{ steps.node_runtime.outcome }}
+          tools_runtime=${{ steps.tools_runtime.outcome }}
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

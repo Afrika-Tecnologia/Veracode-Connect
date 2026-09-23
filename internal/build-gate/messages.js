@@ -21,13 +21,11 @@ function format(template, vars = {}) {
 }
 
 const errors = {
-    STEPS_FAILED: 'Os seguintes steps falharam: {steps}',
-    FAIL_BUILD_TRUE: 'fail_build=true — Travando a esteira.'
+    STEPS_FAILED: 'Os seguintes steps falharam: {steps}'
 };
 
 const warnings = {
-    STEPS_WARNED: 'Os seguintes steps geraram alertas: {steps}',
-    FAIL_BUILD_FALSE: 'fail_build=false — Falhas detectadas, mas o build NÃO será travado.'
+    STEPS_WARNED: 'Os seguintes steps geraram alertas: {steps}'
 };
 
 const success = {

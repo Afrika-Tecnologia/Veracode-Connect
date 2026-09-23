@@ -24,6 +24,10 @@ inputs:
     description: 'Ativa/desativa o Veracode IaC/Secrets (directory scan) (true/false).'
     required: false
     default: 'false'
+  enable_error_logs:
+    description: 'Publica um diagnóstico estruturado somente quando há falha técnica; um coletor externo pode buscar os logs completos do run (true/false).'
+    required: false
+    default: 'true'
   enable_pipelinescan:
     description: 'Ativa/desativa o Veracode Pipeline Scan quando baseline_mode=none (true/false).'
     required: false
@@ -109,7 +113,7 @@ inputs:
     description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
   fail_build:
-    description: 'Se true, o build falha caso qualquer scan reporte erro. Se false, apenas emite warnings (true/false).'
+    description: 'Com policy_fail=true, bloqueia o build apenas por violacoes de policy em um Pipeline Scan completo. Falhas tecnicas geram avisos (true/false).'
     required: false
     default: 'true'
   veracode_appname:
@@ -155,18 +159,40 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Inicializar diagnóstico de erros
+      id: error_log_init
+      continue-on-error: true
+      shell: bash
+      env:
+        ENABLE_ERROR_LOGS: ${{ inputs.enable_error_logs }}
+      run: |
+        set -euo pipefail
+        echo "VERACODE_CONNECT_ERROR_LOGS=${ENABLE_ERROR_LOGS}" >> "$GITHUB_ENV"
+        LOG_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${RANDOM}-${RANDOM}"
+        echo "VERACODE_CONNECT_LOG_ID=${LOG_ID}" >> "$GITHUB_ENV"
+        START_MARKER="${RUNNER_TEMP}/veracode-connect-error-logs/${LOG_ID}.started"
+        mkdir -p "$(dirname "${START_MARKER}")"
+        : > "${START_MARKER}"
+        echo "VERACODE_CONNECT_START_MARKER=${START_MARKER}" >> "$GITHUB_ENV"
+        echo "start_marker=${START_MARKER}" >> "$GITHUB_OUTPUT"
+        echo "id=${LOG_ID}" >> "$GITHUB_OUTPUT"
+
     # ── 0. Verificar pré-requisitos de runtime (node, jq, curl, git) ──
     - name: Verificar pré-requisitos de runtime
+      id: ensure_runtime
+      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/ensure-runtime@v1
 
     # ── 0a. Resolver platform type (GitHub.com vs GHES) ───────────────
     - name: Resolver platform type
       id: resolve_platform
+      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-platform-type@v1
 
     # ── 0b. Gerar ID único para artefatos desta execução ─────────────
     - name: Gerar ID único de scan
       id: scan_id_gen
+      continue-on-error: true
       shell: bash
       run: |
         set -euo pipefail
@@ -179,11 +205,13 @@ runs:
     # ── 1. Validar inputs ────────────────────────────────────────────
     - name: Validar inputs
       id: validate
+      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/validate-inputs@v1
       with:
         enable_sca: ${{ inputs.enable_sca }}
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         enable_iac: ${{ inputs.enable_iac }}
+        enable_error_logs: ${{ inputs.enable_error_logs }}
         enable_pipelinescan: ${{ inputs.enable_pipelinescan }}
         baseline_mode: ${{ inputs.baseline_mode }}
         portal_afrika_api_key: ${{ inputs.portal_afrika_api_key }}
@@ -211,6 +239,7 @@ runs:
     # ── 2. Veracode SCA ──────────────────────────────────────────────
     - name: Veracode SCA
       id: veracode_sca
+      continue-on-error: true
       if: inputs.enable_sca == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-sca@v1
       with:
@@ -222,6 +251,7 @@ runs:
     # ── 3. Veracode IaC / Secrets ────────────────────────────────────
     - name: Veracode IaC / Secrets
       id: veracode_iac
+      continue-on-error: true
       if: inputs.enable_iac == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1
       with:
@@ -232,6 +262,7 @@ runs:
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
     - name: Preparar scan file
       id: prepare_scan_file
+      continue-on-error: true
       if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || steps.validate.outputs.baseline_mode == 'portal_afrika' || steps.validate.outputs.baseline_mode == 'repo')
       uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
       with:
@@ -242,12 +273,14 @@ runs:
     # ── 5. Resolver nome do repositório ──────────────────────────────
     - name: Resolver nome do repositório
       id: resolve_repo
+      continue-on-error: true
       if: success() || failure()
       uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
 
     # ── 6a. Portal Afrika Baseline Flow ─────────────────────────────────────
     - name: Portal Afrika Baseline Flow
       id: baseline_flow
+      continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'portal_afrika'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/portal-afrika-baseline-flow@v1
       with:
@@ -271,6 +304,7 @@ runs:
     # ── 6b. Repo baseline flow ───────────────────────────────────────
     - name: Repo baseline flow
       id: repo_baseline_flow
+      continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'repo'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1
       with:
@@ -299,6 +333,7 @@ runs:
     # ── 6c. Pipeline Scan sem baseline provider ──────────────────────
     - name: Pipeline Scan (sem baseline provider)
       id: pipeline_only
+      continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1
       with:
@@ -318,6 +353,7 @@ runs:
     # ── 6d. Pipeline desativado ──────────────────────────────────────
     - name: Pipeline Scan desativado (definir status)
       id: pipeline_disabled_status
+      continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan != 'true'
       shell: bash
       run: |
@@ -331,6 +367,7 @@ runs:
     # ── 7. Upload & Scan ─────────────────────────────────────────────
     - name: Veracode Upload & Scan
       id: upload_and_scan
+      continue-on-error: true
       if: (success() || failure()) && inputs.enable_upload_scan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1
       with:
@@ -345,16 +382,35 @@ runs:
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
     # ── 8. Trava de Build (step final obrigatório) ───────────────────
-    - name: Trava de Build (verificação final)
+    - name: Decidir bloqueio por policy
+      id: policy_decision
       if: always()
+      continue-on-error: true
+      shell: bash
+      env:
+        FAIL_BUILD: ${{ inputs.fail_build }}
+        POLICY_FAIL: ${{ inputs.policy_fail }}
+        POLICY_VIOLATIONS: ${{ steps.baseline_flow.outputs.policy_violations || steps.repo_baseline_flow.outputs.policy_violations || steps.pipeline_only.outputs.policy_violations || '' }}
+        SCAN_ERROR_COUNT: ${{ steps.baseline_flow.outputs.scan_error_count || steps.repo_baseline_flow.outputs.scan_error_count || steps.pipeline_only.outputs.scan_error_count || '' }}
+        PLANNED_COUNT: ${{ steps.baseline_flow.outputs.planned_count || steps.repo_baseline_flow.outputs.planned_count || steps.pipeline_only.outputs.planned_count || '' }}
+        SCANNED_COUNT: ${{ steps.baseline_flow.outputs.scanned_count || steps.repo_baseline_flow.outputs.scanned_count || steps.pipeline_only.outputs.scanned_count || '' }}
+        FLOW_OUTCOME: ${{ steps.baseline_flow.outcome == 'success' && steps.baseline_flow.outcome || steps.repo_baseline_flow.outcome == 'success' && steps.repo_baseline_flow.outcome || steps.pipeline_only.outcome || '' }}
+        PIPELINE_RESULT: ${{ github.workspace }}/results.json
+        START_MARKER: ${{ steps.error_log_init.outputs.start_marker }}
+      run: node "$GITHUB_ACTION_PATH/internal/build-gate/policy-decision.js"
+
+    - name: Resumo final dos scans
+      id: build_gate
+      if: always()
+      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
       with:
-        fail_build: ${{ inputs.fail_build }}
+        fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
         iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
-        baseline_outcome: ${{ steps.baseline_flow.outcome || 'skipped' }}
-        repo_baseline_outcome: ${{ steps.repo_baseline_flow.outcome || 'skipped' }}
-        pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
+        baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
+        repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}
+        pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
@@ -363,15 +419,17 @@ runs:
     # ── 9. Comentário no PR (opcional) ───────────────────────────────
     - name: Comentário no PR
       if: always() && inputs.comment_pr == 'true'
+      id: pr_comment
+      continue-on-error: true
       uses: Afrika-Tecnologia/Veracode-Connect/internal/pr-comment@v1
       with:
-        fail_build: ${{ inputs.fail_build }}
+        fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
         sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
         iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
-        pipeline_outcome: ${{ steps.pipeline_only.outcome || 'skipped' }}
-        baseline_outcome: ${{ steps.baseline_flow.outcome || 'skipped' }}
-        repo_baseline_outcome: ${{ steps.repo_baseline_flow.outcome || 'skipped' }}
+        pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
+        baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
+        repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}
         upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
@@ -381,3 +439,62 @@ runs:
         upload_artifact_name: ${{ steps.upload_and_scan.outputs.artifact_name || '' }}
         upload_artifact_size: ${{ steps.upload_and_scan.outputs.artifact_size || '' }}
         upload_platform_url: 'https://analysiscenter.veracode.com/'
+
+    - name: Consolidar diagnóstico de falhas técnicas
+      id: error_log_finalize
+      if: always() && inputs.enable_error_logs == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VERACODE_CONNECT_ERROR_LOGS: 'true'
+        VERACODE_CONNECT_LOG_ID: ${{ steps.error_log_init.outputs.id }}
+        VC_COMPONENT: orchestrator
+        VC_STEPS: |
+          error_log_init=${{ steps.error_log_init.outcome }}
+          ensure_runtime=${{ steps.ensure_runtime.outcome }}
+          resolve_platform=${{ steps.resolve_platform.outcome }}
+          scan_id_gen=${{ steps.scan_id_gen.outcome }}
+          validate=${{ steps.validate.outcome }}
+          veracode_sca=${{ steps.veracode_sca.outcome }}
+          veracode_iac=${{ steps.veracode_iac.outcome }}
+          prepare_scan_file=${{ steps.prepare_scan_file.outcome }}
+          resolve_repo=${{ steps.resolve_repo.outcome }}
+          baseline_flow=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.baseline_flow.outcome }}
+          repo_baseline_flow=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.repo_baseline_flow.outcome }}
+          pipeline_only=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.pipeline_only.outcome }}
+          pipeline_disabled_status=${{ steps.pipeline_disabled_status.outcome }}
+          upload_and_scan=${{ steps.upload_and_scan.outcome }}
+          policy_decision=${{ steps.policy_decision.outcome }}
+          build_gate=${{ steps.policy_decision.outputs.blocked == 'true' && 'skipped' || steps.build_gate.outcome }}
+          pr_comment=${{ steps.pr_comment.outcome }}
+      run: |
+        set -euo pipefail
+        if command -v node >/dev/null 2>&1; then
+          node "$GITHUB_ACTION_PATH/internal/error-logs/diagnostics.js" capture
+          node "$GITHUB_ACTION_PATH/internal/error-logs/diagnostics.js" finalize
+        elif [ "${{ steps.ensure_runtime.outcome }}" = "failure" ]; then
+          # Ainda publica um sinal mínimo quando a instalação do Node falhou.
+          LOG_DIR="${RUNNER_TEMP}/veracode-connect-error-logs/${VERACODE_CONNECT_LOG_ID:-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}}"
+          mkdir -p "${LOG_DIR}"
+          printf '{"schema_version":1,"repository":"%s","run_id":"%s","run_attempt":"%s","job":"%s","incidents":[{"component":"ensure_runtime","stage":"node_runtime","code":"STEP_FAILED"}]}\n' \
+            "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}" "${GITHUB_JOB}" \
+            > "${LOG_DIR}/diagnostic.json"
+          echo "path=${LOG_DIR}/diagnostic.json" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Publicar sinal de falha técnica
+      if: always() && inputs.enable_error_logs == 'true' && steps.error_log_finalize.outputs.path != ''
+      continue-on-error: true
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: veracode-connect-error-${{ steps.error_log_init.outputs.id }}
+        path: ${{ steps.error_log_finalize.outputs.path }}
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Bloquear esteira por violação de policy
+      if: always() && steps.policy_decision.outputs.blocked == 'true'
+      shell: bash
+      run: |
+        echo "::error::Pipeline Scan encontrou vulnerabilidades que violam a policy configurada."
+        exit 1

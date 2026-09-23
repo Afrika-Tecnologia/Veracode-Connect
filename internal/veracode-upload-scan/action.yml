@@ -265,6 +265,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Gerar Summary do Upload & Scan
+      id: upload_summary
       if: always()
       shell: bash
       env:
@@ -316,3 +317,17 @@ runs:
         } > "${FRAG_DIR}/upload.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"
+
+    - name: Registrar falhas do Upload & Scan
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: upload_scan
+        VC_STEPS: |
+          vars=${{ steps.vars.outcome }}
+          resolve_filepath=${{ steps.resolve_filepath.outcome }}
+          java_wrapper=${{ steps.java_wrapper.outcome }}
+          upload_and_scan=${{ steps.upload_and_scan.outcome }}
+          upload_summary=${{ steps.upload_summary.outcome }}
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

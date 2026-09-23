@@ -6,6 +6,25 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-23
+
+### Added
+
+- Input `enable_error_logs` (default `'true'`): quando ha falha tecnica, publica um artefato `veracode-connect-error-*` com `diagnostic.json` por invocacao. O diagnostico identifica run, job, componente, etapa e codigo do incidente, sem copiar credenciais, respostas da API, findings ou logs brutos. Nao exige token novo no workflow chamador; use `'false'` para desativar.
+- Captura de falhas tecnicas nos steps da action e das sub-actions, incluindo Auto Packager, Pipeline Scan (erro, rate limit e artefato nao analisavel), SCA (inclusive nenhuma biblioteca analisada), IaC, baseline, Upload & Scan, publicacao de resultados e comentario de PR. Tentativas de scan recuperadas pelo retry e findings de policy isolados nao geram incidente.
+
+### Changed
+
+- README reescrito como referencia de configuracao, comportamento, diagnostico e outputs, sem exemplos de workflow nem detalhes de release.
+- Falhas tecnicas passam a gerar aviso e deixam a action principal com sucesso, mesmo com `fail_build: 'true'`. O Step Summary e o comentario de PR refletem esse resultado; o artefato de diagnostico continua sendo publicado quando habilitado.
+- O bloqueio da esteira fica restrito a violacoes de policy com `policy_fail: 'true'` e `fail_build: 'true'`, desde que o fluxo de Pipeline Scan termine com sucesso, todos os slots planejados tenham resultado valido e o `results.json` desta execucao esteja presente e valido. Resultados parciais, ausentes ou antigos nao acionam o bloqueio.
+
+### Removed
+
+- Workflows antigos da pasta `examples/`; os exemplos serao recriados separadamente.
+
+O artefato temporario fica no repositorio chamador. A coleta do log completo do workflow e o armazenamento em um repositorio privado externo dependem de um coletor separado. As sub-actions referenciadas por `@v1` so receberao estas mudancas depois da atualizacao da tag `v1`.
+
 ## [1.5.1] - 2026-09-23
 
 ### Fixed

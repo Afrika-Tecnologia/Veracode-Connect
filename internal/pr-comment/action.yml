@@ -71,6 +71,7 @@ runs:
   using: 'composite'
   steps:
     - name: Publicar comentário no PR
+      id: publish_comment
       if: always()
       shell: bash
       env:
@@ -99,3 +100,12 @@ runs:
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"
+
+    - name: Registrar falha do comentário
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: pr_comment
+        VC_STEPS: 'publish_comment=${{ steps.publish_comment.outcome }}'
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

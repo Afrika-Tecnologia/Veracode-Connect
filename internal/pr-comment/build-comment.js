@@ -153,12 +153,15 @@ function collectModuleStatuses(inputs) {
 }
 
 function resolveBanner(inputs) {
-    const { failures } = collectModuleStatuses(inputs);
+    const { failures, warnings } = collectModuleStatuses(inputs);
     if (failures.length > 0) {
         if (inputs.fail_build === 'true') {
             return '> ❌ **Build travado** - Falhas detectadas';
         }
-        return '> ⚠️ **Falhas detectadas** mas build **não travado** (`fail_build=false`)';
+        return '> ⚠️ **Falhas ou achados registrados; esteira preservada**';
+    }
+    if (warnings.length > 0) {
+        return '> ⚠️ **Falhas ou achados registrados; esteira preservada**';
     }
     return '> ✅ **Todos os checks ativos passaram com sucesso**';
 }

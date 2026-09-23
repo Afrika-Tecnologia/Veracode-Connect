@@ -63,6 +63,7 @@ runs:
         echo "::endgroup::"
 
     - name: Normalizar artefatos SCA
+      id: normalize_results
       if: always()
       shell: bash
       run: |
@@ -98,6 +99,7 @@ runs:
         echo "::endgroup::"
 
     - name: Upload artefato SCA
+      id: upload_sca_artifact
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
@@ -110,6 +112,7 @@ runs:
         retention-days: 3
 
     - name: Gerar Summary do SCA
+      id: sca_summary
       if: always()
       shell: bash
       env:
@@ -125,3 +128,20 @@ runs:
           "${GITHUB_WORKSPACE}/scaResults.txt" \
           > "${FRAG_DIR}/sca.md"
         echo "::endgroup::"
+
+    - name: Registrar falhas do SCA
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: sca
+        VC_STEPS: |
+          veracode_sca_run=${{ steps.veracode_sca_run.outcome }}
+          run_sca=${{ steps.run_sca.outcome }}
+          normalize_results=${{ steps.normalize_results.outcome }}
+          artifact_name=${{ steps.artifact_name.outcome }}
+          upload_sca_artifact=${{ steps.upload_sca_artifact.outcome }}
+          sca_summary=${{ steps.sca_summary.outcome }}
+        VC_SCA_RESULT: ${{ github.workspace }}/scaResults.json
+        VC_SCA_TEXT: ${{ github.workspace }}/scaResults.txt
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

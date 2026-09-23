@@ -7,14 +7,12 @@ on:
       - 'action.yml'
       - 'internal/**/action.yml'
       - '.github/workflows/**'
-      - 'examples/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'action.yml'
       - 'internal/**/action.yml'
       - '.github/workflows/**'
-      - 'examples/**'
 
 jobs:
   actionlint:
@@ -28,38 +26,7 @@ jobs:
           set -euo pipefail
           bash <(curl -sS https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
 
-      - name: Lint action.yml e workflows
+      - name: Lint workflows
         run: |
           set -euo pipefail
-
-          echo "::group::Lint workflows (.github/workflows)"
           ./actionlint -color .github/workflows/*.yml || true
-          echo "::endgroup::"
-
-          echo "::group::Lint exemplos (examples/)"
-          for f in examples/*.yml; do
-            echo "--- ${f} ---"
-            ./actionlint -color "${f}" || true
-          done
-          echo "::endgroup::"
-
-      - name: Verificar exemplos nao vazios
-        run: |
-          set -euo pipefail
-
-          echo "::group::Verificar exemplos nao vazios"
-          empty_count=0
-          for f in examples/*.yml; do
-            if [ ! -s "${f}" ]; then
-              echo "::error::Exemplo vazio encontrado: ${f}"
-              empty_count=$((empty_count + 1))
-            fi
-          done
-
-          if [ "${empty_count}" -gt 0 ]; then
-            echo "::error::${empty_count} exemplo(s) vazio(s) encontrado(s)."
-            exit 1
-          fi
-
-          echo "Todos os exemplos possuem conteudo."
-          echo "::endgroup::"

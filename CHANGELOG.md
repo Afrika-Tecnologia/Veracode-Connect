@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-23
+
+### Fixed
+
+- Auto Packager não reserva slot do Pipeline Scan para artefato sem payload, como um `constants.py` vazio dentro de `python-no-pm.zip`, HTML vazio ou ZIP vazio. O ZIP original continua no Upload & Scan. Se nenhum artefato tiver conteúdo elegível, a seleção falha explicitamente sem criar baseline.
+- `No files found for scanning` só é tratado como `unscannable` quando o próprio ZIP comprova ausência de fonte com conteúdo. Falhas em pacotes com fonte real seguem como `scan_error`; nenhum conjunto sem scan válido recebe `results.json` de sucesso artificial.
+- Os slots de Pipeline Scan solicitam o resumo textual da Veracode e o publicam junto aos JSONs quando o scanner o produzir, facilitando o diagnóstico de falhas sem resultado JSON.
+
 ## [1.5.0] - 2026-09-22
 
 ### Changed

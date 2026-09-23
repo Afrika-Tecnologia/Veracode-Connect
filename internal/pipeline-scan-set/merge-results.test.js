@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { writeStoreZipEntries } = require('../auto-packager/classify-artifacts.js');
 const {
     extractFindings,
     findingKey,
@@ -22,6 +23,12 @@ function makeDir() {
 function writeJson(dir, name, data) {
     const filePath = path.join(dir, name);
     fs.writeFileSync(filePath, JSON.stringify(data));
+    return filePath;
+}
+
+function writeZip(dir, name, sourceName, source) {
+    const filePath = path.join(dir, name);
+    writeStoreZipEntries([{ name: sourceName, data: source }], filePath);
     return filePath;
 }
 
@@ -76,23 +83,42 @@ test('classifySlot: ausente ou scan_status ruim é scan_error; filtered com find
 
 test('classifySlot: No files found via JSON é unscannable', () => {
     const dir = makeDir();
+    const empty = writeZip(dir, 'empty-python.zip', 'constants.py', '');
     writeJson(dir, 'results-1.json', {
         scan_id: 'u1',
         scan_status: 'FAILURE',
         scan_message: 'No files found for scanning'
     });
-    assert.equal(classifySlot(dir, 1).classification, 'unscannable');
-    assert.equal(classifySlot(dir, 1).scanStatus, 'FAILURE');
+    assert.equal(classifySlot(dir, 1, empty).classification, 'unscannable');
+    assert.equal(classifySlot(dir, 1, empty).scanStatus, 'FAILURE');
 });
 
 test('classifySlot: mensagem no results-N.txt é unscannable mesmo sem JSON', () => {
     const dir = makeDir();
+    const empty = writeZip(dir, 'empty-python.zip', 'constants.py', '');
     fs.writeFileSync(
         path.join(dir, 'results-2.txt'),
         'PIPELINE-SCAN ERROR: The scan failed to complete: there are no results to analyze.\n'
         + 'SCAN_STATUS: FAILURE\nSCAN_MESSAGE: No files found for scanning\n'
     );
-    assert.equal(classifySlot(dir, 2).classification, 'unscannable');
+    assert.equal(classifySlot(dir, 2, empty).classification, 'unscannable');
+});
+
+test('mensagem No files found em ZIP com fonte real continua erro de scan', () => {
+    const dir = makeDir();
+    const app = writeZip(dir, 'app-python.zip', 'app.py', 'print("scan")');
+    writeJson(dir, 'results-1.json', {
+        scan_status: 'FAILURE',
+        scan_message: 'No files found for scanning'
+    });
+    assert.equal(classifySlot(dir, 1, app).classification, 'scan_error');
+    const merged = mergeSlots({
+        workspace: dir,
+        files: [app],
+        manifestPath: path.join(dir, 'manifest.json')
+    });
+    assert.equal(merged.scanErrorCount, 1);
+    assert.equal(merged.scanOutcome, 'failure');
 });
 
 test('classifySlot: FAILURE sem mensagem conhecida continua scan_error', () => {
@@ -106,6 +132,7 @@ test('classifySlot: FAILURE sem mensagem conhecida continua scan_error', () => {
 
 test('mergeSlots: SUCCESS + unscannable não falha e não conta unscannable em scanned', () => {
     const dir = makeDir();
+    const empty = writeZip(dir, 'python-no-pm.zip', 'constants.py', '');
     writeJson(dir, 'results-1.json', {
         scan_id: 's1',
         scan_status: 'SUCCESS',
@@ -121,7 +148,7 @@ test('mergeSlots: SUCCESS + unscannable não falha e não conta unscannable em s
 
     const result = mergeSlots({
         workspace: dir,
-        files: ['app-js.zip', 'python-no-pm.zip'],
+        files: ['app-js.zip', empty],
         manifestPath: path.join(dir, 'manifest.json')
     });
 
@@ -135,8 +162,10 @@ test('mergeSlots: SUCCESS + unscannable não falha e não conta unscannable em s
     assert.equal(fs.existsSync(path.join(dir, 'results.json')), true);
 });
 
-test('mergeSlots: todos unscannable grava results.json vazio e outcome success', () => {
+test('mergeSlots: todos unscannable falha sem criar resultado ou baseline vazio', () => {
     const dir = makeDir();
+    const emptyA = writeZip(dir, 'a.zip', 'constants.py', '');
+    const emptyB = writeZip(dir, 'b.zip', 'config.py', '');
     writeJson(dir, 'results-1.json', {
         scan_status: 'FAILURE',
         scan_message: 'No files found for scanning'
@@ -148,21 +177,20 @@ test('mergeSlots: todos unscannable grava results.json vazio e outcome success',
 
     const result = mergeSlots({
         workspace: dir,
-        files: ['a.zip', 'b.zip'],
+        files: [emptyA, emptyB],
         manifestPath: path.join(dir, 'manifest.json')
     });
 
-    assert.equal(result.scanOutcome, 'success');
-    assert.equal(result.scanErrorCount, 0);
+    assert.equal(result.scanOutcome, 'failure');
+    assert.equal(result.scanErrorCount, 2);
     assert.equal(result.unscannableCount, 2);
     assert.equal(result.scannedCount, 0);
-    const merged = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
-    assert.equal(merged.scan_status, 'SUCCESS');
-    assert.deepEqual(merged.findings, []);
+    assert.equal(fs.existsSync(path.join(dir, 'results.json')), false);
 });
 
 test('retryPlan não marca unscannable', () => {
     const dir = makeDir();
+    const empty = writeZip(dir, 'empty.zip', 'constants.py', '');
     writeJson(dir, 'results-1.json', { scan_id: 's1', scan_status: 'SUCCESS', findings: [] });
     writeJson(dir, 'results-2.json', {
         scan_status: 'FAILURE',
@@ -170,7 +198,7 @@ test('retryPlan não marca unscannable', () => {
     });
     const retries = retryPlan({
         workspace: dir,
-        files: ['ok.zip', 'empty.zip', 'missing.zip']
+        files: ['ok.zip', empty, 'missing.zip']
     });
     assert.equal(retries.length, 1);
     assert.equal(retries[0].slot, 3);

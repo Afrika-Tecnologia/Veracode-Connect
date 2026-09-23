@@ -206,6 +206,7 @@ runs:
           results.json
           filtered_results.json
           results-*.json
+          results-*.txt
           filtered-*.json
         if-no-files-found: warn
         retention-days: 3

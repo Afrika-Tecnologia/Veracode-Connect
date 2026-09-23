@@ -23,7 +23,7 @@ test('message resolve catálogo e interpola', () => {
     );
     assert.equal(
         message('warning', 'UNSCANNABLE', { file: 'py.zip' }),
-        'Pipeline Scan do artefato py.zip: nada a analisar (unscannable) — slot ignorado, esteira não trava.'
+        'Pipeline Scan do artefato py.zip: pacote sem fonte não vazia (unscannable); slot ignorado somente se houver outro scan válido.'
     );
 });
 

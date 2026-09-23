@@ -114,6 +114,99 @@ test('zip com fonte JS é scannable; lockfile/json/html sozinhos não', () => {
     assert.match(byName['veracode-auto-pack-lock-js.zip'].reason, /sem código/i);
 });
 
+test('Python vazio não ocupa slot quando há JavaScript analisável e continua no upload', () => {
+    const root = makeDir();
+    const outputDir = path.join(root, 'packaged');
+    const uploadDir = path.join(root, 'upload');
+    fs.mkdirSync(outputDir);
+    const js = writeZip(path.join(outputDir, 'veracode-auto-pack-app-js.zip'), [
+        { name: 'src/app.js', data: 'module.exports = 1' }
+    ]);
+    const python = writeZip(path.join(outputDir, 'veracode-auto-pack-app-python-no-pm.zip'), [
+        { name: 'constants.py', data: '' }
+    ]);
+
+    const result = classifyPackagerOutput({ outputDir, uploadDir, maxArtifacts: 6 });
+    assert.deepEqual(result.scanFiles, [js]);
+    assert.equal(result.records.find((item) => item.path === python).decision, 'skip');
+    assert.deepEqual(fs.readFileSync(path.join(uploadDir, path.basename(python))), fs.readFileSync(python));
+});
+
+test('Python com fonte não vazia continua elegível sem package manager', () => {
+    const dir = makeDir();
+    const python = writeZip(path.join(dir, 'veracode-auto-pack-app-python-no-pm.zip'), [
+        { name: 'app.py', data: 'print("scan")' }
+    ]);
+    assert.equal(classifyArtifacts([python], 6)[0].decision, 'scan');
+});
+
+test('artefato só com fonte vazia não é reintroduzido pela guarda de cobertura', () => {
+    const dir = makeDir();
+    const python = writeZip(path.join(dir, 'veracode-auto-pack-app-python-no-pm.zip'), [
+        { name: 'constants.py', data: '' }
+    ]);
+    const record = classifyArtifacts([python], 6)[0];
+    assert.equal(record.decision, 'skip');
+    assert.equal(record.firstPartyCode, 0);
+    assert.equal(record.counts.code, 0);
+    assert.match(record.reason, /vazio/i);
+});
+
+test('guarda de cobertura não seleciona ZIP sem nenhum payload', () => {
+    const dir = makeDir();
+    const emptyHtml = writeZip(path.join(dir, 'html.zip'), [
+        { name: 'index.html', data: '' }
+    ]);
+    const emptyTest = writeZip(path.join(dir, 'test.zip'), [
+        { name: 'tests/constants.py', data: '' }
+    ]);
+    const emptyZip = writeZip(path.join(dir, 'empty.zip'), []);
+    const records = classifyArtifacts([emptyHtml, emptyTest, emptyZip], 6);
+    assert.equal(records.every((record) => record.decision === 'skip'), true);
+    assert.equal(records.every((record) => /vazio/i.test(record.reason)), true);
+});
+
+test('artefato nativo de zero byte não ocupa slot', () => {
+    const dir = makeDir();
+    const jar = writeFile(dir, 'empty.jar', '');
+    const record = classifyArtifacts([jar], 6)[0];
+    assert.equal(record.decision, 'skip');
+    assert.match(record.reason, /vazio/i);
+});
+
+test('metadados não reintroduzem Python cuja única fonte está vazia', () => {
+    const dir = makeDir();
+    const python = writeZip(path.join(dir, 'veracode-auto-pack-app-python-no-pm.zip'), [
+        { name: 'constants.py', data: '' },
+        { name: 'package.json', data: '{"name":"app"}' }
+    ]);
+    assert.equal(classifyArtifacts([python], 6)[0].decision, 'skip');
+});
+
+test('fonte fraca com conteúdo ainda aciona a guarda de cobertura', () => {
+    const dir = makeDir();
+    const artifact = writeZip(path.join(dir, 'mixed.zip'), [
+        { name: 'constants.py', data: '' },
+        { name: 'templates/index.html', data: '<h1>app</h1>' }
+    ]);
+    const record = classifyArtifacts([artifact], 6)[0];
+    assert.equal(record.decision, 'scan');
+    assert.match(record.reason, /guarda de cobertura/i);
+});
+
+test('somente fonte vazia encerra a seleção sem anunciar cobertura', () => {
+    const root = makeDir();
+    const outputDir = path.join(root, 'packaged');
+    fs.mkdirSync(outputDir);
+    writeZip(path.join(outputDir, 'veracode-auto-pack-app-python-no-pm.zip'), [
+        { name: 'constants.py', data: '' }
+    ]);
+    assert.throws(
+        () => classifyPackagerOutput({ outputDir, uploadDir: path.join(root, 'upload'), maxArtifacts: 6 }),
+        /nenhum artefato com conteúdo analisável/i
+    );
+});
+
 test('TEST só casa segmento exato ou glob; bateria-testes-agente e sample-api não são teste', () => {
     const dir = makeDir();
     const realTest = writeZip(path.join(dir, 'tests.zip'), [

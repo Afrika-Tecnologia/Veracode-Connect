@@ -208,13 +208,15 @@ O comentário segue o mesmo formato do Step Summary (títulos, tabelas de severi
 
 - `sca-results`: `veracode_sca.log`, `scaResults.txt` ou `scaResults.json` (conforme `create_issues`)
 - `iac-results`: pasta `iac-results/` com `results.json`, `results.txt` e SBOMs (se gerados)
-- `pipescan-results`: `results.json`, `filtered_results.json`, `results-*.json` e `filtered-*.json` (um par por slot)
+- `pipescan-results`: `results.json`, `filtered_results.json`, `results-*.json`, `results-*.txt` (quando emitido pelo scanner) e `filtered-*.json` (por slot)
 
 ## Pipeline Scan — vários artefatos
 
 Com Auto Packager, a CLI gera zips a partir do **commit do job** (`git archive` em `$RUNNER_TEMP`), não do diretório de trabalho. Build, `node_modules`, `target/` e `agent.zip` criados no mesmo job ficam de fora. Quem precisa desses binários usa `enable_auto_packager: 'false'` e `scan_file`. Submodules não entram no archive.
 
 Cada zip com código analisável pelo [Pipeline Scan](https://docs.veracode.com/r/Pipeline_Scan_Supported_Languages) vira um scan em série (`internal/pipeline-scan-set`). Artefatos só com HTML, lockfile, teste ou dependência ficam de fora do Pipeline Scan, mas seguem íntegros no Upload & Scan.
+
+Arquivos de fonte com 0 bytes não contam como código analisável. Um ZIP sem payload, ou cuja única fonte é vazia e o restante é metadado, não ocupa slot nem é recolocado pela guarda de cobertura; o manifesto registra o motivo. Se não houver nenhum artefato elegível, a action falha explicitamente, sem criar baseline vazio. A mensagem `No files found for scanning` só permite ignorar um slot quando o ZIP comprova ausência de fonte com conteúdo e outro scan válido foi concluído; erros em pacotes com fonte real continuam bloqueando conforme `fail_build`.
 
 O teto de 6 slots é da composite (pacing). A Veracode limita **6 starts / 60 s por conta**; o default `pipeline_scan_pace_seconds: '12'` deixa folga para outros jobs.
 

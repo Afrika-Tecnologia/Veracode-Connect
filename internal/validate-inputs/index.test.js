@@ -36,6 +36,19 @@ test('validate-inputs falha quando SCA ativo sem token', () => {
     assert.match(stdout, /enable_sca=true requer veracode_sca_token\./);
 });
 
+test('validate-inputs rejeita enable_error_logs fora de true/false', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            ENABLE_ERROR_LOGS: 'sometimes'
+        }
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout.toString(), /enable_error_logs deve ser 'true' ou 'false'/);
+});
+
 test('validate-inputs passa com credenciais corretas e baseline none', () => {
     const result = cp.spawnSync(process.execPath, [scriptPath], {
         env: {

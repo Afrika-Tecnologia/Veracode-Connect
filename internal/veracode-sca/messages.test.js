@@ -14,7 +14,7 @@ test('format interpola placeholders e preserva chaves ausentes', () => {
 test('message resolve catálogo e interpola', () => {
     assert.equal(
         message('warning', 'SCA_FAILED_CONTINUE'),
-        'Veracode SCA retornou falha (trava final via build-gate).'
+        'Veracode SCA retornou falha tecnica; a esteira continua e o diagnostico sera registrado quando habilitado.'
     );
     assert.equal(
         message('success', 'SCA_STATUS_SET', { status: 'warning' }),

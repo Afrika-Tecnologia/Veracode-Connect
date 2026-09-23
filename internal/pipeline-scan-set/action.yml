@@ -109,6 +109,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before slot 2
+      id: pace_2
       if: steps.plan.outputs.file_2 != ''
       shell: bash
       env:
@@ -139,6 +140,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before slot 3
+      id: pace_3
       if: steps.plan.outputs.file_3 != ''
       shell: bash
       env:
@@ -169,6 +171,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before slot 4
+      id: pace_4
       if: steps.plan.outputs.file_4 != ''
       shell: bash
       env:
@@ -199,6 +202,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before slot 5
+      id: pace_5
       if: steps.plan.outputs.file_5 != ''
       shell: bash
       env:
@@ -229,6 +233,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before slot 6
+      id: pace_6
       if: steps.plan.outputs.file_6 != ''
       shell: bash
       env:
@@ -276,6 +281,7 @@ runs:
         echo "::endgroup::"
 
     - name: Aguardar janela de rate limit
+      id: retry_wait
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.needs_retry == 'true'
       shell: bash
       run: sleep 60
@@ -304,6 +310,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before retry slot 2
+      id: retry_pace_2
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_2 != ''
       shell: bash
       env:
@@ -334,6 +341,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before retry slot 3
+      id: retry_pace_3
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_3 != ''
       shell: bash
       env:
@@ -364,6 +372,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before retry slot 4
+      id: retry_pace_4
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_4 != ''
       shell: bash
       env:
@@ -394,6 +403,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before retry slot 5
+      id: retry_pace_5
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_5 != ''
       shell: bash
       env:
@@ -424,6 +434,7 @@ runs:
         platformType: ${{ inputs.platform_type }}
 
     - name: Pace before retry slot 6
+      id: retry_pace_6
       if: always() && inputs.pipeline_scan_retry == 'true' && steps.retry_plan.outputs.retry_6 != ''
       shell: bash
       env:
@@ -469,3 +480,39 @@ runs:
         echo "::group::Unir resultados do Pipeline Scan Set"
         node "$GITHUB_ACTION_PATH/merge-results.js" merge
         echo "::endgroup::"
+
+    - name: Registrar falhas do Pipeline Scan Set
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: pipeline_scan_set
+        VC_STEPS: |
+          plan=${{ steps.plan.outcome }}
+          slot_1=${{ steps.slot_1.outcome }}
+          slot_2=${{ steps.slot_2.outcome }}
+          slot_3=${{ steps.slot_3.outcome }}
+          slot_4=${{ steps.slot_4.outcome }}
+          slot_5=${{ steps.slot_5.outcome }}
+          slot_6=${{ steps.slot_6.outcome }}
+          pace_2=${{ steps.pace_2.outcome }}
+          pace_3=${{ steps.pace_3.outcome }}
+          pace_4=${{ steps.pace_4.outcome }}
+          pace_5=${{ steps.pace_5.outcome }}
+          pace_6=${{ steps.pace_6.outcome }}
+          retry_plan=${{ steps.retry_plan.outcome }}
+          retry_1=${{ steps.retry_1.outcome }}
+          retry_2=${{ steps.retry_2.outcome }}
+          retry_3=${{ steps.retry_3.outcome }}
+          retry_4=${{ steps.retry_4.outcome }}
+          retry_5=${{ steps.retry_5.outcome }}
+          retry_6=${{ steps.retry_6.outcome }}
+          retry_wait=${{ steps.retry_wait.outcome }}
+          retry_pace_2=${{ steps.retry_pace_2.outcome }}
+          retry_pace_3=${{ steps.retry_pace_3.outcome }}
+          retry_pace_4=${{ steps.retry_pace_4.outcome }}
+          retry_pace_5=${{ steps.retry_pace_5.outcome }}
+          retry_pace_6=${{ steps.retry_pace_6.outcome }}
+          merge=${{ steps.merge.outcome }}
+        VC_SCAN_MANIFEST: ${{ github.workspace }}/.veracode-connect/scans/manifest.json
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

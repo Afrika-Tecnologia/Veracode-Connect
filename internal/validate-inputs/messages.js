@@ -19,6 +19,7 @@ const errors = {
     VKEY_INVALID_HEX: 'veracode_api_key deve ser uma string hexadecimal válida.',
     CREATE_ISSUES_INVALID: "create_issues deve ser 'true' ou 'false'.",
     COMMENT_PR_INVALID: "comment_pr deve ser 'true' ou 'false'.",
+    ENABLE_ERROR_LOGS_INVALID: "enable_error_logs deve ser 'true' ou 'false'.",
     SCA_TOKEN_REQUIRED: 'enable_sca=true requer veracode_sca_token.',
     PORTAL_AFRIKA_KEY_REQUIRED: 'baseline_mode=portal_afrika requer portal_afrika_api_key.',
     PORTAL_URL_TRAILING_SLASH: "portal_afrika_base_url não deve terminar com barra (/). Atual: '{url}'",

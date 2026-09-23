@@ -236,6 +236,7 @@ runs:
         echo "::endgroup::"
 
     - name: Gerar Summary do Auto Packager
+      id: packager_summary
       if: inputs.enable_auto_packager == 'true'
       shell: bash
       env:
@@ -286,3 +287,16 @@ runs:
         } > "${FRAG_DIR}/packager.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"
+
+    - name: Registrar falhas do Auto Packager
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: auto_packager
+        VC_STEPS: |
+          cli_cache=${{ steps.cli_cache.outcome }}
+          prepare=${{ steps.prepare.outcome }}
+          final_output=${{ steps.final_output.outcome }}
+          packager_summary=${{ steps.packager_summary.outcome }}
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

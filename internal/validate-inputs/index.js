@@ -8,6 +8,7 @@ const {
 
 const {
     ENABLE_SCA,
+    ENABLE_ERROR_LOGS,
     SCA_TOKEN,
     ENABLE_PIPELINE,
     BASELINE_MODE,
@@ -63,6 +64,9 @@ if (CREATE_ISSUES && CREATE_ISSUES !== 'true' && CREATE_ISSUES !== 'false') {
 }
 if (COMMENT_PR && COMMENT_PR !== 'true' && COMMENT_PR !== 'false') {
     erros.push(message('error', 'COMMENT_PR_INVALID'));
+}
+if (ENABLE_ERROR_LOGS && ENABLE_ERROR_LOGS !== 'true' && ENABLE_ERROR_LOGS !== 'false') {
+    erros.push(message('error', 'ENABLE_ERROR_LOGS_INVALID'));
 }
 if (VKEY && (!/^[0-9a-fA-F]+$/.test(VKEY) || VKEY.length % 2 !== 0)) {
     erros.push(message('error', 'VKEY_INVALID_HEX'));

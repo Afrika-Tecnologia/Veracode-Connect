@@ -15,7 +15,7 @@ function format(template, vars = {}) {
 const errors = {};
 
 const warnings = {
-    SCA_FAILED_CONTINUE: 'Veracode SCA retornou falha (trava final via build-gate).',
+    SCA_FAILED_CONTINUE: 'Veracode SCA retornou falha tecnica; a esteira continua e o diagnostico sera registrado quando habilitado.',
     NO_SCA_RESULTS: 'Nenhum scaResults.txt/json encontrado após o scan SCA.'
 };
 

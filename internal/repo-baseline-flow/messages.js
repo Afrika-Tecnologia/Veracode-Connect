@@ -74,7 +74,7 @@ const errors = {
     UNKNOWN_COMMAND:
         'Comando desconhecido: {command}',
     POLICY_FAIL_TRUE:
-        'Pipeline Scan falhou e policy_fail=true.',
+        'Pipeline Scan encontrou violacoes de policy; o bloqueio final depende de fail_build.',
     SCAN_ERROR:
         'Pipeline Scan falhou em {count} artefato(s) (timeout, credencial, linguagem não suportada ou 429). Findings de policy não se aplicam a este erro.'
 };

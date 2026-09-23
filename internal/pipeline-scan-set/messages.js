@@ -24,7 +24,7 @@ const warnings = {
     UNSCANNABLE:
         'Pipeline Scan do artefato {file}: pacote sem fonte não vazia (unscannable); slot ignorado somente se houver outro scan válido.',
     ALL_UNSCANNABLE:
-        'Nenhum artefato produziu análise válida; baseline e gate permanecerão bloqueados.',
+        'Nenhum artefato produziu análise válida; o baseline não será atualizado e a esteira seguirá com aviso técnico.',
     RETRY_WAIT: 'Aguardando {seconds}s antes de repetir {count} Pipeline Scan(s) sem resultado válido.',
     SLOT_RETRY: 'Repetindo Pipeline Scan do slot {slot} ({file}).'
 };

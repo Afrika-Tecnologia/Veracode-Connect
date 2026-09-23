@@ -9,13 +9,28 @@ const {
     parseIacResults,
     buildCommentBody,
     resolvePrNumber,
-    isActiveStatus
+    isActiveStatus,
+    resolveBanner
 } = require('./build-comment');
 const { MARKER } = require('./messages');
 
 test('resolvePrNumber extrai número do evento pull_request', () => {
     assert.equal(resolvePrNumber({ pull_request: { number: 99 } }), 99);
     assert.equal(resolvePrNumber({ push: {} }), null);
+});
+
+test('technical failure banner does not claim the caller disabled fail_build', () => {
+    const banner = resolveBanner({
+        fail_build: 'false',
+        validate_outcome: 'failure'
+    });
+    assert.match(banner, /esteira preservada/i);
+    assert.doesNotMatch(banner, /fail_build=false/);
+});
+
+test('a nonblocking policy warning is not presented as all checks passed', () => {
+    const banner = resolveBanner({ fail_build: 'false', pipeline_outcome: 'warning' });
+    assert.match(banner, /esteira preservada/i);
 });
 
 test('countPipelineFindings agrega severidades', () => {

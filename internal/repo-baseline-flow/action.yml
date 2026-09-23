@@ -83,6 +83,18 @@ inputs:
     default: 'true'
 
 outputs:
+  policy_violations:
+    description: 'Slots com findings de policy em resultado valido.'
+    value: ${{ steps.pipeline_set.outputs.policy_violations }}
+  scan_error_count:
+    description: 'Slots sem analise valida apos retry.'
+    value: ${{ steps.pipeline_set.outputs.scan_error_count }}
+  planned_count:
+    description: 'Quantidade de scans planejados.'
+    value: ${{ steps.pipeline_set.outputs.planned_count }}
+  scanned_count:
+    description: 'Quantidade de scans analisados.'
+    value: ${{ steps.pipeline_set.outputs.scanned_count }}
   has_baseline:
     description: 'true/false indicando se o repo de baseline já possui baseline.json para o app.'
     value: ${{ steps.check_baseline.outputs.has_baseline }}
@@ -150,6 +162,7 @@ runs:
         echo "::endgroup::"
 
     - name: Upload artefato Pipeline Scan
+      id: upload_pipeline_artifact
       if: steps.pipeline_set.outcome != 'skipped'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
@@ -196,6 +209,7 @@ runs:
         echo "::endgroup::"
 
     - name: Avisar seed bloqueado por scan_error
+      id: seed_blocked_warning
       if: steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count != '0'
       shell: bash
       env:
@@ -288,6 +302,8 @@ runs:
         echo "::endgroup::"
 
     - name: Verificar resultado do Pipeline Scan (policy_fail)
+      id: policy_check
+      continue-on-error: true
       if: steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
@@ -298,22 +314,20 @@ runs:
         set -euo pipefail
         echo "::group::Verificar resultado do Pipeline Scan (policy_fail)"
         if [ "${SCAN_ERROR_COUNT:-0}" != "0" ]; then
-          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error SCAN_ERROR "count=${SCAN_ERROR_COUNT}")"
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" error SCAN_ERROR "count=${SCAN_ERROR_COUNT}")"
           echo "::endgroup::"
-          exit 1
+          exit 0
         fi
 
         if [ ! -f "results.json" ]; then
-          echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_POLICY_CHECK)"
+          echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" error RESULTS_MISSING_POLICY_CHECK)"
           echo "::endgroup::"
-          exit 1
+          exit 0
         fi
 
         if [ "${POLICY_VIOLATIONS:-0}" != "0" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
-            echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
-            echo "::endgroup::"
-            exit 1
+            echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
           else
             echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning POLICY_FAIL_FALSE)"
           fi
@@ -348,6 +362,7 @@ runs:
         fail_build: 'false'
 
     - name: Gerar Summary do Repo Baseline Pipeline Scan
+      id: pipeline_summary
       if: always() && steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
@@ -405,3 +420,27 @@ runs:
         } > "${FRAG_DIR}/pipeline.md"
         echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SUMMARY_WRITTEN)"
         echo "::endgroup::"
+
+    - name: Registrar falhas do Repo Baseline
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: repo_baseline
+        VC_STEPS: |
+          check_baseline=${{ steps.check_baseline.outcome }}
+          pipeline_set=${{ steps.pipeline_set.outcome }}
+          artifact_name=${{ steps.artifact_name.outcome }}
+          upload_pipeline_artifact=${{ steps.upload_pipeline_artifact.outcome }}
+          seed_gate=${{ steps.seed_gate.outcome }}
+          seed_blocked_warning=${{ steps.seed_blocked_warning.outcome }}
+          seed_baseline=${{ steps.seed_baseline.outcome }}
+          pipeline_status_with_baseline=${{ steps.pipeline_status_with_baseline.outcome }}
+          pipeline_status_without_baseline=${{ steps.pipeline_status_without_baseline.outcome }}
+          check_filtered_results=${{ steps.check_filtered_results.outcome }}
+          pipeline_issues=${{ steps.pipeline_issues.outcome }}
+          policy_check=${{ steps.policy_check.outcome }}
+          pipeline_summary=${{ steps.pipeline_summary.outcome }}
+        VC_PIPELINE_RESULT: ${{ github.workspace }}/results.json
+        VC_SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

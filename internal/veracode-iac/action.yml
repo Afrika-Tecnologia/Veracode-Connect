@@ -50,6 +50,7 @@ runs:
         echo "::endgroup::"
 
     - name: Coletar arquivos de resultado do IaC
+      id: collect_results
       if: always()
       shell: bash
       run: |
@@ -120,6 +121,7 @@ runs:
         echo "::endgroup::"
 
     - name: Upload artefato IaC
+      id: upload_iac_artifact
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
@@ -130,6 +132,7 @@ runs:
         retention-days: 3
 
     - name: Gerar Summary do IaC
+      id: iac_summary
       if: always()
       shell: bash
       run: |
@@ -142,3 +145,19 @@ runs:
           "${GITHUB_WORKSPACE}/iac-results/results.json" \
           > "${FRAG_DIR}/iac.md"
         echo "::endgroup::"
+
+    - name: Registrar falhas do IaC
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: iac
+        VC_STEPS: |
+          iac_scan=${{ steps.iac_scan.outcome }}
+          status=${{ steps.status.outcome }}
+          collect_results=${{ steps.collect_results.outcome }}
+          artifact_name=${{ steps.artifact_name.outcome }}
+          upload_iac_artifact=${{ steps.upload_iac_artifact.outcome }}
+          iac_summary=${{ steps.iac_summary.outcome }}
+        VC_IAC_RESULT: ${{ github.workspace }}/iac-results/results.json
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

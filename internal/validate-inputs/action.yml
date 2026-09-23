@@ -11,6 +11,10 @@ inputs:
   enable_iac:
     description: 'IaC/Secrets ativo (true/false).'
     required: true
+  enable_error_logs:
+    description: 'Diagnóstico de falhas técnicas ativo (true/false).'
+    required: false
+    default: 'true'
   enable_pipelinescan:
     description: 'Pipeline Scan ativo (true/false).'
     required: true
@@ -118,6 +122,7 @@ runs:
         ENABLE_SCA: ${{ inputs.enable_sca }}
         SCA_TOKEN: ${{ inputs.veracode_sca_token }}
         ENABLE_IAC: ${{ inputs.enable_iac }}
+        ENABLE_ERROR_LOGS: ${{ inputs.enable_error_logs }}
         ENABLE_PIPELINE: ${{ inputs.enable_pipelinescan }}
         BASELINE_MODE: ${{ inputs.baseline_mode }}
         PORTAL_AFRIKA_KEY: ${{ inputs.portal_afrika_api_key }}
@@ -147,3 +152,12 @@ runs:
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"
+
+    - name: Registrar falha de validação
+      if: always() && env.VERACODE_CONNECT_ERROR_LOGS == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        VC_COMPONENT: validate_inputs
+        VC_STEPS: 'validate=${{ steps.validate.outcome }}'
+      run: node "$GITHUB_ACTION_PATH/../error-logs/diagnostics.js" capture

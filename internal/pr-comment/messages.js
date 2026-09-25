@@ -16,6 +16,7 @@ function format(template, vars = {}) {
 const errors = {
     LIST_COMMENTS_FAILED: 'Falha ao listar comentários do PR #{pr} (HTTP {status}).',
     UPSERT_COMMENT_FAILED: 'Falha ao publicar comentário no PR #{pr} (HTTP {status}): {detail}.',
+    DELETE_COMMENT_FAILED: 'Falha ao remover comentário extra da Veracode #{id} (HTTP {status}).',
     TOKEN_REQUIRED: 'comment_pr=true requer GITHUB_TOKEN no contexto do job.',
     REPO_REQUIRED: 'comment_pr=true requer github.repository no contexto do workflow.'
 };

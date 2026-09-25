@@ -98,8 +98,10 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | Input | Default | Finalidade |
 | --- | --- | --- |
 | `create_issues` | `'false'` | Publica issues de SCA e Pipeline Scan no repositório analisado. |
-| `comment_pr` | `'false'` | Publica ou atualiza um comentário no Pull Request. |
+| `comment_pr` | `'false'` | Publica ou atualiza um comentário no Pull Request e remove comentários extras de SCA e IaC/Secrets publicados pelo bot. |
 | `enable_error_logs` | `'true'` | Publica diagnóstico somente em falhas técnicas. |
+
+Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de SCA e Container/IaC/Secrets são removidos ao final do job, inclusive os de execuções anteriores. Essas actions ainda podem publicá-los temporariamente durante o scan; a remoção não impede notificações já enviadas pelo GitHub.
 
 ## Outputs
 

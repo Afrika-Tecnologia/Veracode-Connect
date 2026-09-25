@@ -6,6 +6,28 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-09-24
+
+### Added
+
+- Testes de regressão para as severidades em maiúsculas no comentário de IaC e para a atualização do comentário consolidado após mais de 100 comentários no PR.
+
+### Changed
+
+- O comentário de PR reutiliza a mesma contagem de severidades do Step Summary de IaC/Secrets.
+- Com `comment_pr: 'true'`, a action percorre todas as páginas de comentários, atualiza o comentário consolidado e limpa os comentários extras de SCA e Container/IaC/Secrets publicados pelo bot.
+- `.gitignore` passa a ignorar os diretórios locais `.security-check/`, `.pre-pr/`, `.test-feature/`, `.debug-issue/` e `collector/`.
+
+### Fixed
+
+- O comentário de IaC/Secrets deixa de mostrar todas as severidades zeradas quando `results.json` traz `CRITICAL`, `HIGH`, `MEDIUM` e `LOW` em maiúsculas.
+- O comentário consolidado não é duplicado quando seu marcador aparece depois da primeira página de comentários do PR; comentários humanos que citem o marcador são preservados.
+
+### Removed
+
+- Relatórios locais antigos de `.pre-pr/`, `.security-check/` e `.test-feature/` deixam de ser versionados.
+- Comentários extras de SCA e Container/IaC/Secrets do `github-actions[bot]`, inclusive de execuções anteriores, são removidos ao final do job quando `comment_pr` está ativo. As actions oficiais ainda podem publicá-los temporariamente e gerar notificações.
+
 ## [1.6.0] - 2026-09-23
 
 ### Added

@@ -129,7 +129,7 @@ inputs:
     required: false
     default: 'false'
   comment_pr:
-    description: 'Publica ou atualiza comentário sticky no Pull Request com tabelas resumidas dos scans. Default false.'
+    description: 'Publica ou atualiza comentário sticky no Pull Request e remove comentários extras de SCA e IaC/Secrets publicados pelo bot. Default false.'
     required: false
     default: 'false'
 

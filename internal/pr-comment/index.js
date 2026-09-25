@@ -43,34 +43,50 @@ function workflowRunUrl() {
     return `${server}/${repo}/actions/runs/${runId}`;
 }
 
-function githubApiHeaders() {
+function githubApiHeaders(token = GITHUB_TOKEN) {
     return {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         'Content-Type': 'application/json'
     };
 }
 
+function isVendorScanComment(comment) {
+    if (comment.user?.login !== 'github-actions[bot]') {
+        return false;
+    }
+    const body = comment.body || '';
+    return body.startsWith('<br>![](https://www.veracode.com/sites/default/files/2022-04/logo_1.svg)<br><pre>Veracode SCA Scan finished')
+        || body.startsWith('<br>![](https://www.veracode.com/themes/veracode_new/library/img/veracode-black-hires.svg)<br>Veracode SCA Scan finished')
+        || body.startsWith('<pre>Veracode Container/IaC/Sercets Scan Summary')
+        || body.startsWith('<pre>Veracode Container/IaC/Secrets Scan Summary');
+}
+
 async function upsertPrComment(token, repo, prNumber, body) {
     const apiBase = githubApiBase();
-    const headers = githubApiHeaders();
+    const headers = githubApiHeaders(token);
     const marker = '<!-- veracode-connect-pr-comment -->';
 
-    const listUrl = `${apiBase}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
-    const listResp = await fetch(listUrl, { headers });
-    if (!listResp.ok) {
-        const detail = await listResp.text();
-        throw new Error(message('error', 'LIST_COMMENTS_FAILED', {
-            pr: prNumber,
-            status: listResp.status,
-            detail: detail.slice(0, 200)
-        }));
+    const comments = [];
+    for (let page = 1; ; page += 1) {
+        const listUrl = `${apiBase}/repos/${repo}/issues/${prNumber}/comments?per_page=100&page=${page}`;
+        const listResp = await fetch(listUrl, { headers });
+        if (!listResp.ok) {
+            throw new Error(message('error', 'LIST_COMMENTS_FAILED', {
+                pr: prNumber,
+                status: listResp.status
+            }));
+        }
+        const batch = await listResp.json();
+        comments.push(...batch);
+        if (batch.length < 100) {
+            break;
+        }
     }
+    const existing = comments.find((c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker));
 
-    const comments = await listResp.json();
-    const existing = comments.find((c) => c.body && c.body.includes(marker));
-
+    let action;
     if (existing) {
         const patchUrl = `${apiBase}/repos/${repo}/issues/comments/${existing.id}`;
         const resp = await fetch(patchUrl, {
@@ -86,24 +102,36 @@ async function upsertPrComment(token, repo, prNumber, body) {
                 detail: detail.slice(0, 200)
             }));
         }
-        return 'updated';
+        action = 'updated';
+    } else {
+        const postUrl = `${apiBase}/repos/${repo}/issues/${prNumber}/comments`;
+        const resp = await fetch(postUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ body })
+        });
+        if (!resp.ok) {
+            const detail = await resp.text();
+            throw new Error(message('error', 'UPSERT_COMMENT_FAILED', {
+                pr: prNumber,
+                status: resp.status,
+                detail: detail.slice(0, 200)
+            }));
+        }
+        action = 'created';
     }
 
-    const postUrl = `${apiBase}/repos/${repo}/issues/${prNumber}/comments`;
-    const resp = await fetch(postUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ body })
-    });
-    if (!resp.ok) {
-        const detail = await resp.text();
-        throw new Error(message('error', 'UPSERT_COMMENT_FAILED', {
-            pr: prNumber,
-            status: resp.status,
-            detail: detail.slice(0, 200)
-        }));
+    for (const comment of comments.filter(isVendorScanComment)) {
+        const deleteUrl = `${apiBase}/repos/${repo}/issues/comments/${comment.id}`;
+        const resp = await fetch(deleteUrl, { method: 'DELETE', headers });
+        if (!resp.ok) {
+            throw new Error(message('error', 'DELETE_COMMENT_FAILED', {
+                id: comment.id,
+                status: resp.status
+            }));
+        }
     }
-    return 'created';
+    return action;
 }
 
 async function main() {

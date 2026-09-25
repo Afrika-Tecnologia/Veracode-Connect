@@ -96,6 +96,33 @@ test('parseIacResults extrai matches', () => {
     assert.equal(counts.total, 4);
 });
 
+test('comentário do PR conta severidades UPPERCASE do results.json de IaC', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-uppercase-'));
+    fs.mkdirSync(path.join(dir, 'iac-results'));
+    fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({
+        vulnerabilities: {
+            matches: [
+                { vulnerability: { severity: 'CRITICAL' } },
+                { vulnerability: { severity: 'HIGH' } },
+                { vulnerability: { severity: 'MEDIUM' } },
+                { vulnerability: { severity: 'LOW' } }
+            ]
+        }
+    }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: { iac_outcome: 'success' }
+    });
+
+    assert.match(body, /Very High \| 1 \|/);
+    assert.match(body, /High \| 1 \|/);
+    assert.match(body, /Medium \| 1 \|/);
+    assert.match(body, /Low \| 1 \|/);
+    assert.match(body, /Total Findings\*\* \| \*\*4\*\*/);
+});
+
 test('buildCommentBody inclui marker e seções ativas', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-body-'));
     fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({

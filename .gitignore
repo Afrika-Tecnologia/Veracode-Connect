@@ -3,3 +3,12 @@
 
 # Runtime do Auto Packager (gerado no job)
 .veracode-connect/
+
+# Coletor local, credenciais e banco de tickets (fora do repositório da action)
+collector/
+
+# Relatórios locais dos fluxos de validação dos agentes
+.security-check/
+.pre-pr/
+.test-feature/
+.debug-issue/

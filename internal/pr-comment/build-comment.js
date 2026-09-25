@@ -8,6 +8,7 @@ const {
     countBySeverity,
     loadFindings
 } = require('./sast-findings');
+const { extractMatches, countFromMatches } = require('../veracode-iac/summary-findings');
 
 function readJsonFile(filePath) {
     try {
@@ -27,43 +28,21 @@ function countPipelineFindings(jsonPath) {
     return countBySeverity(loadFindings(jsonPath));
 }
 
-function extractIacFindings(data) {
-    if (!data) {
-        return [];
-    }
-    if (Array.isArray(data.vulnerabilities?.matches)) {
-        return data.vulnerabilities.matches;
-    }
-    if (Array.isArray(data.matches)) {
-        return data.matches;
-    }
-    if (Array.isArray(data)) {
-        return data;
-    }
-    if (Array.isArray(data.findings)) {
-        return data.findings;
-    }
-    if (Array.isArray(data.results)) {
-        return data.results;
-    }
-    return [];
-}
-
 function parseIacResults(workspace) {
     const filePath = path.join(workspace, 'iac-results', 'results.json');
     const data = readJsonFile(filePath);
     if (!data) {
         return null;
     }
-    const findings = extractIacFindings(data);
+    const { counts } = countFromMatches(extractMatches(data));
 
     return {
-        veryHigh: findings.filter((f) => f.vulnerability?.severity === 'Critical').length,
-        high: findings.filter((f) => f.vulnerability?.severity === 'High').length,
-        medium: findings.filter((f) => f.vulnerability?.severity === 'Medium').length,
-        low: findings.filter((f) => f.vulnerability?.severity === 'Low').length,
-        veryLow: findings.filter((f) => f.vulnerability?.severity === 'Negligible').length,
-        total: findings.length
+        veryHigh: counts.critical,
+        high: counts.high,
+        medium: counts.medium,
+        low: counts.low,
+        veryLow: counts.very_low,
+        total: counts.total
     };
 }
 

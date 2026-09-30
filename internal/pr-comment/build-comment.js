@@ -90,13 +90,13 @@ function isFailureStatus(status) {
 }
 
 function statusIcon(status) {
-    if (status === 'success') {
+    if (status === 'success' || status === 'passed') {
         return '✅ Success';
     }
     if (status === 'failure' || status === 'failed' || (typeof status === 'string' && status.startsWith('scan_failed'))) {
         return '❌ Failed';
     }
-    if (status === 'warning') {
+    if (status === 'warning' || status === 'error') {
         return '⚠️ Warning';
     }
     if (status === 'skipped' || !status) {
@@ -123,6 +123,8 @@ function collectModuleStatuses(inputs) {
     check('Validação', inputs.validate_outcome);
     check('SCA', inputs.sca_status);
     check('IaC/Secrets', inputs.iac_outcome);
+    check('Política IaC', inputs.iac_policy_status === 'failed' ? 'failure'
+        : inputs.iac_policy_status === 'error' ? 'warning' : '');
     check('Portal Afrika Baseline', inputs.baseline_outcome);
     check('Repo Baseline', inputs.repo_baseline_outcome);
     check('Pipeline Scan', inputs.pipeline_outcome);
@@ -211,9 +213,16 @@ function scaSection(workspace) {
     return `${lines.join('\n')}\n`;
 }
 
-function iacSection(workspace) {
+function iacSection(workspace, inputs) {
     const counts = parseIacResults(workspace);
     const lines = ['### 🛡️ Veracode IaC / Secrets', ''];
+    if (inputs.iac_policy_status && inputs.iac_policy_status !== 'not_used' && inputs.iac_policy_status !== 'skipped') {
+        const policyName = String(inputs.iac_policy_name || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
+        const result = inputs.iac_policy_status === 'passed' ? '✅ Passou'
+            : inputs.iac_policy_status === 'failed' ? '❌ Não passou' : '⚠️ Não avaliada';
+        lines.push(`**Política IaC${policyName ? ` (${policyName})` : ''}:** ${result}`);
+        lines.push('');
+    }
     if (!counts) {
         lines.push('> ⚠️ Nenhum arquivo de resultado encontrado.');
         lines.push('');
@@ -268,6 +277,10 @@ function resumoFinalSection(inputs, workflowRunUrl) {
     };
     appendIfActive('Veracode SCA', inputs.sca_status);
     appendIfActive('Veracode IaC/Secrets', inputs.iac_outcome);
+    if (inputs.iac_policy_status && inputs.iac_policy_status !== 'not_used' && inputs.iac_policy_status !== 'skipped') {
+        const policyName = String(inputs.iac_policy_name || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
+        rows.push(`| Política IaC${policyName ? ` — ${policyName}` : ''} | ${statusIcon(inputs.iac_policy_status)} |`);
+    }
     appendIfActive('Portal Afrika Baseline', inputs.baseline_outcome);
     appendIfActive('Repo Baseline', inputs.repo_baseline_outcome);
     appendIfActive('Pipeline Scan', inputs.pipeline_outcome);
@@ -326,7 +339,7 @@ function buildCommentBody(options) {
         lines.push(scaSection(workspace));
     }
     if (isActiveStatus(inputs.iac_outcome)) {
-        lines.push(iacSection(workspace));
+        lines.push(iacSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.upload_outcome)) {
         lines.push(uploadSection(inputs));

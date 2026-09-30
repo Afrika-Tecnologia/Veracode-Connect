@@ -28,6 +28,10 @@ inputs:
     description: 'Usa regras customizadas do arquivo veracode.yml na raiz do repositório analisado (true/false). Requer enable_iac=true.'
     required: false
     default: 'false'
+  iac_policy:
+    description: 'Nome da política Container/IaC da Veracode a aplicar no scan IaC. Use none para manter o fluxo atual.'
+    required: false
+    default: 'none'
   enable_error_logs:
     description: 'Publica um diagnóstico estruturado somente quando há falha técnica; um coletor externo pode buscar os logs completos do run (true/false).'
     required: false
@@ -156,6 +160,9 @@ outputs:
   iac_status:
     description: 'Resultado do Veracode IaC/Secrets (success | failure | skipped).'
     value: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+  iac_policy_status:
+    description: 'Resultado da política IaC (not_used | passed | failed | error | skipped).'
+    value: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
   upload_scan_status:
     description: 'Resultado do Upload & Scan (success | failure | skipped).'
     value: ${{ steps.upload_and_scan.outcome || 'skipped' }}
@@ -262,6 +269,7 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         enable_iac_configs: ${{ inputs.enable_iac_configs }}
+        iac_policy: ${{ inputs.iac_policy }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
@@ -412,7 +420,9 @@ runs:
       with:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
-        iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
+        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+        iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
+        iac_policy_name: ${{ inputs.iac_policy }}
         baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
         repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}
         pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
@@ -431,7 +441,9 @@ runs:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
         sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
-        iac_outcome: ${{ steps.veracode_iac.outcome || 'skipped' }}
+        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+        iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
+        iac_policy_name: ${{ inputs.iac_policy }}
         pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
         baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
         repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}

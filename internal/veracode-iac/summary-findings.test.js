@@ -71,3 +71,25 @@ test('buildSummary lê vulnerabilities.matches com severity UPPERCASE', () => {
     assert.match(md, /CVE-2024-45590/);
     assert.match(md, /body-parser@1\.18\.3/);
 });
+
+test('buildSummary informa quando a política IaC reprova', () => {
+    const md = buildSummary({
+        jsonPath: path.join(os.tmpdir(), 'vc-iac-results-ausente.json'),
+        policyStatus: 'failed',
+        policyName: 'Time IaC'
+    });
+    assert.match(md, /Política IaC \(Time IaC\):/);
+    assert.match(md, /Não passou/);
+    assert.match(md, /Nenhum arquivo de resultado encontrado/);
+});
+
+test('buildSummary não apresenta política como aprovada se a avaliação falha', () => {
+    const md = buildSummary({
+        jsonPath: path.join(os.tmpdir(), 'vc-iac-results-ausente.json'),
+        policyStatus: 'error',
+        policyName: 'Time IaC'
+    });
+    assert.match(md, /Política IaC \(Time IaC\):/);
+    assert.match(md, /Não avaliada/);
+    assert.doesNotMatch(md, /Passou/);
+});

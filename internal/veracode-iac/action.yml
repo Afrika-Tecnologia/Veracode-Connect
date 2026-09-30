@@ -8,6 +8,10 @@ inputs:
   veracode_api_key:
     description: 'Key da API do Veracode (VKEY).'
     required: true
+  enable_iac_configs:
+    description: 'Carrega regras customizadas do veracode.yml na raiz do repositório analisado.'
+    required: false
+    default: 'false'
   artifact_suffix:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
@@ -16,9 +20,36 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Preparar configurações IaC customizadas
+      id: prepare_iac_config
+      shell: bash
+      env:
+        ENABLE_IAC_CONFIGS: ${{ inputs.enable_iac_configs }}
+      run: |
+        set -euo pipefail
+
+        IAC_HOME="$(mktemp -d "${RUNNER_TEMP%/}/veracode-connect-iac-home.XXXXXX")"
+        mkdir -p "${IAC_HOME}/.veracode"
+        chmod 700 "${IAC_HOME}" "${IAC_HOME}/.veracode"
+
+        if [ "${ENABLE_IAC_CONFIGS}" = "true" ]; then
+          CONFIG_SOURCE="${GITHUB_WORKSPACE}/veracode.yml"
+          if [ -f "${CONFIG_SOURCE}" ] && [ ! -L "${CONFIG_SOURCE}" ]; then
+            cp -- "${CONFIG_SOURCE}" "${IAC_HOME}/.veracode/veracode.yml"
+            chmod 600 "${IAC_HOME}/.veracode/veracode.yml"
+            echo "Regras customizadas IaC carregadas do veracode.yml da raiz do repositório."
+          else
+            echo "::warning::enable_iac_configs está habilitado, mas não há um arquivo regular veracode.yml na raiz do repositório analisado. O scan IaC continuará sem regras customizadas."
+          fi
+        fi
+
+        echo "home=${IAC_HOME}" >> "${GITHUB_OUTPUT}"
+
     - name: Veracode Container/IaC/Secrets scan (diretório)
       id: iac_scan
       uses: veracode/container_iac_secrets_scanning@62c3ac94273f079be8d6bbd82065fca5b487d282 # v1.0.8
+      env:
+        HOME: ${{ steps.prepare_iac_config.outputs.home }}
       with:
         vid: ${{ inputs.veracode_api_id }}
         vkey: ${{ inputs.veracode_api_key }}
@@ -29,6 +60,22 @@ runs:
         format: json
         fail_build: 'false'
         fail_build_on_error: 'false'
+
+    - name: Limpar configurações temporárias IaC
+      if: always() && steps.prepare_iac_config.outputs.home != ''
+      shell: bash
+      env:
+        IAC_HOME: ${{ steps.prepare_iac_config.outputs.home }}
+      run: |
+        set -euo pipefail
+        case "${IAC_HOME}" in
+          "${RUNNER_TEMP%/}"/veracode-connect-iac-home.*)
+            rm -rf -- "${IAC_HOME}"
+            ;;
+          *)
+            echo "::warning::Diretório temporário IaC fora do caminho esperado; limpeza ignorada."
+            ;;
+        esac
 
     - name: Definir status
       if: always()

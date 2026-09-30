@@ -5,6 +5,7 @@ GitHub Action que reúne Pipeline Scan, SCA, IaC/Secrets e Upload & Scan da Vera
 ## Antes de usar
 
 - Use um runner Linux e disponibilize `veracode_api_id` e `veracode_api_key` como secrets do workflow.
+- Para usar regras IaC customizadas, faça checkout do repositório analisado antes da action, mantenha `veracode.yml` na raiz e habilite `enable_iac_configs: 'true'` junto com `enable_iac: 'true'`.
 - Quando houver Pipeline Scan, Upload & Scan ou baseline, forneça `scan_file` ou ative `enable_auto_packager`. Com Auto Packager, faça checkout do repositório antes de chamar a action.
 - Declare `contents: read` nas permissões do job. Acrescente `issues: write` para `create_issues` e `pull-requests: write` para `comment_pr`. O repositório também precisa ter Issues habilitadas para `create_issues`.
 - Passe os valores booleanos como strings: `'true'` ou `'false'`.
@@ -69,6 +70,7 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `enable_sca` | `'false'` | Ativa SCA. |
 | `veracode_sca_token` | Vazio | Token necessário quando SCA está ativo. |
 | `enable_iac` | `'false'` | Ativa IaC/Secrets. |
+| `enable_iac_configs` | `'false'` | Carrega regras customizadas de `veracode.yml` na raiz do repositório analisado. Só tem efeito com `enable_iac: 'true'`; se o arquivo faltar, a action avisa e continua sem as regras customizadas. |
 | `enable_upload_scan` | `'false'` | Ativa Upload & Scan. |
 | `upload_scan_artifacts` | `all` | Envia todos os pacotes do Auto Packager ou apenas o `primary`. |
 | `veracode_sandbox` | Automático | Usa aplicação principal na branch padrão e sandbox nas demais; aceita `'true'` ou `'false'`. |

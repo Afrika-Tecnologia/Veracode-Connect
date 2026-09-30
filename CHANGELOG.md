@@ -6,6 +6,16 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-09-30
+
+### Added
+
+- Input `enable_iac_configs` (default `'false'`) para carregar regras customizadas do `veracode.yml` na raiz do repositório analisado durante o scan IaC/Secrets. Requer `enable_iac: 'true'`.
+
+### Changed
+
+- O scan IaC usa um `HOME` temporário para aplicar somente a configuração selecionada. Se `enable_iac_configs: 'true'` e o arquivo estiver ausente, a action emite um aviso e continua sem regras customizadas.
+
 ## [1.6.1] - 2026-09-24
 
 ### Added

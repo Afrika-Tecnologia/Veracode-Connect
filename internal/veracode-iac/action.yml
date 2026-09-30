@@ -29,6 +29,15 @@ runs:
         set -euo pipefail
 
         IAC_HOME="$(mktemp -d "${RUNNER_TEMP%/}/veracode-connect-iac-home.XXXXXX")"
+        echo "home=${IAC_HOME}" >> "${GITHUB_OUTPUT}"
+        cleanup_failed_prepare() {
+          prepare_status=$?
+          if [ "${prepare_status}" -ne 0 ]; then
+            rm -rf -- "${IAC_HOME}"
+          fi
+        }
+        trap cleanup_failed_prepare EXIT
+
         mkdir -p "${IAC_HOME}/.veracode"
         chmod 700 "${IAC_HOME}" "${IAC_HOME}/.veracode"
 
@@ -43,7 +52,7 @@ runs:
           fi
         fi
 
-        echo "home=${IAC_HOME}" >> "${GITHUB_OUTPUT}"
+        trap - EXIT
 
     - name: Veracode Container/IaC/Secrets scan (diretório)
       id: iac_scan

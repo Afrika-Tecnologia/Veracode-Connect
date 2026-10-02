@@ -114,14 +114,14 @@ inputs:
     description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager está desativado.'
     required: false
   policy_fail:
-    description: 'Define se o scan deve quebrar o build por policy (true/false).'
+    description: 'Habilita breakBuildOnPolicyFindings no SCA; com fail_build=true, bloqueia ao final por falha SCA ou violacoes confirmadas de policy/baseline do Pipeline/IaC (true/false).'
     required: false
     default: 'false'
   fail_on_severity:
     description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
   fail_build:
-    description: 'Com policy_fail=true, bloqueia o build apenas por violacoes de policy em um Pipeline Scan completo. Falhas tecnicas geram avisos (true/false).'
+    description: 'Com policy_fail=true, bloqueia ao final por falha SCA ou violacoes confirmadas de policy/baseline do Pipeline/IaC. O SCA oficial tambem falha em erros tecnicos (true/false).'
     required: false
     default: 'true'
   veracode_appname:
@@ -155,7 +155,7 @@ outputs:
     description: 'Repositório org/repo usado para baseline e Upload & Scan.'
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
   sca_status:
-    description: 'Resultado do Veracode SCA (success | warning | skipped).'
+    description: 'Resultado do Veracode SCA (success | failure | warning | skipped).'
     value: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
   iac_status:
     description: 'Resultado do Veracode IaC/Secrets (success | failure | skipped).'
@@ -257,6 +257,7 @@ runs:
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
+        policy_fail: ${{ inputs.policy_fail }}
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
@@ -411,11 +412,13 @@ runs:
       env:
         FAIL_BUILD: ${{ inputs.fail_build }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
+        IAC_POLICY_STATUS: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
+        SCA_STATUS: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
         POLICY_VIOLATIONS: ${{ steps.baseline_flow.outputs.policy_violations || steps.repo_baseline_flow.outputs.policy_violations || steps.pipeline_only.outputs.policy_violations || '' }}
         SCAN_ERROR_COUNT: ${{ steps.baseline_flow.outputs.scan_error_count || steps.repo_baseline_flow.outputs.scan_error_count || steps.pipeline_only.outputs.scan_error_count || '' }}
         PLANNED_COUNT: ${{ steps.baseline_flow.outputs.planned_count || steps.repo_baseline_flow.outputs.planned_count || steps.pipeline_only.outputs.planned_count || '' }}
         SCANNED_COUNT: ${{ steps.baseline_flow.outputs.scanned_count || steps.repo_baseline_flow.outputs.scanned_count || steps.pipeline_only.outputs.scanned_count || '' }}
-        FLOW_OUTCOME: ${{ steps.baseline_flow.outcome == 'success' && steps.baseline_flow.outcome || steps.repo_baseline_flow.outcome == 'success' && steps.repo_baseline_flow.outcome || steps.pipeline_only.outcome || '' }}
+        FLOW_OUTCOME: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.baseline_flow.outcome || steps.validate.outputs.baseline_mode == 'repo' && steps.repo_baseline_flow.outcome || steps.pipeline_only.outcome || '' }}
         PIPELINE_RESULT: ${{ github.workspace }}/results.json
         START_MARKER: ${{ steps.error_log_init.outputs.start_marker }}
       run: node "$GITHUB_ACTION_PATH/internal/build-gate/policy-decision.js"
@@ -484,13 +487,13 @@ runs:
           veracode_iac=${{ steps.veracode_iac.outcome }}
           prepare_scan_file=${{ steps.prepare_scan_file.outcome }}
           resolve_repo=${{ steps.resolve_repo.outcome }}
-          baseline_flow=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.baseline_flow.outcome }}
-          repo_baseline_flow=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.repo_baseline_flow.outcome }}
-          pipeline_only=${{ steps.policy_decision.outputs.policy_present == 'true' && 'skipped' || steps.pipeline_only.outcome }}
+          baseline_flow=${{ steps.baseline_flow.outcome }}
+          repo_baseline_flow=${{ steps.repo_baseline_flow.outcome }}
+          pipeline_only=${{ steps.pipeline_only.outcome }}
           pipeline_disabled_status=${{ steps.pipeline_disabled_status.outcome }}
           upload_and_scan=${{ steps.upload_and_scan.outcome }}
           policy_decision=${{ steps.policy_decision.outcome }}
-          build_gate=${{ steps.policy_decision.outputs.blocked == 'true' && 'skipped' || steps.build_gate.outcome }}
+          build_gate=${{ steps.build_gate.outcome }}
           pr_comment=${{ steps.pr_comment.outcome }}
       run: |
         set -euo pipefail
@@ -517,9 +520,9 @@ runs:
         if-no-files-found: error
         retention-days: 14
 
-    - name: Bloquear esteira por violação de policy
+    - name: Bloquear esteira pelo resultado final dos scans
       if: always() && steps.policy_decision.outputs.blocked == 'true'
       shell: bash
       run: |
-        echo "::error::Pipeline Scan encontrou vulnerabilidades que violam a policy configurada."
+        echo "::error::Veracode Connect bloqueou por falha do SCA ou violacao confirmada de politica/baseline do Pipeline/IaC. Consulte o Resumo Final dos scans."
         exit 1

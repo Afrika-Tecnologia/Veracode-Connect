@@ -6,6 +6,21 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-02
+
+### Changed
+
+- O SCA recebe `policy_fail` em `breakBuildOnPolicyFindings`. Uma falha da action oficial aparece no summary e no comentário do PR e bloqueia somente no último step quando `policy_fail` e `fail_build` estão habilitados. O scanner oficial também retorna falha por erros técnicos; o summary identifica a causa como falha do SCA.
+- Documentada a atribuição da política SCA ao workspace na Veracode: a action oficial não aceita seleção por nome. Para compartilhar a política do Pipeline, ela deve estar atribuída ao workspace do token SCA.
+
+### Fixed
+
+- Com `policy_fail: 'true'` e `fail_build: 'true'`, a reprovação da política IaC também bloqueia a esteira no último step, depois de todos os scans, summary, comentário de PR e diagnóstico. Funciona sem Pipeline Scan e sem atribuir a reprovação IaC a um Pipeline aprovado ou desativado.
+- Findings confirmados de policy/baseline do Pipeline Scan bloqueiam ao final mesmo quando outro artefato apresenta erro técnico ou não pode ser analisado. Incidentes técnicos continuam registrados no diagnóstico e, isoladamente, não bloqueiam a esteira.
+- Findings de policy/baseline do Pipeline Scan continuam sinalizados no summary mesmo com `policy_fail: 'false'`, preservando a esteira quando o bloqueio está desativado.
+- O Resumo Final também é gerado após falha de validação dos inputs. Violações confirmadas do Pipeline aparecem em vermelho mesmo com o bloqueio desativado; falhas de SCA, IaC e Pipeline são consolidadas antes do último step reprovar o job.
+- O planejamento do Pipeline Scan remove seus arquivos de resultado anteriores antes dos scans, evitando bloqueio por findings antigos quando a execução atual falha antes de gerar saída.
+
 ## [1.6.4] - 2026-10-02
 
 ### Changed

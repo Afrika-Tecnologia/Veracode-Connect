@@ -21,26 +21,31 @@ function isCurrentScanResult(resultPath, markerPath) {
     }
 }
 
-function hasPolicyFailure({ policyFail, scanErrorCount, policyViolations, plannedCount, scannedCount, flowOutcome, resultAvailable }) {
+// Pipeline evidence is independent of whether the caller enables build blocking.
+function hasPolicyFailure({ scanErrorCount, policyViolations, plannedCount, scannedCount, flowOutcome, resultAvailable }) {
     const violations = count(policyViolations);
     const planned = count(plannedCount);
-    return policyFail === 'true'
-        && resultAvailable === true
-        && flowOutcome === 'success'
-        && count(scanErrorCount) === 0
-        && planned !== null && planned > 0 && count(scannedCount) === planned
-        && violations !== null
-        && violations > 0;
+    const scanned = count(scannedCount);
+    const errors = count(scanErrorCount);
+    return resultAvailable === true
+        && (flowOutcome === 'success' || flowOutcome === 'failure')
+        && planned !== null && planned > 0
+        && scanned !== null && scanned > 0 && scanned <= planned
+        && errors !== null && errors <= planned - scanned
+        && violations !== null && violations > 0 && violations <= scanned;
 }
 
 function shouldBlockPolicy(decision) {
-    return decision.failBuild === 'true' && hasPolicyFailure(decision);
+    return decision.failBuild === 'true' && decision.policyFail === 'true'
+        && (hasPolicyFailure(decision) || decision.iacPolicyStatus === 'failed' || decision.scaStatus === 'failure');
 }
 
 if (require.main === module) {
     const decision = {
         failBuild: process.env.FAIL_BUILD,
         policyFail: process.env.POLICY_FAIL,
+        iacPolicyStatus: process.env.IAC_POLICY_STATUS,
+        scaStatus: process.env.SCA_STATUS,
         scanErrorCount: process.env.SCAN_ERROR_COUNT,
         policyViolations: process.env.POLICY_VIOLATIONS,
         plannedCount: process.env.PLANNED_COUNT,
@@ -58,8 +63,8 @@ if (require.main === module) {
         || incomplete
         || decision.flowOutcome === 'failure'
         || (planned !== null && planned > 0 && !decision.resultAvailable);
-    const scanStatus = blocked ? 'failure'
-        : policyPresent || technical ? 'warning' : '';
+    // Other scans can block independently without turning a passed/skipped Pipeline into a failure.
+    const scanStatus = policyPresent ? 'failure' : technical ? 'warning' : '';
     if (process.env.GITHUB_OUTPUT) {
         fs.appendFileSync(process.env.GITHUB_OUTPUT,
             `blocked=${blocked}\npolicy_present=${policyPresent}\nscan_status=${scanStatus}\n`);

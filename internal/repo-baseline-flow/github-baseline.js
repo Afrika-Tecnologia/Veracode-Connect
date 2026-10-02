@@ -6,6 +6,7 @@
  *   node github-baseline.js resolve-token
  *   node github-baseline.js check-repo
  *   node github-baseline.js get-baseline
+ *   node github-baseline.js get-iac-config
  *   node github-baseline.js put-baseline
  */
 
@@ -438,6 +439,42 @@ async function getBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     return { hasBaseline: true, sha: json.sha };
 }
 
+async function getIacConfig(token, baselineOrg, baselineRepoName, outFile, branch) {
+    setOutput('iac_config_downloaded', 'false');
+    const targetBranch = await resolveStoreBranch(token, baselineOrg, baselineRepoName, branch);
+    const url = contentsApiUrl(githubApiBase(), baselineOrg, baselineRepoName, 'veracode.yml', targetBranch);
+    const { response, json } = await fetchJson(url, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.status === 404) {
+        console.log(`::warning::${message('warning', 'IAC_CONFIG_ABSENT', { repo: `${baselineOrg}/${baselineRepoName}`, branch: targetBranch })}`);
+        return { hasConfig: false };
+    }
+    if (!response.ok) {
+        throw fail('GET_IAC_CONFIG_FAILED', { status: response.status });
+    }
+    if (json?.type !== 'file' || json.encoding !== 'base64' || typeof json.content !== 'string') {
+        throw fail('IAC_CONFIG_INVALID');
+    }
+    const encoded = json.content.replace(/\s/g, '');
+    const content = Buffer.from(encoded, 'base64');
+    if (!content.length || content.toString('base64') !== encoded) {
+        throw fail('IAC_CONFIG_INVALID');
+    }
+    // Replace the destination atomically, without following workspace symlinks or hard links.
+    const tempDir = fs.mkdtempSync(path.join(path.dirname(outFile), '.veracode-iac-config-'));
+    try {
+        const tempFile = path.join(tempDir, 'veracode.yml');
+        fs.writeFileSync(tempFile, content, { mode: 0o600 });
+        fs.renameSync(tempFile, outFile);
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    setOutput('iac_config_downloaded', 'true');
+    console.log(message('success', 'IAC_CONFIG_DOWNLOADED', { repo: `${baselineOrg}/${baselineRepoName}`, branch: targetBranch }));
+    return { hasConfig: true };
+}
+
 async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository, resultsFile, branch) {
     if (!fs.existsSync(resultsFile)) {
         throw fail('RESULTS_FILE_MISSING', { file: resultsFile });
@@ -581,6 +618,12 @@ async function main() {
         return;
     }
 
+    if (command === 'get-iac-config') {
+        const configFile = path.join(process.env.GITHUB_WORKSPACE || process.cwd(), 'veracode.yml');
+        await getIacConfig(token, baselineOrg, baselineRepoName, configFile, baselineRepoBranch);
+        return;
+    }
+
     if (command === 'put-baseline') {
         if (!scanRepository) {
             throw fail('SCAN_REPOSITORY_REQUIRED');
@@ -603,6 +646,7 @@ module.exports = {
     resolveAccessToken,
     checkRepoExists,
     getBaseline,
+    getIacConfig,
     putBaseline,
     baselineContentPath,
     createAppJwt,

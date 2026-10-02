@@ -5,7 +5,7 @@ GitHub Action que reúne Pipeline Scan, SCA, IaC/Secrets e Upload & Scan da Vera
 ## Antes de usar
 
 - Use um runner Linux e disponibilize `veracode_api_id` e `veracode_api_key` como secrets do workflow.
-- Para usar regras IaC customizadas, faça checkout do repositório analisado antes da action, mantenha `veracode.yml` na raiz e habilite `enable_iac_configs: 'true'` junto com `enable_iac: 'true'`.
+- Para usar regras IaC customizadas, faça checkout do repositório analisado antes da action e mantenha `veracode.yml` na raiz do **repositório de baseline**. Habilite `enable_iac_configs: 'true'` junto com `enable_iac: 'true'` e informe `baseline_org`, `baseline_repo_name` e as credenciais de acesso ao baseline. A action baixa o arquivo para a raiz do workspace, substituindo um `veracode.yml` local, e o aplica no `HOME` temporário do IaC. Usa `baseline_repo_branch` quando informado ou a branch padrão do baseline. Esse fluxo funciona com `baseline_mode: 'none'`, sem Pipeline Scan ou Auto Packager.
 - Para aplicar uma política Container/IaC da Veracode, informe o nome dela em `iac_policy` junto com `enable_iac: 'true'`. Use uma política criada apenas para Container/IaC; políticas que também contêm regras SCA não podem ser baixadas em formato Rego pelo CLI.
 - Quando houver Pipeline Scan, Upload & Scan ou baseline, forneça `scan_file` ou ative `enable_auto_packager`. Com Auto Packager, faça checkout do repositório antes de chamar a action.
 - Declare `contents: read` nas permissões do job. Acrescente `issues: write` para `create_issues` e `pull-requests: write` para `comment_pr`. O repositório também precisa ter Issues habilitadas para `create_issues`.
@@ -23,7 +23,28 @@ O Auto Packager empacota o conteúdo do commit em análise. Arquivos criados dur
 | `portal_afrika` | Consulta o Portal Afrika e envia resultados ao Portal. Um baseline ausente só pode ser criado a partir da branch padrão do repositório analisado. |
 | `repo` | Lê o baseline de um repositório GitHub. Cria ou atualiza o baseline apenas na branch padrão do repositório analisado; outras branches somente o consultam. |
 
-Para `repo`, prepare um repositório de baseline com pelo menos um commit. A autenticação pode usar um GitHub App instalado nesse repositório ou um PAT; a credencial precisa de acesso de leitura e escrita a Contents. O App usa `baseline_github_app_id`, `baseline_github_app_private_key` e `baseline_github_app_installation_id`. O PAT usa `baseline_github_token`. Essas credenciais são necessárias no workflow chamador somente quando o modo `repo` é usado.
+Para `repo`, prepare um repositório de baseline com pelo menos um commit. A autenticação pode usar um GitHub App instalado nesse repositório ou um PAT; a credencial precisa de acesso de leitura e escrita a Contents. O App usa `baseline_github_app_id`, `baseline_github_app_private_key` e `baseline_github_app_installation_id`. O PAT usa `baseline_github_token`. Essas credenciais também são necessárias com IaC e `enable_iac_configs: 'true'`; para apenas baixar `veracode.yml`, basta Contents: read.
+
+### Regras IaC centralizadas (v1.6.4)
+
+Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa somente IaC e usa um PAT para buscar as regras; os inputs do GitHub App também podem ser usados no lugar do PAT.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.6.4
+  with:
+    veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+    veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+    enable_iac: 'true'
+    enable_iac_configs: 'true'
+    enable_pipelinescan: 'false'
+    baseline_mode: 'none'
+    baseline_org: ${{ github.repository_owner }}
+    baseline_repo_name: Afrika-Veracode-Connect-Baseline
+    baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
+```
+
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.6` também recebem esta versão.
 
 ## Resultado da esteira
 
@@ -71,7 +92,7 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `enable_sca` | `'false'` | Ativa SCA. |
 | `veracode_sca_token` | Vazio | Token necessário quando SCA está ativo. |
 | `enable_iac` | `'false'` | Ativa IaC/Secrets. |
-| `enable_iac_configs` | `'false'` | Carrega regras customizadas de `veracode.yml` na raiz do repositório analisado. Só tem efeito com `enable_iac: 'true'`; se o arquivo faltar, a action avisa e continua sem as regras customizadas. |
+| `enable_iac_configs` | `'false'` | Baixa `veracode.yml` da raiz do repositório de baseline para o workspace e aplica as regras no IaC. Só tem efeito com `enable_iac: 'true'`; exige organização e GitHub App/PAT do baseline, independentemente de `baseline_mode`. Se o arquivo faltar ou o download falhar, a action avisa e continua sem as regras customizadas do baseline. |
 | `iac_policy` | `'none'` | Nome da política Container/IaC Veracode a baixar e aplicar. `none` mantém o fluxo atual; outro valor exige `enable_iac: 'true'` e uma política compatível com Rego. A reprovação aparece no status IaC e no resumo final sem encerrar o step do scan. |
 | `enable_upload_scan` | `'false'` | Ativa Upload & Scan. |
 | `upload_scan_artifacts` | `all` | Envia todos os pacotes do Auto Packager ou apenas o `primary`. |
@@ -89,10 +110,10 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `baseline_mode` | `none` | Provedor: `none`, `portal_afrika` ou `repo`. |
 | `portal_afrika_api_key` | Vazio | Obrigatório no modo `portal_afrika`. |
 | `portal_afrika_base_url` | `https://www.bantuu.io` | URL do Portal, sem barra final. |
-| `baseline_org` | Vazio | Organização dona do repositório de baseline; obrigatória no modo `repo`. |
-| `baseline_repo_name` | `Afrika-Veracode-Connect-Baseline` | Repositório de baseline no modo `repo`. |
-| `baseline_repo_branch` | Branch padrão do store | Branch usada para ler e gravar o baseline. |
-| `baseline_github_app_id` | Vazio | ID do GitHub App para o modo `repo`. |
+| `baseline_org` | Vazio | Organização dona do repositório de baseline; obrigatória no modo `repo` ou com regras IaC centralizadas ativas. |
+| `baseline_repo_name` | `Afrika-Veracode-Connect-Baseline` | Repositório de baseline no modo `repo` e fonte do `veracode.yml` quando `enable_iac_configs` está ativo. |
+| `baseline_repo_branch` | Branch padrão do store | Branch usada para ler/gravar o baseline e baixar `veracode.yml`. |
+| `baseline_github_app_id` | Vazio | ID do GitHub App para acessar o baseline e as regras IaC centralizadas. |
 | `baseline_github_app_private_key` | Vazio | Chave privada do App. |
 | `baseline_github_app_installation_id` | Vazio | ID da instalação do App. |
 | `baseline_github_token` | Vazio | PAT alternativo ao App. |

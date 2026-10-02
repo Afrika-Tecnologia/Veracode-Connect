@@ -21,10 +21,14 @@ function format(template, vars = {}) {
 }
 
 const errors = {
+    GET_IAC_CONFIG_FAILED:
+        'Falha ao baixar veracode.yml do repositório de baseline (HTTP {status}).',
+    IAC_CONFIG_INVALID:
+        'veracode.yml do repositório de baseline não é um arquivo com conteúdo Base64 válido e não vazio.',
     APP_TOKEN_FAILED:
         'Falha ao obter installation token do GitHub App (HTTP {status}): {detail}',
     AUTH_REQUIRED:
-        'baseline_mode=repo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
+        'Acesso ao repositório de baseline requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     INVALID_REPOSITORY:
         "repository_full_name inválido (esperado org/repo): '{scanRepository}'",
     PATH_IS_DIRECTORY:
@@ -66,7 +70,7 @@ const errors = {
     PUT_RETRIES_EXHAUSTED:
         'Falha ao gravar baseline após {attempts} tentativas em {store}: {detail}',
     CLI_USAGE:
-        'Uso: node github-baseline.js <resolve-token|check-repo|get-baseline|put-baseline>',
+        'Uso: node github-baseline.js <resolve-token|check-repo|get-baseline|get-iac-config|put-baseline>',
     BASELINE_ORG_REQUIRED:
         "baseline_org é obrigatório. A organização deve conter o repositório de baseline (default 'Afrika-Veracode-Connect-Baseline', ou o valor de baseline_repo_name).",
     SCAN_REPOSITORY_REQUIRED:
@@ -80,6 +84,8 @@ const errors = {
 };
 
 const warnings = {
+    IAC_CONFIG_ABSENT:
+        'veracode.yml não encontrado na raiz de {repo}@{branch}; o scan IaC continuará sem regras customizadas do baseline.',
     RETRY:
         'retry {attempt}/{max} HTTP {status}: {detail}',
     SEED_NOT_DEFAULT_BRANCH:
@@ -93,6 +99,7 @@ const warnings = {
 };
 
 const success = {
+    IAC_CONFIG_DOWNLOADED: 'veracode.yml baixado de {repo}@{branch} para a raiz do repositório analisado.',
     AUTH: 'auth={source}',
     API: 'api={api}',
     TOKEN_FILE: 'token_file={file}',

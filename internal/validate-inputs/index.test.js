@@ -7,6 +7,30 @@ const { baselineContentPath } = require('../repo-baseline-flow/github-baseline.j
 
 const scriptPath = path.join(__dirname, 'index.js');
 
+test('IaC configs require a baseline organization even with baseline_mode=none', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', ENABLE_IAC: 'true', ENABLE_IAC_CONFIGS: 'true' }
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout.toString(), /baseline_org/);
+});
+
+test('IaC configs require baseline credentials without requiring Pipeline Scan or an artifact', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', BASELINE_ORG: 'Acme', ENABLE_IAC: 'true', ENABLE_IAC_CONFIGS: 'true' }
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout.toString(), /GitHub App/);
+    assert.doesNotMatch(result.stdout.toString(), /scan_file é obrigatório/);
+});
+
+test('disabled IaC does not require baseline credentials for custom configs', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', ENABLE_IAC: 'false', ENABLE_IAC_CONFIGS: 'true' }
+    });
+    assert.equal(result.status, 0);
+});
+
 test('validate-inputs falha quando VKEY nao é fornecido', () => {
     const result = cp.spawnSync(process.execPath, [scriptPath], {
         env: { VID: '123', BASELINE_MODE: 'none' }

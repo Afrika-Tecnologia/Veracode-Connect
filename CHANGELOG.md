@@ -6,6 +6,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-10-02
+
+### Changed
+
+- Com `enable_iac_configs: 'true'` e IaC ativo, `veracode.yml` é baixado da raiz do repositório de baseline para a raiz do repositório analisado antes do scan. Reutiliza autenticação GitHub App/PAT e seleção de branch do Repo Baseline, inclusive com `baseline_mode: 'none'`, sem Pipeline Scan ou Auto Packager.
+- A validação passa a exigir acesso ao repositório de baseline para regras IaC centralizadas. Arquivo ausente ou falha no download gera aviso e o IaC continua sem as regras customizadas do baseline; um arquivo local não substitui silenciosamente o arquivo solicitado.
+
 ## [1.6.3] - 2026-09-30
 
 ### Added

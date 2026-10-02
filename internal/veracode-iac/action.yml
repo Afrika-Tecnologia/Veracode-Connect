@@ -17,7 +17,7 @@ inputs:
     description: 'Key da API do Veracode (VKEY).'
     required: true
   enable_iac_configs:
-    description: 'Carrega regras customizadas do veracode.yml na raiz do repositório analisado.'
+    description: 'Baixa veracode.yml da raiz do repositório de baseline e aplica suas regras customizadas.'
     required: false
     default: 'false'
   iac_policy:
@@ -28,15 +28,61 @@ inputs:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
     default: ''
+  baseline_org:
+    description: 'Organização dona do repositório de baseline.'
+    required: false
+    default: ''
+  baseline_repo_name:
+    description: 'Repositório de baseline que contém veracode.yml na raiz.'
+    required: false
+    default: 'Afrika-Veracode-Connect-Baseline'
+  baseline_repo_branch:
+    description: 'Branch de onde baixar veracode.yml. Vazio usa a default_branch do baseline.'
+    required: false
+    default: ''
+  baseline_github_app_id:
+    description: 'GitHub App ID do repositório de baseline.'
+    required: false
+    default: ''
+  baseline_github_app_private_key:
+    description: 'Private key PEM do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_app_installation_id:
+    description: 'Installation ID do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_token:
+    description: 'PAT fallback com Contents: read no repositório de baseline.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
   steps:
+    - name: Baixar configurações IaC do repositório de baseline
+      id: download_iac_config
+      if: inputs.enable_iac_configs == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+      run: node "$GITHUB_ACTION_PATH/../repo-baseline-flow/github-baseline.js" get-iac-config
+
     - name: Preparar configurações IaC customizadas
       id: prepare_iac_config
       shell: bash
       env:
         ENABLE_IAC_CONFIGS: ${{ inputs.enable_iac_configs }}
+        IAC_CONFIG_DOWNLOADED: ${{ steps.download_iac_config.outputs.iac_config_downloaded }}
       run: |
         set -euo pipefail
 
@@ -53,15 +99,17 @@ runs:
         mkdir -p "${IAC_HOME}/.veracode"
         chmod 700 "${IAC_HOME}" "${IAC_HOME}/.veracode"
 
-        if [ "${ENABLE_IAC_CONFIGS}" = "true" ]; then
+        if [ "${ENABLE_IAC_CONFIGS}" = "true" ] && [ "${IAC_CONFIG_DOWNLOADED}" = "true" ]; then
           CONFIG_SOURCE="${GITHUB_WORKSPACE}/veracode.yml"
           if [ -f "${CONFIG_SOURCE}" ] && [ ! -L "${CONFIG_SOURCE}" ]; then
             cp -- "${CONFIG_SOURCE}" "${IAC_HOME}/.veracode/veracode.yml"
             chmod 600 "${IAC_HOME}/.veracode/veracode.yml"
-            echo "Regras customizadas IaC carregadas do veracode.yml da raiz do repositório."
+            echo "Regras customizadas IaC carregadas do veracode.yml baixado do repositório de baseline."
           else
             echo "::warning::enable_iac_configs está habilitado, mas não há um arquivo regular veracode.yml na raiz do repositório analisado. O scan IaC continuará sem regras customizadas."
           fi
+        elif [ "${ENABLE_IAC_CONFIGS}" = "true" ]; then
+          echo "::warning::veracode.yml do baseline não foi baixado; o scan IaC continuará sem regras customizadas."
         fi
 
         trap - EXIT
@@ -349,6 +397,8 @@ runs:
       env:
         VC_COMPONENT: iac
         VC_STEPS: |
+          download_iac_config=${{ steps.download_iac_config.outcome }}
+          prepare_iac_config=${{ steps.prepare_iac_config.outcome }}
           iac_scan=${{ steps.iac_scan.outcome }}
           status=${{ steps.status.outcome }}
           collect_results=${{ steps.collect_results.outcome }}

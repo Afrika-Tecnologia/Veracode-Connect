@@ -8,6 +8,8 @@ const {
 
 const {
     ENABLE_SCA,
+    ENABLE_IAC,
+    ENABLE_IAC_CONFIGS,
     ENABLE_ERROR_LOGS,
     SCA_TOKEN,
     ENABLE_PIPELINE,
@@ -54,6 +56,7 @@ if (modeResult.error) {
     erros.push(modeResult.error);
 }
 const resolvedBaselineMode = modeResult.mode || 'none';
+const needsBaselineRepo = resolvedBaselineMode === 'repo' || (ENABLE_IAC === 'true' && ENABLE_IAC_CONFIGS === 'true');
 setOutput('baseline_mode', resolvedBaselineMode);
 console.log(message('success', 'BASELINE_MODE_RESOLVED', { mode: resolvedBaselineMode }));
 
@@ -81,7 +84,7 @@ if (resolvedBaselineMode === 'portal_afrika') {
     }
 }
 
-if (resolvedBaselineMode === 'repo') {
+if (needsBaselineRepo) {
     const baselineOrg = (BASELINE_ORG || '').trim();
     const appId = (BASELINE_GITHUB_APP_ID || '').trim();
     const appKey = (BASELINE_GITHUB_APP_PRIVATE_KEY || '').trim();
@@ -89,13 +92,13 @@ if (resolvedBaselineMode === 'repo') {
     const pat = (BASELINE_GITHUB_TOKEN || '').trim();
 
     if (!baselineOrg) {
-        erros.push(message('error', 'BASELINE_ORG_REQUIRED'));
+        erros.push(message('error', resolvedBaselineMode === 'repo' ? 'BASELINE_ORG_REQUIRED' : 'IAC_CONFIG_ORG_REQUIRED'));
     }
 
     const hasApp = Boolean(appId && appKey && appInstall);
     const hasPat = Boolean(pat);
     if (!hasApp && !hasPat) {
-        erros.push(message('error', 'BASELINE_AUTH_REQUIRED'));
+        erros.push(message('error', resolvedBaselineMode === 'repo' ? 'BASELINE_AUTH_REQUIRED' : 'IAC_CONFIG_AUTH_REQUIRED'));
     } else if ((appId || appKey || appInstall) && !hasApp && !hasPat) {
         erros.push(message('error', 'BASELINE_APP_INCOMPLETE'));
     } else if ((appId || appKey || appInstall) && !hasApp && hasPat) {
@@ -330,7 +333,7 @@ async function validateCommentPrPreconditions() {
 }
 
 async function validateRepoBaselinePreconditions() {
-    if (resolvedBaselineMode !== 'repo') {
+    if (!needsBaselineRepo) {
         return;
     }
     if (erros.length > 0) {

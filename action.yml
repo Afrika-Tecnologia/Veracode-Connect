@@ -25,7 +25,7 @@ inputs:
     required: false
     default: 'false'
   enable_iac_configs:
-    description: 'Usa regras customizadas do arquivo veracode.yml na raiz do repositório analisado (true/false). Requer enable_iac=true.'
+    description: 'Baixa veracode.yml da raiz do repositório de baseline e aplica as regras IaC (true/false). Requer enable_iac=true e acesso ao repo de baseline.'
     required: false
     default: 'false'
   iac_policy:
@@ -49,31 +49,31 @@ inputs:
     required: false
     default: 'none'
   baseline_org:
-    description: 'Organização dona do repositório de baseline (obrigatório quando baseline_mode=repo). A org deve conter o repo informado em baseline_repo_name.'
+    description: 'Organização dona do repositório de baseline. Obrigatório com baseline_mode=repo ou regras IaC centralizadas (enable_iac_configs=true com IaC ativo).'
     required: false
     default: ''
   baseline_repo_name:
-    description: 'Nome do repositório de store de baseline (modo repo). Pode ser alterado se a org usar outro repo.'
+    description: 'Repositório que armazena o baseline e o veracode.yml das regras IaC centralizadas.'
     required: false
     default: 'Afrika-Veracode-Connect-Baseline'
   baseline_repo_branch:
-    description: 'Branch do repositório de store onde o baseline é lido e gravado (modo repo). Vazio usa a default_branch do store (comportamento atual; em geral main).'
+    description: 'Branch do store para ler/gravar baseline e baixar veracode.yml. Vazio usa a default_branch do store.'
     required: false
     default: ''
   baseline_github_app_id:
-    description: 'GitHub App ID (modo repo). Preferencial ao PAT.'
+    description: 'GitHub App ID para baseline e regras IaC centralizadas. Preferencial ao PAT.'
     required: false
     default: ''
   baseline_github_app_private_key:
-    description: 'Private key PEM do GitHub App (modo repo).'
+    description: 'Private key PEM do GitHub App do repositório de baseline.'
     required: false
     default: ''
   baseline_github_app_installation_id:
-    description: 'Installation ID do GitHub App na org do baseline (modo repo).'
+    description: 'Installation ID do GitHub App na org do baseline.'
     required: false
     default: ''
   baseline_github_token:
-    description: 'PAT fallback com contents:read/write no repo de baseline (modo repo).'
+    description: 'PAT fallback do repo de baseline. Contents: read para regras IaC; read/write para baseline_mode=repo.'
     required: false
     default: ''
   enable_auto_packager:
@@ -222,6 +222,7 @@ runs:
         enable_sca: ${{ inputs.enable_sca }}
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         enable_iac: ${{ inputs.enable_iac }}
+        enable_iac_configs: ${{ inputs.enable_iac_configs }}
         enable_error_logs: ${{ inputs.enable_error_logs }}
         enable_pipelinescan: ${{ inputs.enable_pipelinescan }}
         baseline_mode: ${{ inputs.baseline_mode }}
@@ -270,6 +271,13 @@ runs:
         veracode_api_key: ${{ inputs.veracode_api_key }}
         enable_iac_configs: ${{ inputs.enable_iac_configs }}
         iac_policy: ${{ inputs.iac_policy }}
+        baseline_org: ${{ inputs.baseline_org }}
+        baseline_repo_name: ${{ inputs.baseline_repo_name }}
+        baseline_repo_branch: ${{ inputs.baseline_repo_branch }}
+        baseline_github_app_id: ${{ inputs.baseline_github_app_id }}
+        baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
+        baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
+        baseline_github_token: ${{ inputs.baseline_github_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
     # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─

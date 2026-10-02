@@ -14,6 +14,8 @@ function format(template, vars = {}) {
 }
 
 const errors = {
+    IAC_CONFIG_ORG_REQUIRED: 'enable_iac_configs=true com IaC ativo requer baseline_org para baixar veracode.yml do repositório de baseline.',
+    IAC_CONFIG_AUTH_REQUIRED: 'enable_iac_configs=true com IaC ativo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     VID_REQUIRED: 'veracode_api_id é obrigatório.',
     VKEY_REQUIRED: 'veracode_api_key é obrigatório.',
     VKEY_INVALID_HEX: 'veracode_api_key deve ser uma string hexadecimal válida.',

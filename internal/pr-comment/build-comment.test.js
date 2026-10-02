@@ -33,6 +33,16 @@ test('a nonblocking policy warning is not presented as all checks passed', () =>
     assert.match(banner, /esteira preservada/i);
 });
 
+test('IaC policy failure cannot produce a green summary even if scan outcome is success', () => {
+    const banner = resolveBanner({
+        fail_build: 'false',
+        iac_outcome: 'success',
+        iac_policy_status: 'failed'
+    });
+    assert.match(banner, /esteira preservada/i);
+    assert.doesNotMatch(banner, /Todos os checks ativos passaram/i);
+});
+
 test('countPipelineFindings agrega severidades', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-'));
     const file = path.join(dir, 'results.json');
@@ -121,6 +131,47 @@ test('comentário do PR conta severidades UPPERCASE do results.json de IaC', () 
     assert.match(body, /Medium \| 1 \|/);
     assert.match(body, /Low \| 1 \|/);
     assert.match(body, /Total Findings\*\* \| \*\*4\*\*/);
+});
+
+test('comentário do PR identifica a política IaC reprovada pelo nome', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-policy-comment-'));
+    fs.mkdirSync(path.join(dir, 'iac-results'));
+    fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({ findings: [] }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: {
+            iac_outcome: 'failure',
+            iac_policy_status: 'failed',
+            iac_policy_name: 'Team IaC'
+        }
+    });
+
+    assert.match(body, /Política IaC \(Team IaC\):/);
+    assert.match(body, /Não passou/);
+    assert.match(body, /Veracode IaC\/Secrets \| ❌ Failed/);
+});
+
+test('resumo do PR mantém política IaC reprovada vermelha se o scan terminou tecnicamente com sucesso', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-policy-comment-success-'));
+    fs.mkdirSync(path.join(dir, 'iac-results'));
+    fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({ findings: [] }));
+
+    const body = buildCommentBody({
+        workspace: dir,
+        workflowRunUrl: 'https://github.com/example-org/exemplo-app/actions/runs/1',
+        inputs: {
+            iac_outcome: 'success',
+            iac_policy_status: 'failed',
+            iac_policy_name: 'Team IaC',
+            fail_build: 'false'
+        }
+    });
+
+    assert.match(body, /esteira preservada/i);
+    assert.match(body, /Política IaC — Team IaC \| ❌ Failed/);
+    assert.doesNotMatch(body, /Todos os checks ativos passaram/i);
 });
 
 test('buildCommentBody inclui marker e seções ativas', () => {

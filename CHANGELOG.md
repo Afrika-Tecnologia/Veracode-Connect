@@ -6,6 +6,27 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-09-30
+
+### Added
+
+- Input `iac_policy` (default `none`) para baixar e aplicar uma política Container/IaC da Veracode durante o scan.
+- Output `iac_policy_status` e indicação da aprovação/reprovação da política no resumo final e no comentário consolidado do PR.
+
+### Changed
+
+- A reprovação da política IaC não interrompe o step de scan; o resultado é coletado e o status consolidado passa a sinalizar a reprovação. Erros ao baixar ou avaliar uma política solicitada aparecem como não avaliada e não ficam verdes.
+
+## [1.6.2] - 2026-09-30
+
+### Added
+
+- Input `enable_iac_configs` (default `'false'`) para carregar regras customizadas do `veracode.yml` na raiz do repositório analisado durante o scan IaC/Secrets. Requer `enable_iac: 'true'`.
+
+### Changed
+
+- O scan IaC usa um `HOME` temporário para aplicar somente a configuração selecionada. Se `enable_iac_configs: 'true'` e o arquivo estiver ausente, a action emite um aviso e continua sem regras customizadas.
+
 ## [1.6.1] - 2026-09-24
 
 ### Added

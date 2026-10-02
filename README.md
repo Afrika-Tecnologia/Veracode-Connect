@@ -5,6 +5,8 @@ GitHub Action que reúne Pipeline Scan, SCA, IaC/Secrets e Upload & Scan da Vera
 ## Antes de usar
 
 - Use um runner Linux e disponibilize `veracode_api_id` e `veracode_api_key` como secrets do workflow.
+- Para usar regras IaC customizadas, faça checkout do repositório analisado antes da action, mantenha `veracode.yml` na raiz e habilite `enable_iac_configs: 'true'` junto com `enable_iac: 'true'`.
+- Para aplicar uma política Container/IaC da Veracode, informe o nome dela em `iac_policy` junto com `enable_iac: 'true'`. Use uma política criada apenas para Container/IaC; políticas que também contêm regras SCA não podem ser baixadas em formato Rego pelo CLI.
 - Quando houver Pipeline Scan, Upload & Scan ou baseline, forneça `scan_file` ou ative `enable_auto_packager`. Com Auto Packager, faça checkout do repositório antes de chamar a action.
 - Declare `contents: read` nas permissões do job. Acrescente `issues: write` para `create_issues` e `pull-requests: write` para `comment_pr`. O repositório também precisa ter Issues habilitadas para `create_issues`.
 - Passe os valores booleanos como strings: `'true'` ou `'false'`.
@@ -27,7 +29,7 @@ Para `repo`, prepare um repositório de baseline com pelo menos um commit. A aut
 
 Falhas técnicas de validação, empacotamento, análise, envio, baseline ou publicação geram aviso e **não reprovam o job por esta action**. O diagnóstico técnico fica habilitado por padrão. A action só bloqueia a esteira por findings de policy do Pipeline Scan quando `policy_fail` e `fail_build` são `'true'`, o fluxo terminou com sucesso, todos os artefatos planejados foram analisados e o resultado desta execução é válido. Um resultado parcial ou ausente não aciona esse bloqueio.
 
-Findings de SCA, IaC/Secrets e do Upload & Scan não acionam essa decisão de bloqueio. O Upload & Scan faz um envio assíncrono; seu resultado de policy deve ser acompanhado na plataforma Veracode.
+Findings de SCA e do Upload & Scan não acionam essa decisão de bloqueio. A reprovação de uma política IaC não interrompe o step do scan: o resultado é coletado, o status IaC e o resumo final mostram que a política não passou. Com `iac_policy: 'none'` (padrão), o scan mantém o fluxo atual. Falha ao baixar/aplicar uma política pedida aparece como política não avaliada e IaC com status de falha. O Upload & Scan faz um envio assíncrono; seu resultado de policy deve ser acompanhado na plataforma Veracode.
 
 ## Diagnóstico de falhas técnicas
 
@@ -69,6 +71,8 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `enable_sca` | `'false'` | Ativa SCA. |
 | `veracode_sca_token` | Vazio | Token necessário quando SCA está ativo. |
 | `enable_iac` | `'false'` | Ativa IaC/Secrets. |
+| `enable_iac_configs` | `'false'` | Carrega regras customizadas de `veracode.yml` na raiz do repositório analisado. Só tem efeito com `enable_iac: 'true'`; se o arquivo faltar, a action avisa e continua sem as regras customizadas. |
+| `iac_policy` | `'none'` | Nome da política Container/IaC Veracode a baixar e aplicar. `none` mantém o fluxo atual; outro valor exige `enable_iac: 'true'` e uma política compatível com Rego. A reprovação aparece no status IaC e no resumo final sem encerrar o step do scan. |
 | `enable_upload_scan` | `'false'` | Ativa Upload & Scan. |
 | `upload_scan_artifacts` | `all` | Envia todos os pacotes do Auto Packager ou apenas o `primary`. |
 | `veracode_sandbox` | Automático | Usa aplicação principal na branch padrão e sandbox nas demais; aceita `'true'` ou `'false'`. |
@@ -113,6 +117,7 @@ Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de S
 | `repository_full_name` | Nome completo do repositório analisado. |
 | `sca_status` | Status do SCA. |
 | `iac_status` | Status do IaC/Secrets. |
+| `iac_policy_status` | Resultado da política IaC: `not_used`, `passed`, `failed` ou `error`. |
 | `upload_scan_status` | Status do Upload & Scan. |
 
 Os módulos ativos também podem publicar artefatos de resultado no GitHub Actions. A presença desses arquivos depende de cada ferramenta e do ponto em que a execução terminou.

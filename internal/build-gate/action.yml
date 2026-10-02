@@ -14,6 +14,14 @@ inputs:
     description: 'Outcome do Veracode IaC/Secrets.'
     required: false
     default: 'skipped'
+  iac_policy_status:
+    description: 'Resultado da política IaC (not_used | passed | failed | error).'
+    required: false
+    default: 'not_used'
+  iac_policy_name:
+    description: 'Nome da política IaC selecionada.'
+    required: false
+    default: ''
   baseline_outcome:
     description: 'Outcome do Portal Afrika Baseline Flow.'
     required: false
@@ -52,6 +60,7 @@ runs:
       env:
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
+        IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
         REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
@@ -114,6 +123,8 @@ runs:
         FAIL_BUILD: ${{ inputs.fail_build }}
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
+        IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
+        IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
         REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
@@ -135,10 +146,10 @@ runs:
         status_icon() {
           local status="$1"
           case "${status}" in
-            success)       echo "✅ Success" ;;
+            success|passed) echo "✅ Success" ;;
             failure|failed|scan_failed*) echo "❌ Failed" ;;
-            warning)       echo "⚠️ Warning" ;;
-            skipped)       echo "⏭️ Skipped" ;;
+            warning|error) echo "⚠️ Warning" ;;
+            skipped|not_used) echo "⏭️ Skipped" ;;
             *)             echo "❓ ${status}" ;;
           esac
         }
@@ -146,7 +157,7 @@ runs:
         append_row_if_active() {
           local name="$1"
           local status="$2"
-          if [ "${status}" = "skipped" ] || [ -z "${status}" ]; then
+          if [ "${status}" = "skipped" ] || [ "${status}" = "not_used" ] || [ -z "${status}" ]; then
             return 0
           fi
           echo "| ${name} | $(status_icon "${status}") |"
@@ -154,7 +165,7 @@ runs:
 
         has_failure="false"
         has_warning="false"
-        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${BASELINE_OUTCOME}" "${REPO_BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
+        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${IAC_POLICY_STATUS}" "${BASELINE_OUTCOME}" "${REPO_BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
           if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
             has_failure="true"
           elif [ "${s}" = "warning" ]; then
@@ -181,6 +192,9 @@ runs:
           echo "|---|---|"
           append_row_if_active "Veracode SCA" "${SCA_STATUS}"
           append_row_if_active "Veracode IaC/Secrets" "${IAC_OUTCOME}"
+          if [ "${IAC_POLICY_STATUS}" != "not_used" ] && [ "${IAC_POLICY_STATUS}" != "skipped" ]; then
+            append_row_if_active "Política IaC" "${IAC_POLICY_STATUS}"
+          fi
           append_row_if_active "Portal Afrika Baseline" "${BASELINE_OUTCOME}"
           append_row_if_active "Repo Baseline" "${REPO_BASELINE_OUTCOME}"
           append_row_if_active "Pipeline Scan" "${PIPELINE_OUTCOME}"

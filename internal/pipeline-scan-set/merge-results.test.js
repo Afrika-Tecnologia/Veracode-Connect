@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const cp = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -55,6 +56,42 @@ test('findingKey usa hashes de flaw, sem scan_id nem módulo', () => {
 test('parseScanFiles lê JSON array e cai para scan_file', () => {
     assert.deepEqual(parseScanFiles('["a.zip","b.zip"]', ''), ['a.zip', 'b.zip']);
     assert.deepEqual(parseScanFiles('', 'only.zip'), ['only.zip']);
+});
+
+test('planning a new scan discards previous generated results before a failed scan can reuse them', () => {
+    const dir = makeDir();
+    try {
+        for (let slot = 1; slot <= 6; slot++) {
+            writeJson(dir, `results-${slot}.json`, { scan_status: 'SUCCESS', findings: [{ severity: 5 }] });
+            writeJson(dir, `filtered-${slot}.json`, { findings: [{ severity: 5 }] });
+            fs.writeFileSync(path.join(dir, `results-${slot}.txt`), 'Old scan results');
+        }
+        writeJson(dir, 'results.json', { findings: [{ severity: 5 }] });
+        writeJson(dir, 'filtered_results.json', { findings: [{ severity: 5 }] });
+        fs.writeFileSync(path.join(dir, 'baseline.json'), 'baseline to preserve');
+        fs.writeFileSync(path.join(dir, 'results-custom.json'), 'unrelated file to preserve');
+        const env = {
+            ...process.env, GITHUB_WORKSPACE: dir, GITHUB_OUTPUT: path.join(dir, 'output'),
+            SCAN_FILES: '["app.zip"]', SCAN_FILE: '', MAX_ARTIFACTS: '6'
+        };
+        const plan = cp.spawnSync(process.execPath, [path.join(__dirname, 'merge-results.js'), 'plan'], { env, encoding: 'utf8' });
+        assert.equal(plan.status, 0, plan.stderr);
+        // No current result is produced: the scan failed before writing output.
+        const merged = mergeSlots({ workspace: dir, files: ['app.zip'], manifestPath: path.join(dir, 'manifest.json') });
+        assert.equal(merged.policyViolations, 0);
+        assert.equal(merged.scannedCount, 0);
+        assert.equal(merged.scanErrorCount, 1);
+        assert.equal(fs.existsSync(path.join(dir, 'results.json')), false);
+        for (let slot = 1; slot <= 6; slot++) {
+            for (const name of [`results-${slot}.json`, `filtered-${slot}.json`, `results-${slot}.txt`]) {
+                assert.equal(fs.existsSync(path.join(dir, name)), false, name);
+            }
+        }
+        assert.equal(fs.readFileSync(path.join(dir, 'baseline.json'), 'utf8'), 'baseline to preserve');
+        assert.equal(fs.readFileSync(path.join(dir, 'results-custom.json'), 'utf8'), 'unrelated file to preserve');
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test('classifySlot: ausente ou scan_status ruim é scan_error; filtered com findings é policy', () => {

@@ -394,11 +394,23 @@ function slotFilesFromEnv() {
     return files;
 }
 
+function clearScanResults(workspace) {
+    const names = ['results.json', 'filtered_results.json'];
+    for (let slot = 1; slot <= MAX_SLOTS; slot++) {
+        names.push(`results-${slot}.json`, `filtered-${slot}.json`, `results-${slot}.txt`);
+    }
+    for (const name of names) {
+        fs.rmSync(path.join(workspace, name), { force: true });
+    }
+}
+
 if (require.main === module) {
     try {
         const cmd = process.argv[2];
         const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
         if (cmd === 'plan') {
+            // A failed scan must not turn results left by a prior invocation into current evidence.
+            clearScanResults(workspace);
             const planned = planSlots({
                 scanFilesRaw: process.env.SCAN_FILES || '',
                 scanFile: process.env.SCAN_FILE || '',

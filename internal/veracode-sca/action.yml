@@ -17,10 +17,14 @@ inputs:
     description: 'CLOUD (github.com) ou ENTERPRISE (GHES).'
     required: false
     default: 'CLOUD'
+  policy_fail:
+    description: 'Repassa breakBuildOnPolicyFindings para a action oficial; o orquestrador bloqueia somente ao final (true/false).'
+    required: false
+    default: 'false'
 
 outputs:
   sca_status:
-    description: 'Resultado do SCA (success | warning).'
+    description: 'Resultado do SCA (success | failure | warning).'
     value: ${{ steps.run_sca.outputs.sca_status }}
   scan_url:
     description: 'URL do relatório SCA no portal Veracode.'
@@ -31,6 +35,7 @@ runs:
   steps:
     - name: Rodar Veracode SCA
       id: veracode_sca_run
+      continue-on-error: true
       uses: veracode/veracode-sca@aeeb6aaa608a49195cab32c44b75db4f6a07a2df # v2.1.20
       env:
         SRCCLR_API_TOKEN: ${{ inputs.veracode_sca_token }}
@@ -41,7 +46,7 @@ runs:
         recursive: 'true'
         update_advisor: 'true'
         platformType: ${{ inputs.platform_type }}
-        breakBuildOnPolicyFindings: 'false'
+        breakBuildOnPolicyFindings: ${{ inputs.policy_fail }}
 
     - name: Definir status do SCA
       id: run_sca
@@ -49,13 +54,19 @@ runs:
       shell: bash
       env:
         SCA_OUTCOME: ${{ steps.veracode_sca_run.outcome }}
+        POLICY_FAIL: ${{ inputs.policy_fail }}
       run: |
         set -euo pipefail
         echo "::group::Definir status do SCA"
         if [ "${SCA_OUTCOME}" = "failure" ]; then
           echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SCA_FAILED_CONTINUE)"
-          echo "sca_status=warning" >> "$GITHUB_OUTPUT"
-          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_STATUS_SET "status=warning")"
+          if [ "${POLICY_FAIL}" = "true" ]; then
+            status="failure"
+          else
+            status="warning"
+          fi
+          echo "sca_status=${status}" >> "$GITHUB_OUTPUT"
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_STATUS_SET "status=${status}")"
         else
           echo "sca_status=success" >> "$GITHUB_OUTPUT"
           echo "$(node "$GITHUB_ACTION_PATH/messages.js" success SCA_STATUS_SET "status=success")"

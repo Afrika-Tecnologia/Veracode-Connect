@@ -1,9 +1,9 @@
 name: 'Build Gate'
-description: 'Resume os resultados; o orquestrador aplica o bloqueio apenas por policy.'
+description: 'Resume os resultados dos scans; o orquestrador aplica o bloqueio no último step.'
 
 inputs:
   fail_build:
-    description: 'Indica que uma violacao de policy deve bloquear a esteira (true/false).'
+    description: 'Recebe a decisão final do orquestrador de bloquear a esteira (true/false).'
     required: false
     default: 'true'
   sca_status:
@@ -135,11 +135,6 @@ runs:
         set -euo pipefail
         echo "::group::Gerar Summary Final"
 
-        if [ "${VALIDATE_OUTCOME}" = "failure" ]; then
-          echo "::endgroup::"
-          exit 0
-        fi
-
         FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
         node "$GITHUB_ACTION_PATH/assemble-summary.js" assemble "${FRAG_DIR}" "$GITHUB_STEP_SUMMARY"
 
@@ -180,7 +175,11 @@ runs:
           echo ""
 
           if [ "${has_failure}" = "true" ] && [ "${FAIL_BUILD}" = "true" ]; then
-            echo "> ❌ **Build travado por policy**"
+            if [ "${SCA_STATUS}" = "failure" ]; then
+              echo "> ❌ **Build travado por falha do SCA**"
+            else
+              echo "> ❌ **Build travado por policy**"
+            fi
           elif [ "${has_failure}" = "true" ] || [ "${has_warning}" = "true" ]; then
             echo "> ⚠️ **Falhas ou achados registrados; esteira preservada**"
           else
@@ -190,6 +189,9 @@ runs:
 
           echo "| Scan | Status |"
           echo "|---|---|"
+          if [ "${VALIDATE_OUTCOME}" = "failure" ] || [ "${VALIDATE_OUTCOME}" = "failed" ]; then
+            append_row_if_active "Validação de Inputs" "${VALIDATE_OUTCOME}"
+          fi
           append_row_if_active "Veracode SCA" "${SCA_STATUS}"
           append_row_if_active "Veracode IaC/Secrets" "${IAC_OUTCOME}"
           if [ "${IAC_POLICY_STATUS}" != "not_used" ] && [ "${IAC_POLICY_STATUS}" != "skipped" ]; then

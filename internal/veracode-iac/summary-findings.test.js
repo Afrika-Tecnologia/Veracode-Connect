@@ -93,3 +93,58 @@ test('buildSummary não apresenta política como aprovada se a avaliação falha
     assert.match(md, /Não avaliada/);
     assert.doesNotMatch(md, /Passou/);
 });
+
+test('summary includes dependency, custom secret and configuration findings without exposing matched values', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-all-findings-'));
+    const jsonPath = path.join(dir, 'results.json');
+    try {
+        fs.writeFileSync(jsonPath, JSON.stringify({
+            vulnerabilities: { matches: [{ vulnerability: { severity: 'HIGH', id: 'GHSA-example' }, artifact: { name: 'dependency', version: '1' } }] },
+            secrets: [
+                { Severity: 'HIGH', RuleID: 'custom-sensitive-property', Title: 'Sensitive literal', Target: 'src/config.js', StartLine: 12, Code: 'private-match-value', Match: 'private-match-value' },
+                { Severity: 'MEDIUM', RuleID: 'custom-username', Title: 'Credential identifier', Target: 'config.yml', StartLine: 3 }
+            ],
+            configs: [{ Severity: 'LOW', ID: 'CONFIG-001', Title: 'Configuration issue', Target: 'infra/main.tf', StartLine: 8 }]
+        }));
+        const md = buildSummary({ jsonPath, policyStatus: 'failed', policyName: 'Team policy' });
+        assert.match(md, /High \| 2/);
+        assert.match(md, /Medium \| 1/);
+        assert.match(md, /Low \| 1/);
+        assert.match(md, /Total Findings\*\* \| \*\*4\*\*/);
+        assert.match(md, /custom-sensitive-property/);
+        assert.match(md, /src\/config\.js:12/);
+        assert.match(md, /CONFIG-001/);
+        assert.doesNotMatch(md, /private-match-value/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('summary counts custom findings when there are no dependency findings', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-secrets-only-'));
+    try {
+        const jsonPath = path.join(dir, 'results.json');
+        fs.writeFileSync(jsonPath, JSON.stringify({ secrets: [{ Severity: 'CRITICAL', RuleID: 'custom-secret', Title: 'Secret finding', Target: 'config.yml' }], configs: [] }));
+        const md = buildSummary({ jsonPath });
+        assert.match(md, /Very High \| 1/);
+        assert.match(md, /Total Findings\*\* \| \*\*1\*\*/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('custom finding metadata cannot create extra markdown table rows or columns', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-metadata-'));
+    try {
+        const jsonPath = path.join(dir, 'results.json');
+        fs.writeFileSync(jsonPath, JSON.stringify({ secrets: [{ Severity: 'HIGH',
+            RuleID: 'custom|rule', Title: 'Finding | title\ncontinued', Target: 'src/config|extra\nrow.js', StartLine: 2 }] }));
+        const md = buildSummary({ jsonPath });
+        assert.ok(md.includes('custom\\|rule'));
+        assert.ok(md.includes('Finding \\| title continued'));
+        assert.ok(md.includes('src/config\\|extra row.js:2'));
+        assert.doesNotMatch(md, /\nrow\.js/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});

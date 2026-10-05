@@ -41,8 +41,8 @@ function resolveIacStatus({ policyName = 'none', scanOutcome = '', scanStatus = 
 }
 
 if (require.main === module) {
-    const [, , command, ...args] = process.argv;
-    if (command === 'status') {
+    const [, , commandOrFilePath, exitCode] = process.argv;
+    if (commandOrFilePath === 'status') {
         const output = resolveIacStatus({
             policyName: process.env.IAC_POLICY || 'none',
             scanOutcome: process.env.IAC_SCAN_OUTCOME || '',
@@ -55,8 +55,7 @@ if (require.main === module) {
         }
         process.stdout.write(`${output.iac_status}\n`);
     } else {
-        const [filePath, exitCode] = args;
-        process.stdout.write(`${evaluatePolicyResult(filePath, exitCode)}\n`);
+        process.stdout.write(`${evaluatePolicyResult(commandOrFilePath, exitCode)}\n`);
     }
 }
 

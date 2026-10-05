@@ -6,7 +6,9 @@ Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.
 
 Versoes suportadas:
 
-- `v1.7.0`, com os aliases `v1.7` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.7.1`, com os aliases `v1.7` e `v1` apontando para o mesmo commit publicado na `main`.
+
+A versão `v1.7.1` corrige a classificação de reprovações da política IaC: a chamada do avaliador em `v1.7.0` podia retornar `error` e preservar o job mesmo com bloqueio habilitado. Atualize referências fixadas em `v1.7.0` para receber a correção.
 
 ## Bloqueio por resultados dos scans
 

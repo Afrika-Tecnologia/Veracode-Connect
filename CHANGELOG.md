@@ -6,6 +6,14 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-05
+
+### Fixed
+
+- Corrigida a leitura dos argumentos do avaliador de política IaC. A chamada usada pela action passa a interpretar `results.json` e o código de saída do CLI nas posições corretas, preservando a reprovação em vez de classificá-la como erro de leitura. Com `policy_fail` e `fail_build` habilitados, a política reprovada bloqueia no último step, depois do resumo e dos demais scans.
+- O summary IaC e o comentário consolidado do PR passam a incluir os findings de `secrets` e `configs`, junto com as vulnerabilidades de dependências. O detalhamento mostra regra, título e arquivo/linha, sem publicar os campos `Code` ou `Match` dos secrets; metadados são escapados para preservar as tabelas Markdown.
+- Adicionados testes que executam a chamada Bash real da action para políticas aprovadas/reprovadas, erro técnico e JSON inválido, além de regressões para a contagem de regras customizadas no summary e no PR.
+
 ## [1.7.0] - 2026-10-02
 
 ### Changed

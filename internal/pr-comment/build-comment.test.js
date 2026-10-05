@@ -14,6 +14,26 @@ const {
 } = require('./build-comment');
 const { MARKER } = require('./messages');
 
+test('PR comment includes custom secret and configuration findings in IaC totals', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-iac-custom-'));
+    try {
+        fs.mkdirSync(path.join(dir, 'iac-results'));
+        fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({
+            vulnerabilities: { matches: [] },
+            secrets: [{ Severity: 'HIGH', RuleID: 'custom-secret', Title: 'Secret finding', Target: 'config.yml' }],
+            configs: [{ Severity: 'MEDIUM', ID: 'CONFIG-001', Title: 'Configuration issue', Target: 'infra/main.tf' }]
+        }));
+        const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/example/repo/actions/runs/1',
+            inputs: { iac_outcome: 'failure', iac_policy_status: 'failed', iac_policy_name: 'Team policy', fail_build: 'true' } });
+        assert.match(body, /High \| 1/);
+        assert.match(body, /Medium \| 1/);
+        assert.match(body, /Total Findings\*\* \| \*\*2\*\*/);
+        assert.match(body, /Não passou/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 test('resolvePrNumber extrai número do evento pull_request', () => {
     assert.equal(resolvePrNumber({ pull_request: { number: 99 } }), 99);
     assert.equal(resolvePrNumber({ push: {} }), null);

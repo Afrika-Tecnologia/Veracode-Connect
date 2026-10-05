@@ -55,22 +55,22 @@ function extractMatches(data) {
     if (!data) {
         return [];
     }
+    let matches = [];
     if (Array.isArray(data.vulnerabilities?.matches)) {
-        return data.vulnerabilities.matches;
+        matches = data.vulnerabilities.matches;
+    } else if (Array.isArray(data.matches)) {
+        matches = data.matches;
+    } else if (Array.isArray(data)) {
+        matches = data;
+    } else if (Array.isArray(data.findings)) {
+        matches = data.findings;
+    } else if (Array.isArray(data.results)) {
+        matches = data.results;
     }
-    if (Array.isArray(data.matches)) {
-        return data.matches;
-    }
-    if (Array.isArray(data)) {
-        return data;
-    }
-    if (Array.isArray(data.findings)) {
-        return data.findings;
-    }
-    if (Array.isArray(data.results)) {
-        return data.results;
-    }
-    return [];
+    return matches.concat(
+        Array.isArray(data.secrets) ? data.secrets : [],
+        Array.isArray(data.configs) ? data.configs : []
+    );
 }
 
 function bandLabel(band) {
@@ -90,6 +90,7 @@ function countFromMatches(matches) {
         const severityRaw = item?.vulnerability?.severity
             || item?.severity
             || item?.Vulnerability?.Severity
+            || item?.Severity
             || '';
         const band = normalizeSeverity(severityRaw) || 'very_low';
         counts[band] += 1;
@@ -97,11 +98,15 @@ function countFromMatches(matches) {
         const related = Array.isArray(item.relatedVulnerabilities) ? item.relatedVulnerabilities : [];
         const cve = related.find((entry) => String(entry?.id || '').startsWith('CVE'))?.id
             || item?.vulnerability?.id
+            || item?.RuleID
+            || item?.ID
             || 'N/A';
-        const desc = String(item?.vulnerability?.description || 'N/A')
+        const desc = String(item?.vulnerability?.description || item?.Title || 'N/A')
             .replace(/\s+/g, ' ')
             .trim();
-        const lib = `${item?.artifact?.name || 'N/A'}@${item?.artifact?.version || '?'}`;
+        const lib = item?.Target
+            ? `${item.Target}${item.StartLine ? `:${item.StartLine}` : ''}`
+            : `${item?.artifact?.name || 'N/A'}@${item?.artifact?.version || '?'}`;
         const fix = item?.matchDetails?.[0]?.fix?.suggestedVersion
             || item?.vulnerability?.fix?.versions?.[0]
             || '—';
@@ -117,6 +122,10 @@ function countFromMatches(matches) {
     counts.total = matches.length;
     rows.sort((a, b) => bandLabel(a.band).order - bandLabel(b.band).order);
     return { counts, rows };
+}
+
+function tableCell(value) {
+    return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|');
 }
 
 function renderMarkdown(counts, rows, policyStatus, policyName) {
@@ -144,11 +153,11 @@ function renderMarkdown(counts, rows, policyStatus, policyName) {
     if (rows.length > 0) {
         lines.push(`<details><summary>Detalhamento de IaC / Secrets (${rows.length})</summary>`);
         lines.push('');
-        lines.push('| # | Severidade | CVE / ID | Descrição | Biblioteca | Fix |');
+        lines.push('| # | Severidade | CVE / ID | Descrição | Biblioteca / Arquivo | Fix |');
         lines.push('|---|---|---|---|---|---|');
         rows.forEach((row, index) => {
             const { icon, label } = bandLabel(row.band);
-            lines.push(`| ${index + 1} | ${icon} ${label} | ${row.cve} | ${row.desc} | ${row.lib} | ${row.fix} |`);
+            lines.push(`| ${index + 1} | ${icon} ${label} | ${tableCell(row.cve)} | ${tableCell(row.desc)} | ${tableCell(row.lib)} | ${tableCell(row.fix)} |`);
         });
         lines.push('');
         lines.push('</details>');

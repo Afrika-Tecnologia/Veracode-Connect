@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.7.1
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.7.2
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,7 +44,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.7` também apontam para a versão `v1.7.1`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.7` também apontam para a versão `v1.7.2`.
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
@@ -57,6 +57,10 @@ Antes de planejar os scans, o Pipeline limpa seus arquivos de resultado gerados 
 Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy** ou **Build travado por falha do SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'` ou `fail_build: 'false'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
 
 O **Resumo Final** é gerado também quando a validação de inputs falha e reúne os resultados que puderam ser obtidos. Cada scan ou política reprovada aparece em vermelho (`❌ Failed`); violações confirmadas do Pipeline continuam vermelhas mesmo quando o bloqueio está desativado. Avisos técnicos sem violação confirmada usam amarelo. O resultado do scan e a decisão de reprovar o job são apresentados separadamente.
+
+Nos fluxos SAST com baseline, a tabela **Vulnerabilidades Bloqueantes de Esteira** usa somente os findings de `filtered_results.json`, selecionados pelo Pipeline Scan após aplicar a política e o baseline. Findings novos fora dos critérios da política continuam na tabela **Todas Vulnerabilidades**. Resultado filtrado vazio significa zero bloqueantes; se o arquivo estiver ausente ou não puder ser lido, o resumo informa que os bloqueantes estão indisponíveis.
+
+Quando o Connect é chamado mais de uma vez no mesmo job, o último **Resumo Final** e o comentário do PR reúnem os resultados dessas chamadas. Um Pipeline executado antes de uma chamada somente de SCA/IaC continua visível como **Pipeline Scan (Repo Baseline)**, **Pipeline Scan (Portal Afrika Baseline)** ou **Pipeline Scan**, junto com seu detalhamento. Scans desativados na chamada seguinte preservam o resultado anterior; uma nova execução do mesmo scan substitui o resultado mostrado. A consolidação é separada por job, execução, tentativa e workspace.
 
 Falhas técnicas de validação, empacotamento, análise, envio, baseline ou publicação geram aviso e **não reprovam o job por esta action**, exceto falhas reportadas pelo SCA com `policy_fail: 'true'` e `fail_build: 'true'`. O diagnóstico técnico fica habilitado por padrão.
 

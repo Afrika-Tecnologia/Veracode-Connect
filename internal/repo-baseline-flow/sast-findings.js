@@ -3,10 +3,9 @@
 /**
  * Contagens e markdown SAST a partir do JSON do Pipeline Scan.
  *
- * `filtered_results.json` da action oficial é o recorte de pass/fail
- * (muitas vezes `{"findings":[]}` com baseline), não a lista de novas.
- * Novas = findings de results.json que não estão no baseline.json,
- * identificados por flaw_match (hashes da Veracode).
+ * `filtered_results.json` da action oficial contém os findings que
+ * violam os critérios de pass/fail, após o filtro do baseline.
+ * Uma lista vazia confirma que não há findings bloqueantes.
  *
  * Bash: node "$GITHUB_ACTION_PATH/sast-findings.js" summary-md \
  *         --results results.json [--baseline baseline.json] \
@@ -116,14 +115,8 @@ function splitNovas(scanFindings, baselineFindings) {
     return scanFindings.filter((finding) => !known.has(findingKey(finding)));
 }
 
-function resolveNovas(scanFindings, baselineFindings, filteredFindings) {
-    if (baselineFindings.length > 0) {
-        return splitNovas(scanFindings, baselineFindings);
-    }
-    if (filteredFindings.length > 0) {
-        return filteredFindings;
-    }
-    return [];
+function resolveNovas(_scanFindings, _baselineFindings, filteredFindings) {
+    return filteredFindings.slice();
 }
 
 function loadFindings(filePath) {
@@ -192,7 +185,15 @@ function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split }
     }
 
     const baselineFindings = loadFindings(baselinePath);
-    const filteredFindings = loadFindings(filteredPath);
+    const filteredData = readJson(filteredPath);
+    if (!filteredData) {
+        return [
+            '> ⚠️ Resultado filtrado da política indisponível; não foi possível determinar as vulnerabilidades bloqueantes.\n',
+            countTable('SAST - Todas Vulnerabilidades', countBySeverity(scanFindings)),
+            detailsTable('Detalhamento de Todas Vulnerabilidades', scanFindings)
+        ].filter(Boolean).join('\n');
+    }
+    const filteredFindings = extractFindings(filteredData);
     const novas = resolveNovas(scanFindings, baselineFindings, filteredFindings);
 
     return [

@@ -85,19 +85,18 @@ test('splitNovas remove o que já está no baseline', () => {
     assert.equal(novas[0].title, 'sql');
 });
 
-test('resolveNovas ignora filtered_results vazio quando há baseline', () => {
+test('resolveNovas respeita a política aprovada mesmo quando há findings fora do baseline', () => {
     const novas = resolveNovas([knownFlaw, newFlaw], [knownFlaw], []);
-    assert.equal(novas.length, 1);
-    assert.equal(novas[0].issue_id, 2001);
+    assert.deepEqual(novas, []);
 });
 
-test('resolveNovas cai no filtered só quando o baseline não tem findings', () => {
+test('resolveNovas usa a seleção da política sem findings no baseline', () => {
     const novas = resolveNovas([knownFlaw, newFlaw], [], [newFlaw]);
     assert.equal(novas.length, 1);
     assert.equal(novas[0].title, 'sql');
 });
 
-test('summary-md com baseline não usa filtered vazio nas novas', () => {
+test('summary-md mantém findings fora da política apenas na tabela completa', () => {
     const dir = writeTemp({
         'results.json': { findings: [knownFlaw, newFlaw] },
         'baseline.json': { findings: [knownFlaw] },
@@ -113,29 +112,84 @@ test('summary-md com baseline não usa filtered vazio nas novas', () => {
     assert.match(md, /#### SAST - Todas Vulnerabilidades/);
     assert.match(md, /\| 🟠 High \| 1 \|/);
     assert.match(md, /\| 🔴 Very High \| 1 \|/);
-    assert.match(md, /\*\*1\*\*/);
+    assert.match(md, /\*\*0\*\*/);
     assert.match(md, /\*\*2\*\*/);
-    assert.match(md, /Detalhamento de Vulnerabilidades Bloqueantes de Esteira \(1\)/);
+    assert.doesNotMatch(md, /Detalhamento de Vulnerabilidades Bloqueantes de Esteira/);
     assert.match(md, /Detalhamento de Todas Vulnerabilidades \(2\)/);
     assert.doesNotMatch(md, /#### SAST - Vulnerabilidades\n/);
     const blockingIdx = md.indexOf('#### SAST - Vulnerabilidades Bloqueantes de Esteira');
-    const blockingDetailsIdx = md.indexOf('Detalhamento de Vulnerabilidades Bloqueantes de Esteira');
     const allIdx = md.indexOf('#### SAST - Todas Vulnerabilidades');
     const allDetailsIdx = md.indexOf('Detalhamento de Todas Vulnerabilidades');
-    assert.ok(blockingIdx < blockingDetailsIdx && blockingDetailsIdx < allIdx && allIdx < allDetailsIdx);
+    assert.ok(blockingIdx < allIdx && allIdx < allDetailsIdx);
 });
+
+for (const provider of ['repo-baseline-flow', 'portal-afrika-baseline-flow', 'pr-comment']) {
+    const renderer = require(`../${provider}/sast-findings`);
+    for (const filtered of [[], [newFlaw], [{ ...newFlaw, severity: 3 }]]) {
+        test(`${provider}: bloqueantes seguem o resultado da política (${filtered.length}, severidade ${filtered[0]?.severity ?? 'nenhuma'})`, () => {
+            const medium = { ...newFlaw, severity: 3, title: 'Medium outside policy', flaw_match: { flaw_hash: 'medium' } };
+            const dir = writeTemp({
+                'results.json': { findings: [knownFlaw, filtered[0] || newFlaw, medium] },
+                'baseline.json': { findings: [knownFlaw] },
+                'filtered_results.json': { findings: filtered }
+            });
+            try {
+                const md = renderer.buildSummaryMarkdown({
+                    resultsPath: path.join(dir, 'results.json'),
+                    baselinePath: path.join(dir, 'baseline.json'),
+                    filteredPath: path.join(dir, 'filtered_results.json'),
+                    split: true
+                });
+                const [blocking, all] = md.split('#### SAST - Todas Vulnerabilidades');
+                assert.match(blocking, new RegExp(`\\| \\*\\*Total\\*\\* \\| \\*\\*${filtered.length}\\*\\* \\|`));
+                assert.doesNotMatch(blocking, /Medium outside policy/);
+                assert.match(all, /Medium outside policy/);
+                assert.match(all, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
+                if (filtered.length) {
+                    assert.match(blocking, filtered[0].severity === 3 ? /Medium \| 1 \|/ : /High \| 1 \|/);
+                }
+            } finally {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    }
+    for (const invalid of [undefined, '{invalid json']) {
+        test(`${provider}: não deduz bloqueantes sem resultado filtrado válido (${invalid === undefined ? 'ausente' : 'inválido'})`, () => {
+            const files = {
+                'results.json': { findings: [knownFlaw, newFlaw] },
+                'baseline.json': { findings: [knownFlaw] }
+            };
+            if (invalid !== undefined) files['filtered_results.json'] = invalid;
+            const dir = writeTemp(files);
+            try {
+                const md = renderer.buildSummaryMarkdown({
+                    resultsPath: path.join(dir, 'results.json'),
+                    baselinePath: path.join(dir, 'baseline.json'),
+                    filteredPath: path.join(dir, 'filtered_results.json'),
+                    split: true
+                });
+                assert.match(md, /não foi possível determinar as vulnerabilidades bloqueantes/);
+                assert.doesNotMatch(md, /Detalhamento de Vulnerabilidades Bloqueantes/);
+                assert.match(md, /Detalhamento de Todas Vulnerabilidades \(2\)/);
+            } finally {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    }
+}
 
 test('CLI summary-md escreve as duas tabelas', () => {
     const dir = writeTemp({
         'results.json': { findings: [newFlaw] },
-        'baseline.json': { findings: [] }
+        'baseline.json': { findings: [] },
+        'filtered_results.json': { findings: [newFlaw] }
     });
     const result = cp.spawnSync(process.execPath, [
         cli,
         'summary-md',
         '--results', path.join(dir, 'results.json'),
         '--baseline', path.join(dir, 'baseline.json'),
-        '--filtered', path.join(dir, 'missing.json'),
+        '--filtered', path.join(dir, 'filtered_results.json'),
         '--split', 'true'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);

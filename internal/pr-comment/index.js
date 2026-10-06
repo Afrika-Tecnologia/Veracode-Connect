@@ -184,6 +184,7 @@ async function main() {
 
     const body = buildCommentBody({
         workspace,
+        summaryContext: process.env,
         workflowRunUrl: workflowRunUrl(),
         inputs
     });

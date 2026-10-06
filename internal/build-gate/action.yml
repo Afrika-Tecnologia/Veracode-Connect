@@ -121,6 +121,7 @@ runs:
       shell: bash
       env:
         FAIL_BUILD: ${{ inputs.fail_build }}
+        BASELINE_MODE: ${{ inputs.baseline_mode }}
         SCA_STATUS: ${{ inputs.sca_status }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
@@ -136,6 +137,12 @@ runs:
         echo "::group::Gerar Summary Final"
 
         FRAG_DIR="${RUNNER_TEMP}/veracode-connect-summary"
+        SUMMARY_ENV="$(mktemp "${RUNNER_TEMP}/veracode-summary-env.XXXXXX")"
+        trap 'rm -f -- "${SUMMARY_ENV}"' EXIT
+        node "$GITHUB_ACTION_PATH/job-summary.js" consolidate-env > "${SUMMARY_ENV}"
+        while IFS= read -r -d '' key && IFS= read -r -d '' value; do
+          export "${key}=${value}"
+        done < "${SUMMARY_ENV}"
         node "$GITHUB_ACTION_PATH/assemble-summary.js" assemble "${FRAG_DIR}" "$GITHUB_STEP_SUMMARY"
 
         status_icon() {
@@ -197,8 +204,8 @@ runs:
           if [ "${IAC_POLICY_STATUS}" != "not_used" ] && [ "${IAC_POLICY_STATUS}" != "skipped" ]; then
             append_row_if_active "Política IaC" "${IAC_POLICY_STATUS}"
           fi
-          append_row_if_active "Portal Afrika Baseline" "${BASELINE_OUTCOME}"
-          append_row_if_active "Repo Baseline" "${REPO_BASELINE_OUTCOME}"
+          append_row_if_active "Pipeline Scan (Portal Afrika Baseline)" "${BASELINE_OUTCOME}"
+          append_row_if_active "Pipeline Scan (Repo Baseline)" "${REPO_BASELINE_OUTCOME}"
           append_row_if_active "Pipeline Scan" "${PIPELINE_OUTCOME}"
           append_row_if_active "Upload & Scan" "${UPLOAD_OUTCOME}"
 

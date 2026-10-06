@@ -53,6 +53,7 @@ const warnings = {
 };
 
 const success = {
+    POLICY_CHECK_DEFERRED: 'Scan executado sem baseline registrado: findings de política não bloqueiam esta execução. O bloqueio começa quando o baseline é utilizado pelo scan.',
     BASELINE_FOUND: 'baseline=encontrado repo={repo}',
     BASELINE_ABSENT: 'baseline=ausente repo={repo} (HTTP {status})',
     BASELINE_LOCAL_CREATED: 'baseline local criado: baseline.json',

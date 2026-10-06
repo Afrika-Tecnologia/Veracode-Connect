@@ -22,12 +22,14 @@ function isCurrentScanResult(resultPath, markerPath) {
 }
 
 // Pipeline evidence is independent of whether the caller enables build blocking.
-function hasPolicyFailure({ scanErrorCount, policyViolations, plannedCount, scannedCount, flowOutcome, resultAvailable }) {
+function hasPolicyFailure({ scanErrorCount, policyViolations, plannedCount, scannedCount, flowOutcome, resultAvailable,
+    baselineMode = 'none', hasBaseline }) {
     const violations = count(policyViolations);
     const planned = count(plannedCount);
     const scanned = count(scannedCount);
     const errors = count(scanErrorCount);
     return resultAvailable === true
+        && (!['repo', 'portal_afrika'].includes(baselineMode) || hasBaseline === 'true')
         && (flowOutcome === 'success' || flowOutcome === 'failure')
         && planned !== null && planned > 0
         && scanned !== null && scanned > 0 && scanned <= planned
@@ -44,6 +46,8 @@ if (require.main === module) {
     const decision = {
         failBuild: process.env.FAIL_BUILD,
         policyFail: process.env.POLICY_FAIL,
+        baselineMode: process.env.BASELINE_MODE,
+        hasBaseline: process.env.HAS_BASELINE,
         iacPolicyStatus: process.env.IAC_POLICY_STATUS,
         scaStatus: process.env.SCA_STATUS,
         scanErrorCount: process.env.SCAN_ERROR_COUNT,

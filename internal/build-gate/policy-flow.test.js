@@ -60,6 +60,9 @@ const scenarios = [
     { name: 'IaC rejected, Pipeline passed', iac: 'failed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'success', banner: /Build travado por policy/ },
     { name: 'Pipeline policy/baseline rejected', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
     { name: 'Repo Baseline rejected', mode: 'repo', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
+    { name: 'Repo initial scan has no registered baseline', mode: 'repo', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
+    { name: 'Portal initial scan has no registered baseline', mode: 'portal_afrika', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
+    { name: 'initial Repo scan has technical error and policy findings', mode: 'repo', hasBaseline: 'false', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'warning', banner: /esteira preservada/ },
     { name: 'Portal Baseline rejected', mode: 'portal_afrika', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
     { name: 'Repo Baseline findings survive provider failure', mode: 'repo', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
     { name: 'Portal Baseline findings survive provider failure', mode: 'portal_afrika', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
@@ -106,6 +109,7 @@ for (const scenario of scenarios) {
                 'steps.veracode_sca.outputs.sca_status': scaStatus,
                 'steps.veracode_iac.outputs.iac_policy_status': scenario.iac,
                 'steps.validate.outputs.baseline_mode': scenario.mode || 'none',
+                [`steps.${provider}.outputs.has_baseline`]: scenario.hasBaseline || 'true',
                 'steps.error_log_init.outputs.start_marker': marker, 'github.workspace': dir,
                 'steps.baseline_flow.outcome': 'skipped', 'steps.repo_baseline_flow.outcome': 'skipped',
                 'steps.pipeline_only.outcome': 'skipped',
@@ -149,12 +153,15 @@ for (const scenario of scenarios) {
                 assert.match(text, /\| Veracode IaC\/Secrets \| ⚠️ Warning \|/);
                 assert.doesNotMatch(text, /❌ Failed|Build travado/);
             }
-            if (scenario.pipelineStatus === 'success') assert.match(text, /\| Pipeline Scan \| ✅ Success \|/);
+            if (scenario.pipelineStatus === 'success' && !scenario.mode) assert.match(text, /\| Pipeline Scan \| ✅ Success \|/);
             if (scenario.pipelineStatus === 'failure' && !scenario.mode) assert.match(text, /\| Pipeline Scan \| ❌ Failed \|/);
             if (scenario.validation === 'failure') assert.match(text, /\| Validação de Inputs \| ❌ Failed \|/);
             if (scenario.pipelineStatus === 'skipped') assert.doesNotMatch(text, /\| Pipeline Scan \|/);
-            if (scenario.mode === 'repo') assert.match(text, /\| Pipeline Scan \(Repo Baseline\) \| ❌ Failed \|/);
-            if (scenario.mode === 'portal_afrika') assert.match(text, /\| Pipeline Scan \(Portal Afrika Baseline\) \| ❌ Failed \|/);
+            if (scenario.mode) {
+                const label = scenario.mode === 'repo' ? 'Repo Baseline' : 'Portal Afrika Baseline';
+                const icon = { failure: '❌ Failed', success: '✅ Success', warning: '⚠️ Warning' }[scenario.pipelineStatus];
+                assert.ok(text.includes(`| Pipeline Scan (${label}) | ${icon} |`));
+            }
 
             // The orchestrator runs this final step only when blocked=true.
             if (outputs.blocked === 'true') {

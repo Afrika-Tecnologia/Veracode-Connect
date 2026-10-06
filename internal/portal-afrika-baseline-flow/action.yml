@@ -338,7 +338,7 @@ runs:
         set -euo pipefail
         echo "::group::Definir status do Pipeline Scan (sem baseline)"
         failed=false
-        if [ "${SCAN_ERROR_COUNT:-0}" != "0" ] || { [ "${POLICY_FAIL}" = "true" ] && [ "${POLICY_VIOLATIONS:-0}" != "0" ]; }; then
+        if [ "${SCAN_ERROR_COUNT:-0}" != "0" ]; then
           failed=true
         fi
         if [ "${CAN_SEED}" = "true" ] && [ "${SEEDED}" != "skipped" ]; then
@@ -366,6 +366,7 @@ runs:
       if: steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
+        HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
         SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
         POLICY_VIOLATIONS: ${{ steps.pipeline_set.outputs.policy_violations }}
@@ -385,7 +386,9 @@ runs:
           exit 0
         fi
 
-        if [ "${POLICY_VIOLATIONS:-0}" != "0" ]; then
+        if [ "${HAS_BASELINE}" != "true" ]; then
+          echo "$(node "$GITHUB_ACTION_PATH/messages.js" success POLICY_CHECK_DEFERRED)"
+        elif [ "${POLICY_VIOLATIONS:-0}" != "0" ]; then
           if [ "${POLICY_FAIL}" = "true" ]; then
             echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" error POLICY_FAIL_TRUE)"
           else
@@ -443,6 +446,8 @@ runs:
           echo ""
 
           if [ "${HAS_BASELINE}" != "true" ]; then
+            echo "> ℹ️ $(node "$GITHUB_ACTION_PATH/messages.js" success POLICY_CHECK_DEFERRED)"
+            echo ""
             if [ "${CAN_SEED}" = "true" ]; then
               echo "> 🆕 Sem baseline no Portal Afrika — scan executado **sem baseline** (baseline enviado após scan na default_branch \`${DEFAULT_BRANCH}\`)"
             else

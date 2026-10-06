@@ -8,6 +8,20 @@ const path = require('node:path');
 const test = require('node:test');
 const { hasPolicyFailure, isCurrentScanResult, shouldBlockPolicy } = require('./policy-decision');
 
+for (const baselineMode of ['repo', 'portal_afrika']) {
+    test(`${baselineMode} policy enforcement starts only when the scan uses a registered baseline`, () => {
+        const decision = { baselineMode, hasBaseline: 'false', failBuild: 'true', policyFail: 'true',
+            scanErrorCount: '0', policyViolations: '1', plannedCount: '1', scannedCount: '1',
+            flowOutcome: 'success', resultAvailable: true };
+        assert.equal(hasPolicyFailure(decision), false);
+        assert.equal(shouldBlockPolicy(decision), false);
+        assert.equal(shouldBlockPolicy({ ...decision, hasBaseline: 'true' }), true);
+        assert.equal(shouldBlockPolicy({ ...decision, hasBaseline: '' }), false);
+        assert.equal(shouldBlockPolicy({ ...decision, iacPolicyStatus: 'failed' }), true);
+        assert.equal(shouldBlockPolicy({ ...decision, scaStatus: 'failure' }), true);
+    });
+}
+
 test('blocks only when policy failure is enabled and valid scans have violations', () => {
     assert.equal(shouldBlockPolicy({ failBuild: 'true', policyFail: 'true', scanErrorCount: '0', policyViolations: '2', plannedCount: '2', scannedCount: '2', flowOutcome: 'success', resultAvailable: true }), true);
     assert.equal(shouldBlockPolicy({ failBuild: 'false', policyFail: 'true', scanErrorCount: '0', policyViolations: '2', plannedCount: '2', scannedCount: '2', resultAvailable: true }), false);

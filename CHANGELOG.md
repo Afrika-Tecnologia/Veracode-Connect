@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-06
+
+### Fixed
+
+- Nos fluxos Repo Baseline e Portal Afrika, findings do Pipeline Scan deixam de bloquear por política enquanto não existe baseline registrado sendo utilizado pelo scan. A criação do primeiro baseline após o scan não ativa bloqueio na mesma execução. Status, avisos e Resumo Final passam a refletir essa fase inicial; violações com baseline utilizado continuam bloqueantes ao final.
+
 ## [1.7.3] - 2026-10-06
 
 ### Changed

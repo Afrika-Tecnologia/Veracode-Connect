@@ -99,6 +99,7 @@ const warnings = {
 };
 
 const success = {
+    POLICY_CHECK_DEFERRED: 'Scan executado sem baseline registrado: findings de política não bloqueiam esta execução. O bloqueio começa quando o baseline é utilizado pelo scan.',
     IAC_CONFIG_DOWNLOADED: 'veracode.yml baixado de {repo}@{branch} para a raiz do repositório analisado.',
     AUTH: 'auth={source}',
     API: 'api={api}',

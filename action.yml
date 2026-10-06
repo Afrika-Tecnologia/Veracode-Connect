@@ -6,6 +6,10 @@ branding:
   color: 'purple'
 
 inputs:
+  veracode_url:
+    description: 'Link de acesso à Veracode exibido no Resumo Final e no comentário do PR.'
+    required: false
+    default: 'https://analysiscenter.veracode.com/'
   portal_afrika_api_key:
     description: 'API Key usada no header X-API-Key do Portal Afrika (GET baseline e POST upload).'
     required: false
@@ -114,14 +118,14 @@ inputs:
     description: 'Arquivo compactado enviado ao Pipeline Scan (ex.: app.zip). Usado quando o auto packager está desativado.'
     required: false
   policy_fail:
-    description: 'Habilita breakBuildOnPolicyFindings no SCA; com fail_build=true, bloqueia ao final por falha SCA ou violacoes confirmadas de policy/baseline do Pipeline/IaC (true/false).'
+    description: 'Habilita breakBuildOnPolicyFindings no SCA; com fail_build=true, bloqueia ao final por falha SCA com resultado ou violacoes confirmadas de policy/baseline do Pipeline/IaC (true/false).'
     required: false
     default: 'false'
   fail_on_severity:
     description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
   fail_build:
-    description: 'Com policy_fail=true, bloqueia ao final por falha SCA ou violacoes confirmadas de policy/baseline do Pipeline/IaC. O SCA oficial tambem falha em erros tecnicos (true/false).'
+    description: 'Com policy_fail=true, bloqueia ao final por falha SCA com resultado ou violacoes confirmadas de policy/baseline do Pipeline/IaC. Scan sem resultado gera warning (true/false).'
     required: false
     default: 'true'
   veracode_appname:
@@ -156,16 +160,16 @@ outputs:
     value: ${{ steps.resolve_repo.outputs.repository_full_name }}
   sca_status:
     description: 'Resultado do Veracode SCA (success | failure | warning | skipped).'
-    value: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
+    value: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
   iac_status:
-    description: 'Resultado do Veracode IaC/Secrets (success | failure | skipped).'
-    value: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+    description: 'Resultado do Veracode IaC/Secrets (success | failure | warning | skipped).'
+    value: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
   iac_policy_status:
     description: 'Resultado da política IaC (not_used | passed | failed | error | skipped).'
     value: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
   upload_scan_status:
-    description: 'Resultado do Upload & Scan (success | failure | skipped).'
-    value: ${{ steps.upload_and_scan.outcome || 'skipped' }}
+    description: 'Resultado do Upload & Scan (success | warning | skipped).'
+    value: ${{ steps.upload_and_scan.outcome == 'failure' && 'warning' || steps.upload_and_scan.outcome || 'skipped' }}
 
 runs:
   using: 'composite'
@@ -420,7 +424,7 @@ runs:
         FAIL_BUILD: ${{ inputs.fail_build }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
         IAC_POLICY_STATUS: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
-        SCA_STATUS: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
+        SCA_STATUS: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
         POLICY_VIOLATIONS: ${{ steps.baseline_flow.outputs.policy_violations || steps.repo_baseline_flow.outputs.policy_violations || steps.pipeline_only.outputs.policy_violations || '' }}
         SCAN_ERROR_COUNT: ${{ steps.baseline_flow.outputs.scan_error_count || steps.repo_baseline_flow.outputs.scan_error_count || steps.pipeline_only.outputs.scan_error_count || '' }}
         PLANNED_COUNT: ${{ steps.baseline_flow.outputs.planned_count || steps.repo_baseline_flow.outputs.planned_count || steps.pipeline_only.outputs.planned_count || '' }}
@@ -437,17 +441,17 @@ runs:
       uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
       with:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
-        sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
-        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+        veracode_url: ${{ inputs.veracode_url }}
+        sca_status: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
+        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
         iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         iac_policy_name: ${{ inputs.iac_policy }}
         baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
         repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}
         pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
-        upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
+        upload_outcome: ${{ steps.upload_and_scan.outcome == 'failure' && 'warning' || steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
-        sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
 
     # ── 9. Comentário no PR (opcional) ───────────────────────────────
     - name: Comentário no PR
@@ -457,15 +461,15 @@ runs:
       uses: Afrika-Tecnologia/Veracode-Connect/internal/pr-comment@v1
       with:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
-        sca_status: ${{ steps.veracode_sca.outputs.sca_status || 'skipped' }}
-        sca_scan_url: ${{ steps.veracode_sca.outputs.scan_url || '' }}
-        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || 'skipped' }}
+        veracode_url: ${{ inputs.veracode_url }}
+        sca_status: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
+        iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
         iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         iac_policy_name: ${{ inputs.iac_policy }}
         pipeline_outcome: ${{ steps.validate.outputs.baseline_mode == 'none' && steps.policy_decision.outputs.scan_status || steps.pipeline_only.outcome || 'skipped' }}
         baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.policy_decision.outputs.scan_status || steps.baseline_flow.outcome || 'skipped' }}
         repo_baseline_outcome: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.policy_decision.outputs.scan_status || steps.repo_baseline_flow.outcome || 'skipped' }}
-        upload_outcome: ${{ steps.upload_and_scan.outcome || 'skipped' }}
+        upload_outcome: ${{ steps.upload_and_scan.outcome == 'failure' && 'warning' || steps.upload_and_scan.outcome || 'skipped' }}
         validate_outcome: ${{ steps.validate.outcome || 'success' }}
         baseline_mode: ${{ steps.validate.outputs.baseline_mode || 'none' }}
         upload_app_name: ${{ inputs.veracode_appname }}
@@ -473,7 +477,6 @@ runs:
         upload_enable_sandbox: ${{ steps.upload_and_scan.outputs.enable_sandbox || 'false' }}
         upload_artifact_name: ${{ steps.upload_and_scan.outputs.artifact_name || '' }}
         upload_artifact_size: ${{ steps.upload_and_scan.outputs.artifact_size || '' }}
-        upload_platform_url: 'https://analysiscenter.veracode.com/'
 
     - name: Consolidar diagnóstico de falhas técnicas
       id: error_log_finalize

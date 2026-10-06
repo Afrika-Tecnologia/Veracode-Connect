@@ -2,6 +2,10 @@ name: 'PR Comment'
 description: 'Publica ou atualiza comentário sticky no Pull Request com resumo dos scans Veracode Connect.'
 
 inputs:
+  veracode_url:
+    description: 'Link de acesso à Veracode exibido abaixo do título do Resumo Final.'
+    required: false
+    default: 'https://analysiscenter.veracode.com/'
   fail_build:
     description: 'Valor de fail_build do orquestrador.'
     required: false
@@ -11,7 +15,7 @@ inputs:
     required: false
     default: 'skipped'
   sca_scan_url:
-    description: 'URL do relatório SCA no Veracode.'
+    description: 'Mantido por compatibilidade; links de relatório não são exibidos.'
     required: false
     default: ''
   iac_outcome:
@@ -71,7 +75,7 @@ inputs:
     required: false
     default: ''
   upload_platform_url:
-    description: 'URL base da plataforma Veracode.'
+    description: 'Mantido por compatibilidade; use veracode_url para o link de acesso.'
     required: false
     default: 'https://analysiscenter.veracode.com/'
 
@@ -91,7 +95,7 @@ runs:
         GITHUB_RUN_ID: ${{ github.run_id }}
         FAIL_BUILD: ${{ inputs.fail_build }}
         SCA_STATUS: ${{ inputs.sca_status }}
-        SCA_SCAN_URL: ${{ inputs.sca_scan_url }}
+        VERACODE_URL: ${{ inputs.veracode_url }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
         IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
@@ -106,7 +110,6 @@ runs:
         UPLOAD_ENABLE_SANDBOX: ${{ inputs.upload_enable_sandbox }}
         UPLOAD_ARTIFACT_NAME: ${{ inputs.upload_artifact_name }}
         UPLOAD_ARTIFACT_SIZE: ${{ inputs.upload_artifact_size }}
-        UPLOAD_PLATFORM_URL: ${{ inputs.upload_platform_url }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

@@ -3,7 +3,7 @@ description: 'Roda o Veracode Container/IaC/Secrets scanning (directory scan), c
 
 outputs:
   iac_status:
-    description: 'Resultado do scan IaC/Secrets (success | failure | skipped).'
+    description: 'Resultado do scan IaC/Secrets (success | failure | warning | skipped).'
     value: ${{ steps.status.outputs.iac_status }}
   iac_policy_status:
     description: 'Resultado da política IaC (not_used | passed | failed | error).'
@@ -117,6 +117,7 @@ runs:
     - name: Veracode Container/IaC/Secrets scan (diretório)
       id: iac_scan
       if: inputs.iac_policy == 'none'
+      continue-on-error: true
       uses: veracode/container_iac_secrets_scanning@62c3ac94273f079be8d6bbd82065fca5b487d282 # v1.0.8
       env:
         HOME: ${{ steps.prepare_iac_config.outputs.home }}
@@ -129,7 +130,7 @@ runs:
         source: .
         format: json
         fail_build: 'false'
-        fail_build_on_error: 'false'
+        fail_build_on_error: 'true'
 
     - name: Avaliar scan com política IaC
       id: iac_policy_scan

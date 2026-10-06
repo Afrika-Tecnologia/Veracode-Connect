@@ -61,6 +61,28 @@ function writeFragment(env, name, markdown) {
     fs.writeFileSync(path.join(dir, `${name}.md`), markdown);
 }
 
+test('summary and PR use the current configured access URL while retaining earlier scan results', { skip: !bashAvailable }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-summary-access-'));
+    try {
+        const env = envFor(dir);
+        run(initialize, { ...env, ENABLE_SCA: 'true' });
+        const first = finalSummary({ ...env, SCA_STATUS: 'success', SCA_SCAN_URL: 'https://sca.analysiscenter.veracode.com/old-scan',
+            VERACODE_URL: 'https://analysiscenter.veracode.com/old-access' }, 'first.md');
+        assert.match(first, /Link de acesso para Veracode: \[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.com\/old-access\)/);
+        const current = { ...env, VERACODE_URL: 'https://analysiscenter.veracode.eu/new-access' };
+        const md = finalSummary(current, 'last.md');
+        assert.match(md, /## 🛡️ Veracode Connect — Resumo Final\n\nLink de acesso para Veracode: \[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.eu\/new-access\)\n/);
+        assert.match(md, /Veracode SCA \| ✅ Success/);
+        assert.doesNotMatch(md, /old-access|old-scan|Relatório completo no Veracode/);
+        const body = buildCommentBody({ workspace: dir, summaryContext: current, inputs: { sca_status: 'skipped',
+            veracode_url: current.VERACODE_URL } });
+        assert.match(body, /\[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.eu\/new-access\)/);
+        assert.doesNotMatch(body, /old-access|old-scan/);
+        const defaultSummary = finalSummary(env, 'default.md');
+        assert.match(defaultSummary, /Link de acesso para Veracode: \[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.com\/\)/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('last summary and PR retain an earlier Pipeline Scan after the IaC scan replaces results.json',
     { skip: !bashAvailable }, () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-job-summary-'));

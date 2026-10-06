@@ -83,7 +83,7 @@ test('policy download/evaluation error remains visible after fallback scan compl
         scanStatus: 'success',
         policyStatus: 'error'
     }), {
-        iac_status: 'failure',
+        iac_status: 'warning',
         iac_policy_status: 'error'
     });
 });
@@ -94,8 +94,14 @@ test('scan technical error cannot be presented as a successful policy evaluation
         scanStatus: 'failure',
         policyStatus: 'passed'
     }), {
-        iac_status: 'failure',
+        iac_status: 'warning',
         iac_policy_status: 'error'
+    });
+});
+
+test('IaC without a policy reports scanner execution failure as a warning', () => {
+    assert.deepEqual(resolveIacStatus({ policyName: 'none', scanOutcome: 'failure' }), {
+        iac_status: 'warning', iac_policy_status: 'not_used'
     });
 });
 

@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.7.2
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.7.3
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,13 +44,13 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.7` também apontam para a versão `v1.7.2`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.7` também apontam para a versão `v1.7.3`.
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
 ## Resultado da esteira
 
-Com `policy_fail: 'true'` e `fail_build: 'true'` (padrão), a action bloqueia a esteira por falha reportada pelo SCA, reprovação da política IaC ou findings confirmados de policy/baseline do Pipeline Scan. No Pipeline, é necessário um resultado válido desta execução e ao menos um artefato analisado com violação. Se outro artefato apresentar erro técnico ou não puder ser analisado, isso não apaga uma violação já confirmada. Resultado ausente ou inválido, sem evidência de violação, não aciona o bloqueio do Pipeline.
+Com `policy_fail: 'true'` e `fail_build: 'true'` (padrão), a action bloqueia a esteira por falha reportada pelo SCA com resultado de análise, reprovação da política IaC ou findings confirmados de policy/baseline do Pipeline Scan. No Pipeline, é necessário um resultado válido desta execução e ao menos um artefato analisado com violação. Se outro artefato apresentar erro técnico ou não puder ser analisado, isso não apaga uma violação já confirmada. Resultado ausente ou inválido, sem evidência de violação, não aciona o bloqueio do Pipeline.
 
 Antes de planejar os scans, o Pipeline limpa seus arquivos de resultado gerados anteriormente. Isso evita usar findings antigos como evidência da execução atual; o arquivo de baseline continua disponível.
 
@@ -58,17 +58,19 @@ Todos os scans habilitados continuam antes da decisão final. O summary e o come
 
 O **Resumo Final** é gerado também quando a validação de inputs falha e reúne os resultados que puderam ser obtidos. Cada scan ou política reprovada aparece em vermelho (`❌ Failed`); violações confirmadas do Pipeline continuam vermelhas mesmo quando o bloqueio está desativado. Avisos técnicos sem violação confirmada usam amarelo. O resultado do scan e a decisão de reprovar o job são apresentados separadamente.
 
+Logo abaixo de **Veracode Connect — Resumo Final**, o summary e o comentário do PR exibem **Link de acesso para Veracode: [Acesse Aqui](https://analysiscenter.veracode.com/)**. Configure `veracode_url` para usar outro endereço de acesso, inclusive de outra região ou SSO. O padrão é `https://analysiscenter.veracode.com/`; URLs vazias ou inválidas usam esse padrão. Os links automáticos de relatório SCA e de plataforma do Upload & Scan deixam de ser exibidos.
+
 Nos fluxos SAST com baseline, a tabela **Vulnerabilidades Bloqueantes de Esteira** usa somente os findings de `filtered_results.json`, selecionados pelo Pipeline Scan após aplicar a política e o baseline. Findings novos fora dos critérios da política continuam na tabela **Todas Vulnerabilidades**. Resultado filtrado vazio significa zero bloqueantes; se o arquivo estiver ausente ou não puder ser lido, o resumo informa que os bloqueantes estão indisponíveis.
 
 Quando o Connect é chamado mais de uma vez no mesmo job, o último **Resumo Final** e o comentário do PR reúnem os resultados dessas chamadas. Um Pipeline executado antes de uma chamada somente de SCA/IaC continua visível como **Pipeline Scan (Repo Baseline)**, **Pipeline Scan (Portal Afrika Baseline)** ou **Pipeline Scan**, junto com seu detalhamento. Scans desativados na chamada seguinte preservam o resultado anterior; uma nova execução do mesmo scan substitui o resultado mostrado. A consolidação é separada por job, execução, tentativa e workspace.
 
-Falhas técnicas de validação, empacotamento, análise, envio, baseline ou publicação geram aviso e **não reprovam o job por esta action**, exceto falhas reportadas pelo SCA com `policy_fail: 'true'` e `fail_build: 'true'`. O diagnóstico técnico fica habilitado por padrão.
+Quando um scan não consegue executar ou produzir resultados, o **Resumo Final** mostra `⚠️ Warning`, preserva os avisos existentes (como `⚠️ Nenhum artefato de resultado SCA encontrado.`) e **não reprova o job por essa ausência**, mesmo com `policy_fail` e `fail_build` habilitados. Erros técnicos de execução/avaliação IaC e de Upload & Scan também ficam amarelos. Violações confirmadas por outro scan continuam bloqueantes. O diagnóstico técnico fica habilitado por padrão.
 
-No SCA, `policy_fail` é repassado ao parâmetro oficial `breakBuildOnPolicyFindings`. A action oficial marca falha para qualquer retorno não zero do scanner e não distingue reprovação de política de erro técnico; ambos podem bloquear ao final quando os dois inputs estão habilitados. O summary indica **falha do SCA**, sem afirmar que um erro técnico é uma violação comprovada de política.
+No SCA, `policy_fail` é repassado ao parâmetro oficial `breakBuildOnPolicyFindings`. Sem resultado reconhecível com bibliotecas analisadas, o status é `warning`; arquivos ausentes, inválidos, contendo apenas erros ou sem bibliotecas não bloqueiam. Resultados SCA anteriores são removidos antes de cada scan. Com resultado de análise, a falha da action oficial continua bloqueante quando os dois inputs estão habilitados. A action oficial não distingue a causa de um retorno não zero; nessa situação o summary indica **falha do SCA**, sem afirmar que ela comprova uma violação de política.
 
 A action oficial SCA Agent-based não aceita uma política por nome. Para usar a mesma política selecionada por `veracode_policy_name` no Pipeline, atribua essa política ao **workspace SCA associado ao token**, na opção Policy Assignment da plataforma Veracode. A política precisa conter regras aplicáveis ao SCA Agent-based. A Connect não altera essa atribuição e não consegue garantir que as duas políticas sejam iguais apenas pelo input. Veja [atribuição de políticas ao workspace](https://docs.veracode.com/r/Manage_security_policies) e [inputs da action oficial SCA](https://github.com/veracode/veracode-sca/blob/aeeb6aaa608a49195cab32c44b75db4f6a07a2df/action.yml).
 
-Findings do Upload & Scan não acionam essa decisão de bloqueio. Com `iac_policy: 'none'` (padrão), não há avaliação de política IaC nem bloqueio por ela. `enable_iac_configs` aplica as regras customizadas do `veracode.yml`; para bloquear por política IaC, também informe a política em `iac_policy`. Falha ao baixar/aplicar uma política pedida aparece como política não avaliada e IaC com status de falha, sem ser confundida com reprovação de policy. O Upload & Scan faz um envio assíncrono; seu resultado de policy deve ser acompanhado na plataforma Veracode.
+Findings do Upload & Scan não acionam essa decisão de bloqueio. Com `iac_policy: 'none'` (padrão), não há avaliação de política IaC nem bloqueio por ela. `enable_iac_configs` aplica as regras customizadas do `veracode.yml`; para bloquear por política IaC, também informe a política em `iac_policy`. Falha ao baixar/aplicar uma política pedida aparece como política não avaliada e IaC com status de warning, sem ser confundida com reprovação de policy. O Upload & Scan faz um envio assíncrono; seu resultado de policy deve ser acompanhado na plataforma Veracode.
 
 ## Diagnóstico de falhas técnicas
 
@@ -118,7 +120,7 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `veracode_sandbox_name` | Vazio | Obrigatório quando `veracode_sandbox` é `'true'`; no modo automático, a action gera o nome. |
 | `veracode_policy_name` | Vazio | Nome da policy para Pipeline Scan e, quando informado, Upload & Scan. |
 | `fail_on_severity` | Vazio | Severidades consideradas quando há baseline. |
-| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA ou violação confirmada de policy/baseline do Pipeline/IaC. |
+| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado ou violação confirmada de policy/baseline do Pipeline/IaC. |
 | `fail_build` | `'true'` | Em conjunto com `policy_fail`, permite bloquear a esteira ao final, depois dos scans e do summary. |
 
 ### Baseline
@@ -142,6 +144,7 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | --- | --- | --- |
 | `create_issues` | `'false'` | Publica issues de SCA e Pipeline Scan no repositório analisado. |
 | `comment_pr` | `'false'` | Publica ou atualiza um comentário no Pull Request e remove comentários extras de SCA e IaC/Secrets publicados pelo bot. |
+| `veracode_url` | `https://analysiscenter.veracode.com/` | Endereço HTTP/HTTPS do link **Acesse Aqui**, abaixo do título do Resumo Final no summary e no comentário do PR. |
 | `enable_error_logs` | `'true'` | Publica diagnóstico em falhas técnicas ou falhas reportadas pelo SCA oficial. |
 
 Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de SCA e Container/IaC/Secrets são removidos ao final do job, inclusive os de execuções anteriores. Essas actions ainda podem publicá-los temporariamente durante o scan; a remoção não impede notificações já enviadas pelo GitHub.
@@ -154,8 +157,8 @@ Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de S
 | `has_baseline` | Indica se havia baseline para o repositório. |
 | `pipeline_status` | Status do caminho seguido pelo Pipeline Scan. |
 | `repository_full_name` | Nome completo do repositório analisado. |
-| `sca_status` | Status do SCA: `success`, `failure`, `warning` ou `skipped`. `success` representa sucesso da action oficial, sem comprovar qual política está atribuída ao workspace. |
-| `iac_status` | Status do IaC/Secrets. |
+| `sca_status` | Status do SCA: `success`, `failure`, `warning` ou `skipped`. Sem resultado de análise, retorna `warning`. `success` não comprova qual política está atribuída ao workspace. |
+| `iac_status` | Status do IaC/Secrets: `success`, `failure`, `warning` ou `skipped`. Erros técnicos retornam `warning`; política reprovada retorna `failure`. |
 | `iac_policy_status` | Resultado da política IaC: `not_used`, `passed`, `failed` ou `error`. |
 | `upload_scan_status` | Status do Upload & Scan. |
 

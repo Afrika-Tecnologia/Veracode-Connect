@@ -24,12 +24,12 @@ function evaluatePolicyResult(filePath, scanExitCode) {
 function resolveIacStatus({ policyName = 'none', scanOutcome = '', scanStatus = '', policyStatus = '' }) {
     if (String(policyName).trim() === 'none') {
         const iacStatus = scanOutcome === 'success' ? 'success'
-            : scanOutcome === 'skipped' ? 'skipped' : 'failure';
+            : scanOutcome === 'skipped' ? 'skipped' : 'warning';
         return { iac_status: iacStatus, iac_policy_status: 'not_used' };
     }
 
     if (scanStatus !== 'success') {
-        return { iac_status: 'failure', iac_policy_status: 'error' };
+        return { iac_status: 'warning', iac_policy_status: 'error' };
     }
     if (policyStatus === 'passed') {
         return { iac_status: 'success', iac_policy_status: 'passed' };
@@ -37,7 +37,7 @@ function resolveIacStatus({ policyName = 'none', scanOutcome = '', scanStatus = 
     if (policyStatus === 'failed') {
         return { iac_status: 'failure', iac_policy_status: 'failed' };
     }
-    return { iac_status: 'failure', iac_policy_status: 'error' };
+    return { iac_status: 'warning', iac_policy_status: 'error' };
 }
 
 if (require.main === module) {

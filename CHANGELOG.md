@@ -6,6 +6,17 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-10-06
+
+### Changed
+
+- Removidos os links automáticos de relatório SCA e de plataforma do Upload & Scan do summary e do comentário do PR. O novo input `veracode_url`, com padrão `https://analysiscenter.veracode.com/`, define o único link de acesso exibido logo abaixo de **Veracode Connect — Resumo Final**: **Link de acesso para Veracode: Acesse Aqui**.
+
+### Fixed
+
+- Scans que não conseguem executar ou produzir resultados passam a aparecer como `⚠️ Warning` no Resumo Final e no comentário do PR, sem bloqueio por ausência de resultado. O SCA preserva os avisos existentes e exige resultado com bibliotecas analisadas para considerar a falha oficial bloqueante; artefatos anteriores são removidos antes de cada execução.
+- Erros técnicos de execução/avaliação IaC e de Upload & Scan ficam amarelos. Violações confirmadas de policy/baseline continuam vermelhas e bloqueiam somente ao final quando os inputs de bloqueio estão habilitados.
+
 ## [1.7.2] - 2026-10-06
 
 ### Fixed

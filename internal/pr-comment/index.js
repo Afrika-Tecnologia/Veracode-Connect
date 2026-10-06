@@ -13,7 +13,7 @@ const {
     GITHUB_RUN_ID,
     FAIL_BUILD,
     SCA_STATUS,
-    SCA_SCAN_URL,
+    VERACODE_URL,
     IAC_OUTCOME,
     IAC_POLICY_STATUS,
     IAC_POLICY_NAME,
@@ -27,8 +27,7 @@ const {
     UPLOAD_SANDBOX_NAME,
     UPLOAD_ENABLE_SANDBOX,
     UPLOAD_ARTIFACT_NAME,
-    UPLOAD_ARTIFACT_SIZE,
-    UPLOAD_PLATFORM_URL
+    UPLOAD_ARTIFACT_SIZE
 } = process.env;
 
 function githubApiBase() {
@@ -164,7 +163,7 @@ async function main() {
     const inputs = {
         fail_build: FAIL_BUILD,
         sca_status: SCA_STATUS || 'skipped',
-        sca_scan_url: SCA_SCAN_URL || '',
+        veracode_url: VERACODE_URL || '',
         iac_outcome: IAC_OUTCOME || 'skipped',
         iac_policy_status: IAC_POLICY_STATUS || 'not_used',
         iac_policy_name: IAC_POLICY_NAME || '',
@@ -178,8 +177,7 @@ async function main() {
         upload_sandbox_name: UPLOAD_SANDBOX_NAME || '',
         upload_enable_sandbox: UPLOAD_ENABLE_SANDBOX || 'false',
         upload_artifact_name: UPLOAD_ARTIFACT_NAME || '',
-        upload_artifact_size: UPLOAD_ARTIFACT_SIZE || '',
-        upload_platform_url: UPLOAD_PLATFORM_URL || 'https://analysiscenter.veracode.com/'
+        upload_artifact_size: UPLOAD_ARTIFACT_SIZE || ''
     };
 
     const body = buildCommentBody({

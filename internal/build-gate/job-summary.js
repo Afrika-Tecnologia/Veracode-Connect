@@ -7,11 +7,11 @@ const { FRAGMENT_ORDER, fragmentDir } = require('./assemble-summary');
 const GROUPS = [
     { fragment: 'pipeline', statuses: ['pipeline_outcome', 'baseline_outcome', 'repo_baseline_outcome'],
         fields: ['pipeline_outcome', 'baseline_outcome', 'repo_baseline_outcome', 'baseline_mode'] },
-    { fragment: 'sca', statuses: ['sca_status'], fields: ['sca_status', 'sca_scan_url'] },
+    { fragment: 'sca', statuses: ['sca_status'], fields: ['sca_status'] },
     { fragment: 'iac', statuses: ['iac_outcome'], fields: ['iac_outcome', 'iac_policy_status', 'iac_policy_name'] },
     { fragment: 'upload', statuses: ['upload_outcome'], fields: ['upload_outcome'] }
 ];
-const FIELDS = ['fail_build', 'validate_outcome', ...GROUPS.flatMap(group => group.fields)];
+const FIELDS = ['fail_build', 'validate_outcome', 'veracode_url', ...GROUPS.flatMap(group => group.fields)];
 
 function active(status) {
     return Boolean(status) && status !== 'skipped' && status !== 'not_used';
@@ -61,6 +61,7 @@ function prepare(context) {
 
 function mergeInputs(previous, current) {
     const inputs = { ...current, ...previous };
+    inputs.veracode_url = current.veracode_url || '';
     for (const group of GROUPS) {
         if (!group.statuses.some(key => active(current[key]))) continue;
         for (const key of group.fields) {

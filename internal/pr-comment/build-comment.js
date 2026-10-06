@@ -10,6 +10,7 @@ const {
 } = require('./sast-findings');
 const { extractMatches, countFromMatches } = require('../veracode-iac/summary-findings');
 const { commentState } = require('../build-gate/job-summary');
+const { accessLink } = require('../build-gate/access-link');
 
 function readJsonFile(filePath) {
     try {
@@ -261,9 +262,6 @@ function uploadSection(inputs) {
     lines.push(`| Artefato | \`${artifact}\` |`);
     lines.push(`| Tamanho | ${size} |`);
     lines.push(`| Status | ${status} |`);
-    if (inputs.upload_platform_url) {
-        lines.push(`| Plataforma | [Analysis Center](${inputs.upload_platform_url}) |`);
-    }
     lines.push('');
     return `${lines.join('\n')}\n`;
 }
@@ -292,6 +290,8 @@ function resumoFinalSection(inputs, workflowRunUrl) {
         '',
         '## 🛡️ Veracode Connect — Resumo Final',
         '',
+        accessLink(inputs.veracode_url),
+        '',
         resolveBanner(inputs),
         ''
     ];
@@ -299,10 +299,6 @@ function resumoFinalSection(inputs, workflowRunUrl) {
         lines.push('| Scan | Status |');
         lines.push('|---|---|');
         lines.push(...rows);
-        lines.push('');
-    }
-    if (inputs.sca_scan_url) {
-        lines.push(`> 🔗 [Relatório completo no Veracode](${inputs.sca_scan_url})`);
         lines.push('');
     }
     lines.push('---');

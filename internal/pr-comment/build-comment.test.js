@@ -332,7 +332,7 @@ test('isActiveStatus ignora skipped', () => {
     assert.equal(isActiveStatus('success'), true);
 });
 
-test('buildCommentBody coloca o relatório SCA no Resumo Final', () => {
+test('PR shows only the configured Veracode access link immediately below the final-summary title', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-link-'));
     fs.writeFileSync(path.join(dir, 'scaResults.txt'), [
         'Critical Risk Vulnerabilities 2',
@@ -347,11 +347,13 @@ test('buildCommentBody coloca o relatório SCA no Resumo Final', () => {
         inputs: {
             sca_status: 'success',
             sca_scan_url: 'https://example.veracode.com/scan/1',
+            veracode_url: 'https://analysiscenter.veracode.eu/custom/login?team=example',
+            upload_platform_url: 'https://analysiscenter.veracode.com/old-upload',
             iac_outcome: 'skipped',
             pipeline_outcome: 'skipped',
             baseline_outcome: 'skipped',
             repo_baseline_outcome: 'skipped',
-            upload_outcome: 'skipped',
+            upload_outcome: 'success',
             validate_outcome: 'success',
             baseline_mode: 'none',
             fail_build: 'true'
@@ -360,12 +362,35 @@ test('buildCommentBody coloca o relatório SCA no Resumo Final', () => {
 
     const scaIdx = body.indexOf('### 🔍 Veracode SCA');
     const resumoIdx = body.indexOf('## 🛡️ Veracode Connect — Resumo Final');
-    const linkIdx = body.indexOf('Relatório completo no Veracode');
     assert.ok(scaIdx >= 0 && resumoIdx > scaIdx);
-    assert.ok(linkIdx > resumoIdx);
+    assert.match(body, /## 🛡️ Veracode Connect — Resumo Final\n\nLink de acesso para Veracode: \[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.eu\/custom\/login\?team=example\)\n/);
+    assert.doesNotMatch(body, /example\.veracode\.com\/scan\/1|old-upload|Relatório completo no Veracode|\| Plataforma \|/);
+    assert.equal((body.match(/Link de acesso para Veracode:/g) || []).length, 1);
+    assert.match(body, /Mais detalhes no Step Summary/);
     assert.match(body, /\| 🔴 Very High \| 2 \|/);
     assert.doesNotMatch(body, /Status interno/);
     assert.doesNotMatch(body, /Issues GitHub: desabilitado/);
+});
+
+test('PR uses the platform login when veracode_url is absent', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-login-default-'));
+    try {
+        const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/example/repo/actions/runs/1', inputs: {} });
+        assert.match(body, /Link de acesso para Veracode: \[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.com\/\)/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('PR access URL cannot inject Markdown or an executable link scheme', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-login-escape-'));
+    try {
+        for (const value of ['javascript:alert(1)', 'https://example.veracode.com/\n\n# injected']) {
+            const body = buildCommentBody({ workspace: dir, inputs: { veracode_url: value } });
+            assert.doesNotMatch(body, /javascript:|# injected/);
+            assert.match(body, /\[Acesse Aqui\]\(https:\/\/analysiscenter\.veracode\.com\/\)/);
+        }
+        const body = buildCommentBody({ workspace: dir, inputs: { veracode_url: 'https://example.veracode.com/login(a)?next=b' } });
+        assert.match(body, /\[Acesse Aqui\]\(https:\/\/example\.veracode\.com\/login%28a%29\?next=b\)/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('buildCommentBody não lista artefatos do manifesto de scans', () => {

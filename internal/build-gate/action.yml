@@ -2,6 +2,10 @@ name: 'Build Gate'
 description: 'Resume os resultados dos scans; o orquestrador aplica o bloqueio no último step.'
 
 inputs:
+  veracode_url:
+    description: 'Link de acesso à Veracode exibido abaixo do título do Resumo Final.'
+    required: false
+    default: 'https://analysiscenter.veracode.com/'
   fail_build:
     description: 'Recebe a decisão final do orquestrador de bloquear a esteira (true/false).'
     required: false
@@ -47,7 +51,7 @@ inputs:
     required: false
     default: 'none'
   sca_scan_url:
-    description: 'URL do relatório SCA no Veracode.'
+    description: 'Mantido por compatibilidade; links de relatório não são exibidos.'
     required: false
     default: ''
 
@@ -131,7 +135,7 @@ runs:
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         UPLOAD_OUTCOME: ${{ inputs.upload_outcome }}
         VALIDATE_OUTCOME: ${{ inputs.validate_outcome }}
-        SCA_SCAN_URL: ${{ inputs.sca_scan_url }}
+        VERACODE_URL: ${{ inputs.veracode_url }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary Final"
@@ -180,6 +184,8 @@ runs:
           echo ""
           echo "## 🛡️ Veracode Connect — Resumo Final"
           echo ""
+          node "$GITHUB_ACTION_PATH/access-link.js"
+          echo ""
 
           if [ "${has_failure}" = "true" ] && [ "${FAIL_BUILD}" = "true" ]; then
             if [ "${SCA_STATUS}" = "failure" ]; then
@@ -210,10 +216,6 @@ runs:
           append_row_if_active "Upload & Scan" "${UPLOAD_OUTCOME}"
 
           echo ""
-          if [ -n "${SCA_SCAN_URL:-}" ]; then
-            echo "> 🔗 [Relatório completo no Veracode](${SCA_SCAN_URL})"
-            echo ""
-          fi
           echo "---"
           echo ""
           echo "*Gerado por [Veracode Connect](https://github.com/Afrika-Tecnologia/Veracode-Connect)*"

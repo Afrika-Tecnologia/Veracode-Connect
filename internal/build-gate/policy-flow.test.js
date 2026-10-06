@@ -55,6 +55,7 @@ const scenarios = [
     { name: 'all three scans rejected', sca: 'failure', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por falha do SCA/ },
     { name: 'IaC rejected despite input validation failure', validation: 'failure', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por policy/ },
     { name: 'SCA warning with policy blocking disabled', sca: 'warning', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
+    { name: 'SCA cannot execute with blocking enabled', unavailableSca: true, iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
     { name: 'SCA failure with fail_build disabled', sca: 'failure', failBuild: 'false', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
     { name: 'IaC rejected, Pipeline passed', iac: 'failed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'success', banner: /Build travado por policy/ },
     { name: 'Pipeline policy/baseline rejected', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
@@ -74,6 +75,24 @@ for (const scenario of scenarios) {
     test(`final policy flow: ${scenario.name}`, { skip: !bashAvailable && 'Bash is required for composite-action scripts' }, () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-policy-flow-'));
         try {
+            let scaStatus = scenario.sca || 'success';
+            if (scenario.unavailableSca) {
+                const scaPath = path.join(root, 'internal/veracode-sca');
+                const output = path.join(dir, 'sca-output');
+                const run = cp.spawnSync(bash, ['-c', stepScript(path.join(scaPath, 'action.yml'), 'id: run_sca')], {
+                    cwd: dir, env: { ...process.env, GITHUB_ACTION_PATH: scaPath.replace(/\\/g, '/'),
+                        GITHUB_OUTPUT: output.replace(/\\/g, '/'), SCA_OUTCOME: 'failure', POLICY_FAIL: 'true' }, encoding: 'utf8'
+                });
+                assert.equal(run.status, 0, run.stderr);
+                scaStatus = fs.readFileSync(output, 'utf8').trim().split('=')[1];
+                assert.equal(scaStatus, 'warning');
+                const summary = cp.spawnSync(process.execPath, [path.join(scaPath, 'summary-findings.js'),
+                    'summary-md', path.join(dir, 'scaResults.json'), path.join(dir, 'scaResults.txt')], { cwd: dir, encoding: 'utf8' });
+                assert.equal(summary.status, 0, summary.stderr);
+                const fragments = path.join(dir, 'veracode-connect-summary');
+                fs.mkdirSync(fragments);
+                fs.writeFileSync(path.join(fragments, 'sca.md'), summary.stdout);
+            }
             const marker = path.join(dir, 'started');
             const result = path.join(dir, 'results.json');
             const output = path.join(dir, 'output');
@@ -84,7 +103,7 @@ for (const scenario of scenarios) {
                 : scenario.mode === 'portal_afrika' ? 'baseline_flow' : 'pipeline_only';
             const context = {
                 'inputs.fail_build': scenario.failBuild || 'true', 'inputs.policy_fail': scenario.policyFail,
-                'steps.veracode_sca.outputs.sca_status': scenario.sca || 'success',
+                'steps.veracode_sca.outputs.sca_status': scaStatus,
                 'steps.veracode_iac.outputs.iac_policy_status': scenario.iac,
                 'steps.validate.outputs.baseline_mode': scenario.mode || 'none',
                 'steps.error_log_init.outputs.start_marker': marker, 'github.workspace': dir,
@@ -107,8 +126,8 @@ for (const scenario of scenarios) {
             const summaryEnv = {
                 ...env, FAIL_BUILD: outputs.blocked, GITHUB_ACTION_PATH: __dirname.replace(/\\/g, '/'),
                 RUNNER_TEMP: dir.replace(/\\/g, '/'), GITHUB_STEP_SUMMARY: summary.replace(/\\/g, '/'),
-                VALIDATE_OUTCOME: scenario.validation || 'success', SCA_STATUS: scenario.sca || 'success', UPLOAD_OUTCOME: 'success',
-                IAC_OUTCOME: ['failed', 'error'].includes(scenario.iac) ? 'failure' : 'success',
+                VALIDATE_OUTCOME: scenario.validation || 'success', SCA_STATUS: scaStatus, UPLOAD_OUTCOME: 'success',
+                IAC_OUTCOME: scenario.iac === 'error' ? 'warning' : scenario.iac === 'failed' ? 'failure' : 'success',
                 IAC_POLICY_NAME: 'Container IaC Policy - N2',
                 BASELINE_OUTCOME: scenario.mode === 'portal_afrika' ? pipelineStatus : 'skipped',
                 REPO_BASELINE_OUTCOME: scenario.mode === 'repo' ? pipelineStatus : 'skipped',
@@ -120,11 +139,16 @@ for (const scenario of scenarios) {
             const text = fs.readFileSync(summary, 'utf8');
             assert.match(text, /Resumo Final/);
             assert.match(text, scenario.banner);
-            if (scenario.sca === 'failure') assert.match(text, /\| Veracode SCA \| ❌ Failed \|/);
-            else if (scenario.sca === 'warning') assert.match(text, /\| Veracode SCA \| ⚠️ Warning \|/);
+            if (scaStatus === 'failure') assert.match(text, /\| Veracode SCA \| ❌ Failed \|/);
+            else if (scaStatus === 'warning') assert.match(text, /\| Veracode SCA \| ⚠️ Warning \|/);
             else assert.match(text, /\| Veracode SCA \| ✅ Success \|/);
             assert.match(text, /\| Upload & Scan \| ✅ Success \|/);
             if (scenario.iac === 'failed') assert.match(text, /\| Política IaC \| ❌ Failed \|/);
+            if (scenario.unavailableSca) {
+                assert.match(text, /⚠️ Nenhum artefato de resultado SCA encontrado\./);
+                assert.match(text, /\| Veracode IaC\/Secrets \| ⚠️ Warning \|/);
+                assert.doesNotMatch(text, /❌ Failed|Build travado/);
+            }
             if (scenario.pipelineStatus === 'success') assert.match(text, /\| Pipeline Scan \| ✅ Success \|/);
             if (scenario.pipelineStatus === 'failure' && !scenario.mode) assert.match(text, /\| Pipeline Scan \| ❌ Failed \|/);
             if (scenario.validation === 'failure') assert.match(text, /\| Validação de Inputs \| ❌ Failed \|/);

@@ -14,6 +14,27 @@ const {
 } = require('./build-comment');
 const { MARKER } = require('./messages');
 
+test('saved SCA/IaC fragments do not expand the consolidated PR beyond its compact sections', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-compact-'));
+    try {
+        const context = { RUNNER_TEMP: dir, GITHUB_REPOSITORY: 'example/repo', GITHUB_RUN_ID: '1',
+            GITHUB_RUN_ATTEMPT: '1', GITHUB_JOB: 'security', GITHUB_WORKSPACE: dir };
+        const fragmentDir = path.join(dir, 'veracode-connect-summary');
+        fs.mkdirSync(fragmentDir);
+        fs.writeFileSync(path.join(fragmentDir, 'job-state.json'), JSON.stringify({
+            scope: JSON.stringify(['example/repo', '1', '1', 'security', dir]),
+            inputs: { sca_status: 'success', iac_outcome: 'success' },
+            fragments: { sca: 'VERBOSE SCA '.repeat(10000), iac: 'VERBOSE IAC '.repeat(10000) }
+        }));
+        fs.writeFileSync(path.join(dir, 'scaResults.txt'), 'High Risk Vulnerabilities 1\nTotal Libraries 1\n');
+        const body = buildCommentBody({ workspace: dir, summaryContext: context, workflowRunUrl: 'https://github.com/example/repo/actions/runs/1',
+            inputs: { sca_status: 'success', iac_outcome: 'success' } });
+        assert.ok(body.length < 65536, 'PR should keep SCA/IaC sections compact');
+        assert.doesNotMatch(body, /VERBOSE SCA|VERBOSE IAC/);
+        assert.match(body, /High \| 1/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('PR comment includes custom secret and configuration findings in IaC totals', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-iac-custom-'));
     try {
@@ -257,7 +278,7 @@ test('buildCommentBody com baseline destaca tabela de novas', () => {
     assert.match(body, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
 });
 
-test('buildCommentBody com baseline.json ignora filtered_results vazio', () => {
+test('buildCommentBody com baseline.json respeita filtered_results vazio', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-base-split-'));
     fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
         findings: [
@@ -298,9 +319,11 @@ test('buildCommentBody com baseline.json ignora filtered_results vazio', () => {
 
     assert.match(body, /### 🔬 Veracode Pipeline Scan \(Portal Afrika Baseline\)/);
     assert.match(body, /#### SAST - Vulnerabilidades Bloqueantes de Esteira/);
+    const [blocking] = body.split('#### SAST - Todas Vulnerabilidades');
+    assert.match(blocking, /\| \*\*Total\*\* \| \*\*0\*\* \|/);
+    assert.doesNotMatch(blocking, /Detalhamento de Vulnerabilidades Bloqueantes/);
     assert.match(body, /\| 🟠 High \| 1 \|/);
     assert.match(body, /\| 🔴 Very High \| 1 \|/);
-    assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \|/);
     assert.match(body, /\| \*\*Total\*\* \| \*\*2\*\* \|/);
 });
 

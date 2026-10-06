@@ -176,8 +176,15 @@ runs:
       shell: bash
       env:
         ENABLE_ERROR_LOGS: ${{ inputs.enable_error_logs }}
+        ENABLE_PIPELINESCAN: ${{ inputs.enable_pipelinescan }}
+        BASELINE_MODE: ${{ inputs.baseline_mode }}
+        ENABLE_SCA: ${{ inputs.enable_sca }}
+        ENABLE_IAC: ${{ inputs.enable_iac }}
+        ENABLE_UPLOAD_SCAN: ${{ inputs.enable_upload_scan }}
+        ENABLE_AUTO_PACKAGER: ${{ inputs.enable_auto_packager }}
       run: |
         set -euo pipefail
+        node "$GITHUB_ACTION_PATH/internal/build-gate/job-summary.js" prepare
         echo "VERACODE_CONNECT_ERROR_LOGS=${ENABLE_ERROR_LOGS}" >> "$GITHUB_ENV"
         LOG_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${RANDOM}-${RANDOM}"
         echo "VERACODE_CONNECT_LOG_ID=${LOG_ID}" >> "$GITHUB_ENV"

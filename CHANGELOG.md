@@ -6,6 +6,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-06
+
+### Fixed
+
+- O último Resumo Final e o comentário do PR consolidam os scans executados por chamadas anteriores do Connect no mesmo job. O Pipeline aparece como **Pipeline Scan (Repo Baseline)** ou **Pipeline Scan (Portal Afrika Baseline)** e seu detalhamento é preservado quando a chamada seguinte executa somente SCA/IaC. Resultados de outros jobs, execuções e tentativas não são reutilizados; uma nova execução do mesmo scan substitui seu detalhamento anterior.
+- O summary SAST e o comentário do PR passam a listar como **Vulnerabilidades Bloqueantes de Esteira** somente os findings de `filtered_results.json`, que o Pipeline Scan seleciona pelos critérios da política após aplicar o baseline. Novos findings fora da política permanecem apenas na tabela completa; um resultado filtrado vazio não é substituído pela comparação local com o baseline. Resultado filtrado ausente ou inválido gera aviso de bloqueantes indisponíveis.
+
 ## [1.7.1] - 2026-10-05
 
 ### Fixed

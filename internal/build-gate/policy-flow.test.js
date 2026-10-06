@@ -129,8 +129,8 @@ for (const scenario of scenarios) {
             if (scenario.pipelineStatus === 'failure' && !scenario.mode) assert.match(text, /\| Pipeline Scan \| ❌ Failed \|/);
             if (scenario.validation === 'failure') assert.match(text, /\| Validação de Inputs \| ❌ Failed \|/);
             if (scenario.pipelineStatus === 'skipped') assert.doesNotMatch(text, /\| Pipeline Scan \|/);
-            if (scenario.mode === 'repo') assert.match(text, /\| Repo Baseline \| ❌ Failed \|/);
-            if (scenario.mode === 'portal_afrika') assert.match(text, /\| Portal Afrika Baseline \| ❌ Failed \|/);
+            if (scenario.mode === 'repo') assert.match(text, /\| Pipeline Scan \(Repo Baseline\) \| ❌ Failed \|/);
+            if (scenario.mode === 'portal_afrika') assert.match(text, /\| Pipeline Scan \(Portal Afrika Baseline\) \| ❌ Failed \|/);
 
             // The orchestrator runs this final step only when blocked=true.
             if (outputs.blocked === 'true') {

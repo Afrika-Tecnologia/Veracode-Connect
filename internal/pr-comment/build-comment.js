@@ -9,6 +9,7 @@ const {
     loadFindings
 } = require('./sast-findings');
 const { extractMatches, countFromMatches } = require('../veracode-iac/summary-findings');
+const { commentState } = require('../build-gate/job-summary');
 
 function readJsonFile(filePath) {
     try {
@@ -281,8 +282,8 @@ function resumoFinalSection(inputs, workflowRunUrl) {
         const policyName = String(inputs.iac_policy_name || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
         rows.push(`| Política IaC${policyName ? ` — ${policyName}` : ''} | ${statusIcon(inputs.iac_policy_status)} |`);
     }
-    appendIfActive('Portal Afrika Baseline', inputs.baseline_outcome);
-    appendIfActive('Repo Baseline', inputs.repo_baseline_outcome);
+    appendIfActive('Pipeline Scan (Portal Afrika Baseline)', inputs.baseline_outcome);
+    appendIfActive('Pipeline Scan (Repo Baseline)', inputs.repo_baseline_outcome);
     appendIfActive('Pipeline Scan', inputs.pipeline_outcome);
     appendIfActive('Upload & Scan', inputs.upload_outcome);
 
@@ -327,13 +328,17 @@ function buildCommentBody(options) {
     const {
         workspace,
         workflowRunUrl,
-        inputs
+        inputs: currentInputs,
+        summaryContext
     } = options;
+    const saved = commentState(summaryContext, currentInputs);
+    const inputs = saved?.inputs || currentInputs;
 
     const lines = [MARKER, ''];
 
     if (pipelineRan(inputs)) {
-        lines.push(pipelineSection(workspace, inputs));
+        lines.push(saved ? saved.fragments.pipeline || `${pipelineHeading(inputs.baseline_mode)}\n\n> ⚠️ Resumo do Pipeline Scan indisponível.\n`
+            : pipelineSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.sca_status)) {
         lines.push(scaSection(workspace));
@@ -342,7 +347,7 @@ function buildCommentBody(options) {
         lines.push(iacSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.upload_outcome)) {
-        lines.push(uploadSection(inputs));
+        lines.push(saved?.fragments.upload || uploadSection(inputs));
     }
 
     lines.push(resumoFinalSection(inputs, workflowRunUrl));

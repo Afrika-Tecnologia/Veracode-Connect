@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {
     putBaseline,
+    getBaseline,
     githubErrorDetail,
     isEmptyRepoConflict,
     isRulesetViolation,
@@ -55,7 +56,7 @@ function mockGitData({
     global.fetch = async (url, options = {}) => {
         const method = (options.method || 'GET').toUpperCase();
         const u = String(url);
-        calls.push({ url: u, method });
+        calls.push({ url: u, method, body: options.body ? JSON.parse(options.body) : undefined });
 
         if (method === 'GET' && u.includes('/contents/')) {
             contentsGets += 1;
@@ -178,6 +179,31 @@ test('resolveRequestedStoreBranch trata vazio como default dinâmico', () => {
     assert.equal(resolveRequestedStoreBranch(''), '');
     assert.equal(resolveRequestedStoreBranch('   '), '');
     assert.equal(resolveRequestedStoreBranch('develop'), 'develop');
+});
+
+test('a successful scan without findings is stored and read as an existing empty baseline', async () => {
+    const { dir, file } = writeResults();
+    try {
+        const { mergeSlots } = require('../pipeline-scan-set/merge-results.js');
+        const scan = { scan_status: 'SUCCESS', scan_id: 'clean-scan', findings: [] };
+        fs.writeFileSync(path.join(dir, 'results-1.json'), JSON.stringify(scan));
+        fs.writeFileSync(path.join(dir, 'filtered-1.json'), '{"findings":[]}');
+        const merged = mergeSlots({ workspace: dir, files: ['app.zip'], manifestPath: path.join(dir, 'manifest.json') });
+        assert.equal(merged.scanErrorCount, 0);
+        assert.equal(merged.scannedCount, 1);
+        const calls = mockGitData({ fileExists: false, fileExistsAfterPatch: true });
+        const written = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file, 'main');
+        assert.equal(written.seeded, true);
+        const blob = calls.find(call => call.method === 'POST' && call.url.endsWith('/git/blobs'));
+        const stored = JSON.parse(Buffer.from(blob.body.content, 'base64').toString('utf8'));
+        assert.equal(stored.scan_status, 'SUCCESS');
+        assert.deepEqual(stored.findings, []);
+        const baselineFile = path.join(dir, 'baseline.json');
+        const read = await getBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, baselineFile, 'main');
+        assert.equal(read.hasBaseline, true);
+        assert.deepEqual(JSON.parse(fs.readFileSync(baselineFile, 'utf8')).findings, []);
+        assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8'), /^has_baseline=true$/m);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('putBaseline grava na branch informada', async () => {

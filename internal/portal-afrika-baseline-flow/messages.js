@@ -43,7 +43,7 @@ const warnings = {
     UPLOAD_BASELINE_FAILED:
         'Falha ao enviar resultados com baseline para o Portal Afrika (HTTP {status}). O job continua.',
     SEED_NOT_DEFAULT_BRANCH:
-        'Sem baseline e a execução não está na default_branch ("{default_branch}"). O Pipeline Scan segue sem baseline e o seed NÃO será enviado ao Portal Afrika. Rode na default_branch para criar o baseline.',
+        'Sem baseline e a execução não está na default_branch ("{default_branch}") nem em PR destinado a ela. O Pipeline Scan segue sem baseline e o seed NÃO será enviado ao Portal Afrika. Rode na default_branch ou em PR destinado a ela para criar o baseline.',
     POLICY_FAIL_FALSE:
         'Pipeline Scan reportou falhas, mas policy_fail=false (o job continua).',
     FILTERED_RESULTS_MISSING:
@@ -59,7 +59,7 @@ const success = {
     BASELINE_LOCAL_CREATED: 'baseline local criado: baseline.json',
     UPLOAD_RESULT_OK: 'upload resultado com baseline concluído (HTTP {status})',
     SEED_UPLOADED: 'baseline enviado ao Portal Afrika (HTTP {status}) repo={repo}',
-    SEED_ELIGIBLE: 'seed=elegível branch={branch}',
+    SEED_ELIGIBLE: 'seed=elegível branch={branch} destino={target_branch}',
     PIPELINE_STATUS_SET: 'pipeline_status={status}',
     ARTIFACT_NAME_SET: 'artifact_name={name}',
     FILTERED_RESULTS_FOUND: 'filtered_results.json=encontrado',

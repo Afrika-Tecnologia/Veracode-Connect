@@ -6,6 +6,16 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-10-14
+
+### Changed
+
+- Os fluxos Repo Baseline e Portal Afrika permitem gravar o baseline após um scan válido em PR destinado à `default_branch` do repositório analisado, além das execuções nessa branch. A comparação usa a branch de destino do PR e independe do nome da branch padrão. Em PRs, a gravação ocorre antes do merge; scans válidos sem vulnerabilidades também podem registrar um baseline vazio. PRs destinados a outras branches e eventos sem `default_branch` não autorizam o seed; erros de scan continuam impedindo a gravação.
+
+### Added
+
+- Testes para elegibilidade do baseline em PRs destinados a `main`, `master` e branches padrão customizadas, bloqueio de destinos diferentes e gravação/leitura de baseline vazio.
+
 ## [1.7.4] - 2026-10-06
 
 ### Fixed

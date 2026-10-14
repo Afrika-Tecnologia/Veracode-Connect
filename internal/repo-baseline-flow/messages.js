@@ -89,7 +89,7 @@ const warnings = {
     RETRY:
         'retry {attempt}/{max} HTTP {status}: {detail}',
     SEED_NOT_DEFAULT_BRANCH:
-        'baseline ausente; seed bloqueado: branch={branch} ≠ default={default_branch}',
+        'baseline ausente; seed bloqueado: execução fora da default_branch={default_branch} e sem PR destinado a ela (branch={branch}).',
     POLICY_FAIL_FALSE:
         'Pipeline Scan falhou; policy_fail=false.',
     FILTERED_RESULTS_MISSING:
@@ -111,7 +111,7 @@ const success = {
     BASELINE_WRITTEN: 'baseline gravado: {store} branch={branch} sha={sha}',
     BASELINE_UPDATED: 'baseline atualizado: {store} branch={branch} sha={sha}',
     GIT_REF_FALLBACK: 'GET /git/ref HTTP 404; usando GET /git/refs.',
-    SEED_ELIGIBLE: 'seed=elegível branch={branch}',
+    SEED_ELIGIBLE: 'seed=elegível branch={branch} destino={target_branch}',
     PIPELINE_STATUS_SET: 'pipeline_status={status}',
     ARTIFACT_NAME_SET: 'artifact_name={name}',
     FILTERED_RESULTS_FOUND: 'filtered_results.json=encontrado',

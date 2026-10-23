@@ -12,18 +12,23 @@ function format(template, vars = {}) {
     ));
 }
 
-const errors = {};
+const errors = {
+    CVE_GATE_BLOCKED: 'fail_on_cve: {count} finding(s) SCA com CVE bloqueado ({list}).'
+};
 
 const warnings = {
     SCA_FAILED_CONTINUE: 'Veracode SCA retornou falha; os demais scans continuam e o bloqueio sera decidido ao final.',
-    NO_SCA_RESULTS: 'Nenhum scaResults.txt/json encontrado após o scan SCA.'
+    NO_SCA_RESULTS: 'Nenhum scaResults.txt/json encontrado após o scan SCA.',
+    CVE_GATE_NO_RESULTS: 'fail_on_cve preenchido, mas scaResults.json válido não foi encontrado; a checagem de CVE não pôde ser avaliada.'
 };
 
 const success = {
     SCA_STATUS_SET: 'sca_status={status}',
     SCA_ARTIFACT_NORMALIZED: 'artefato_sca={file} (origem: {source})',
     ARTIFACT_NAME_SET: 'artifact_name={name}',
-    SUMMARY_WRITTEN: 'summary=escrito'
+    SUMMARY_WRITTEN: 'summary=escrito',
+    CVE_GATE_SKIPPED: 'fail_on_cve=vazio (checagem desligada)',
+    CVE_GATE_CLEAR: 'fail_on_cve=ok (nenhum CVE bloqueado; pedidos={requested})'
 };
 
 const catalogs = {

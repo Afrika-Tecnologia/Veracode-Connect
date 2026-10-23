@@ -33,6 +33,7 @@ const errors = {
     UPLOAD_SCAN_ARTIFACTS_INVALID: "upload_scan_artifacts deve ser 'all' ou 'primary'.",
     PIPELINE_SCAN_MAX_ARTIFACTS_INVALID: "pipeline_scan_max_artifacts deve ser um inteiro entre 1 e 6.",
     PIPELINE_SCAN_RETRY_INVALID: "pipeline_scan_retry deve ser 'true' ou 'false'.",
+    FAIL_ON_CVE_INVALID: "fail_on_cve contém CVE inválido: '{cve}'. Use o formato CVE-YYYY-NNNN+ (ex.: CVE-2021-44228), separados por vírgula, espaço ou quebra de linha.",
     SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
     SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name.',
     BASELINE_MODE_INVALID: "baseline_mode inválido: '{mode}'. Use 'none', 'portal_afrika' ou 'repo'.",

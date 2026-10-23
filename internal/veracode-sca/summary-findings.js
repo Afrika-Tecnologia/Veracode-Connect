@@ -185,9 +185,44 @@ function bandLabel(band) {
     }
 }
 
-function renderMarkdown(counts, vulns, { createIssues }) {
+function findingsTableRows(vulns) {
+    return vulns.map((row, index) => {
+        const { icon, label } = bandLabel(row.band);
+        const desc = row.title.length > 80 ? `${row.title.slice(0, 77)}...` : row.title;
+        return `| ${index + 1} | ${icon} ${label} | ${row.cve} | ${desc || '—'} | ${row.library || '—'} |`;
+    });
+}
+
+function renderBlockedCveSection(blocked) {
+    if (!blocked || !Array.isArray(blocked.requested) || blocked.requested.length === 0) {
+        return [];
+    }
+    const findings = Array.isArray(blocked.findings) ? blocked.findings : [];
+    const missing = Array.isArray(blocked.missing)
+        ? blocked.missing
+        : blocked.requested.filter((cve) => !(blocked.matched || []).includes(cve));
     const lines = [];
-    lines.push('### 🔍 Veracode SCA (Software Composition Analysis)');
+    lines.push(`#### Findings bloqueados por CVE (${findings.length})`);
+    lines.push('');
+    if (findings.length === 0) {
+        lines.push('> Nenhum CVE da lista `fail_on_cve` foi encontrado no resultado SCA.');
+        lines.push('');
+    } else {
+        lines.push('| # | Severidade | CVE | Descrição | Biblioteca |');
+        lines.push('|---|---|---|---|---|');
+        lines.push(...findingsTableRows(findings));
+        lines.push('');
+    }
+    if (missing.length > 0) {
+        lines.push(`> CVEs pedidos sem match: ${missing.join(', ')}`);
+        lines.push('');
+    }
+    return lines;
+}
+
+function renderScaFindingsSection(counts, vulns, { createIssues }) {
+    const lines = [];
+    lines.push('#### Findings do SCA');
     lines.push('');
     if (createIssues) {
         lines.push('> 📝 Issues GitHub: **habilitado** (`create_issues: true`)');
@@ -209,19 +244,24 @@ function renderMarkdown(counts, vulns, { createIssues }) {
     lines.push('');
 
     if (vulns.length > 0) {
-        lines.push(`<details><summary>Detalhamento de SCA (${vulns.length})</summary>`);
+        lines.push(`<details><summary>Findings do SCA (${vulns.length})</summary>`);
         lines.push('');
         lines.push('| # | Severidade | CVE | Descrição | Biblioteca |');
         lines.push('|---|---|---|---|---|');
-        vulns.forEach((row, index) => {
-            const { icon, label } = bandLabel(row.band);
-            const desc = row.title.length > 80 ? `${row.title.slice(0, 77)}...` : row.title;
-            lines.push(`| ${index + 1} | ${icon} ${label} | ${row.cve} | ${desc || '—'} | ${row.library || '—'} |`);
-        });
+        lines.push(...findingsTableRows(vulns));
         lines.push('');
         lines.push('</details>');
         lines.push('');
     }
+    return lines;
+}
+
+function renderMarkdown(counts, vulns, { createIssues, blocked } = {}) {
+    const lines = [];
+    lines.push('### 🔍 Veracode SCA (Software Composition Analysis)');
+    lines.push('');
+    lines.push(...renderBlockedCveSection(blocked));
+    lines.push(...renderScaFindingsSection(counts, vulns, { createIssues }));
     return `${lines.join('\n')}\n`;
 }
 
@@ -232,12 +272,24 @@ function resolveInputs(jsonPath, txtPath) {
     return { json, txt, log };
 }
 
-function buildSummary({ jsonPath, txtPath, createIssues }) {
+function loadBlockedArtifact(blockedPath) {
+    if (!blockedPath) {
+        return null;
+    }
+    const data = readJson(blockedPath);
+    if (!data || !Array.isArray(data.requested) || data.requested.length === 0) {
+        return null;
+    }
+    return data;
+}
+
+function buildSummary({ jsonPath, txtPath, createIssues, blockedPath, blocked }) {
     const paths = resolveInputs(jsonPath, txtPath);
+    const blockedData = blocked || loadBlockedArtifact(blockedPath);
     const jsonData = readJson(paths.json);
     if (jsonData?.records) {
         const parsed = countFromJson(jsonData);
-        return renderMarkdown(parsed.counts, parsed.vulns, { createIssues });
+        return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
     }
 
     let text = '';
@@ -248,13 +300,13 @@ function buildSummary({ jsonPath, txtPath, createIssues }) {
                 const parsedJson = readJson(candidate);
                 if (parsedJson?.records) {
                     const parsed = countFromJson(parsedJson);
-                    return renderMarkdown(parsed.counts, parsed.vulns, { createIssues });
+                    return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
                 }
                 continue;
             }
             if (/Risk\s+Vulnerabilities/i.test(text) || /^\s*(CVE-\S+|NO-CVE)\s+/m.test(text)) {
                 const parsed = countFromText(text);
-                return renderMarkdown(parsed.counts, parsed.vulns, { createIssues });
+                return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
             }
         }
     }
@@ -262,6 +314,7 @@ function buildSummary({ jsonPath, txtPath, createIssues }) {
     const lines = [
         '### 🔍 Veracode SCA (Software Composition Analysis)',
         '',
+        ...renderBlockedCveSection(blockedData),
         '> ⚠️ Nenhum artefato de resultado SCA encontrado.',
         ''
     ];
@@ -277,7 +330,11 @@ if (require.main === module) {
         const md = buildSummary({
             jsonPath: process.argv[3] || process.env.SCA_JSON || 'scaResults.json',
             txtPath: process.argv[4] || process.env.SCA_TXT || 'scaResults.txt',
-            createIssues: String(process.env.CREATE_ISSUES || '').toLowerCase() === 'true'
+            createIssues: String(process.env.CREATE_ISSUES || '').toLowerCase() === 'true',
+            blockedPath: process.env.CVE_BLOCKED_PATH
+                || (process.env.RUNNER_TEMP
+                    ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
+                    : '')
         });
         process.stdout.write(md);
         process.stderr.write(`${message('success', 'SUMMARY_WRITTEN')}\n`);
@@ -293,5 +350,8 @@ module.exports = {
     countFromText,
     buildSummary,
     renderMarkdown,
-    emptyCounts
+    renderBlockedCveSection,
+    renderScaFindingsSection,
+    emptyCounts,
+    loadBlockedArtifact
 };

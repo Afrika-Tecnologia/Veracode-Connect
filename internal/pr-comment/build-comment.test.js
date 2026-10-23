@@ -84,6 +84,74 @@ test('IaC policy failure cannot produce a green summary even if scan outcome is 
     assert.doesNotMatch(banner, /Todos os checks ativos passaram/i);
 });
 
+test('resolveBanner destaca CVE bloqueado no SCA quando fail_build trava', () => {
+    const banner = resolveBanner({
+        fail_build: 'true',
+        sca_status: 'failure',
+        sca_cve_blocked_count: '2'
+    });
+    assert.match(banner, /Build travado por CVE bloqueado no SCA/);
+});
+
+test('buildCommentBody lista Findings bloqueados por CVE acima de Findings do SCA', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-cve-'));
+    try {
+        fs.writeFileSync(path.join(dir, 'scaResults.json'), JSON.stringify({
+            records: [{
+                libraries: [{ name: 'log4j-core', versions: [{ version: '2.14.1' }] }],
+                graphs: [],
+                vulnerabilities: [{
+                    cve: '2021-44228',
+                    title: 'Log4Shell',
+                    cvss3Score: 10,
+                    exploitability: { cveFull: 'CVE-2021-44228' },
+                    libraries: [{ _links: { ref: '/records/0/libraries/0/versions/0' } }]
+                }]
+            }]
+        }));
+        const fragmentDir = path.join(dir, 'veracode-connect-summary');
+        fs.mkdirSync(fragmentDir);
+        fs.writeFileSync(path.join(fragmentDir, 'sca-cve-blocked.json'), JSON.stringify({
+            requested: ['CVE-2021-44228', 'CVE-2021-45046'],
+            matched: ['CVE-2021-44228'],
+            missing: ['CVE-2021-45046'],
+            findings: [{
+                band: 'critical',
+                score: 10,
+                cve: 'CVE-2021-44228',
+                title: 'Log4Shell',
+                library: 'log4j-core@2.14.1'
+            }]
+        }));
+        const previous = process.env.RUNNER_TEMP;
+        process.env.RUNNER_TEMP = dir;
+        const body = buildCommentBody({
+            workspace: dir,
+            workflowRunUrl: 'https://github.com/example/repo/actions/runs/1',
+            inputs: {
+                fail_build: 'true',
+                sca_status: 'failure',
+                sca_cve_blocked_count: '1',
+                iac_outcome: 'skipped',
+                pipeline_outcome: 'skipped',
+                baseline_outcome: 'skipped',
+                repo_baseline_outcome: 'skipped',
+                upload_outcome: 'skipped',
+                validate_outcome: 'success'
+            }
+        });
+        process.env.RUNNER_TEMP = previous;
+        const blockedIdx = body.indexOf('#### Findings bloqueados por CVE (1)');
+        const scaIdx = body.indexOf('#### Findings do SCA');
+        assert.ok(blockedIdx >= 0);
+        assert.ok(scaIdx > blockedIdx);
+        assert.match(body, /CVE-2021-44228/);
+        assert.match(body, /Build travado por CVE bloqueado no SCA/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 test('countPipelineFindings agrega severidades', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-'));
     const file = path.join(dir, 'results.json');

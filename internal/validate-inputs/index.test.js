@@ -235,3 +235,29 @@ test('validate-inputs falha quando pipeline_scan_retry não é booleano', () => 
     const stdout = result.stdout.toString();
     assert.match(stdout, /pipeline_scan_retry deve ser 'true' ou 'false'\./);
 });
+
+test('validate-inputs falha quando fail_on_cve tem CVE inválido', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            FAIL_ON_CVE: 'CVE-2021-44228,LOG4SHELL'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /fail_on_cve contém CVE inválido: 'LOG4SHELL'/);
+});
+
+test('validate-inputs aceita fail_on_cve com lista válida', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            FAIL_ON_CVE: 'CVE-2021-44228, CVE-2021-45046'
+        }
+    });
+    assert.equal(result.status, 0, result.stdout.toString());
+    assert.match(result.stdout.toString(), /validação=ok/);
+});

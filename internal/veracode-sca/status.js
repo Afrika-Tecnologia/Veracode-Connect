@@ -23,15 +23,23 @@ function hasScanResults() {
     return false;
 }
 
-function resolveScaStatus(outcome, policyFail) {
+function resolveScaStatus(outcome, policyFail, cveBlockedCount = 0) {
+    const blocked = Number(cveBlockedCount) > 0;
     if (!hasScanResults()) return 'warning';
+    if (blocked) {
+        return policyFail === 'true' ? 'failure' : 'warning';
+    }
     if (outcome === 'success') return 'success';
     if (outcome === 'failure' && policyFail === 'true') return 'failure';
     return 'warning';
 }
 
 if (require.main === module) {
-    process.stdout.write(`${resolveScaStatus(process.env.SCA_OUTCOME, process.env.POLICY_FAIL)}\n`);
+    process.stdout.write(`${resolveScaStatus(
+        process.env.SCA_OUTCOME,
+        process.env.POLICY_FAIL,
+        process.env.CVE_BLOCKED_COUNT || '0'
+    )}\n`);
 }
 
 module.exports = { resolveScaStatus };

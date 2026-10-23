@@ -52,6 +52,8 @@ function decisionEnv(context) {
 const scenarios = [
     { name: 'IaC rejected, Pipeline disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por policy/ },
     { name: 'SCA failed with policy blocking enabled', sca: 'failure', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por falha do SCA/ },
+    { name: 'SCA blocked by fail_on_cve with policy_fail and fail_build', sca: 'failure', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por CVE bloqueado no SCA/ },
+    { name: 'SCA CVE match without policy_fail does not block', sca: 'warning', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
     { name: 'all three scans rejected', sca: 'failure', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por falha do SCA/ },
     { name: 'IaC rejected despite input validation failure', validation: 'failure', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por policy/ },
     { name: 'SCA warning with policy blocking disabled', sca: 'warning', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
@@ -131,6 +133,7 @@ for (const scenario of scenarios) {
                 ...env, FAIL_BUILD: outputs.blocked, GITHUB_ACTION_PATH: __dirname.replace(/\\/g, '/'),
                 RUNNER_TEMP: dir.replace(/\\/g, '/'), GITHUB_STEP_SUMMARY: summary.replace(/\\/g, '/'),
                 VALIDATE_OUTCOME: scenario.validation || 'success', SCA_STATUS: scaStatus, UPLOAD_OUTCOME: 'success',
+                SCA_CVE_BLOCKED_COUNT: scenario.cveBlocked || '0',
                 IAC_OUTCOME: scenario.iac === 'error' ? 'warning' : scenario.iac === 'failed' ? 'failure' : 'success',
                 IAC_POLICY_NAME: 'Container IaC Policy - N2',
                 BASELINE_OUTCOME: scenario.mode === 'portal_afrika' ? pipelineStatus : 'skipped',

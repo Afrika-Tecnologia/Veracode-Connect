@@ -21,11 +21,21 @@ inputs:
     description: 'Repassa breakBuildOnPolicyFindings para a action oficial; o orquestrador bloqueia somente ao final (true/false).'
     required: false
     default: 'false'
+  fail_on_cve:
+    description: 'Lista de CVEs exatos que, se encontrados no scaResults.json, marcam o SCA como failure (com policy_fail=true).'
+    required: false
+    default: ''
 
 outputs:
   sca_status:
     description: 'Resultado do SCA (success | failure | warning).'
     value: ${{ steps.run_sca.outputs.sca_status }}
+  cve_blocked_count:
+    description: 'Quantidade de findings SCA cujo CVE está em fail_on_cve.'
+    value: ${{ steps.cve_gate.outputs.cve_blocked_count || '0' }}
+  cve_blocked_list:
+    description: 'CVEs de fail_on_cve encontrados no resultado SCA (separados por vírgula).'
+    value: ${{ steps.cve_gate.outputs.cve_blocked_list || '' }}
   scan_url:
     description: 'URL do relatório SCA no portal Veracode.'
     value: ${{ steps.veracode_sca_run.outputs.scan-url }}
@@ -55,6 +65,19 @@ runs:
         platformType: ${{ inputs.platform_type }}
         breakBuildOnPolicyFindings: ${{ inputs.policy_fail }}
 
+    - name: Avaliar fail_on_cve
+      id: cve_gate
+      if: always()
+      shell: bash
+      env:
+        FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
+        SCA_JSON: ${{ github.workspace }}/scaResults.json
+      run: |
+        set -euo pipefail
+        echo "::group::Avaliar fail_on_cve"
+        node "$GITHUB_ACTION_PATH/cve-gate.js"
+        echo "::endgroup::"
+
     - name: Definir status do SCA
       id: run_sca
       if: always()
@@ -62,6 +85,7 @@ runs:
       env:
         SCA_OUTCOME: ${{ steps.veracode_sca_run.outcome }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
+        CVE_BLOCKED_COUNT: ${{ steps.cve_gate.outputs.cve_blocked_count || '0' }}
       run: |
         set -euo pipefail
         echo "::group::Definir status do SCA"
@@ -128,6 +152,8 @@ runs:
       shell: bash
       env:
         CREATE_ISSUES: ${{ inputs.create_issues }}
+        FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
+        CVE_BLOCKED_PATH: ${{ runner.temp }}/veracode-connect-summary/sca-cve-blocked.json
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do SCA"
@@ -148,6 +174,7 @@ runs:
         VC_COMPONENT: sca
         VC_STEPS: |
           veracode_sca_run=${{ steps.veracode_sca_run.outcome }}
+          cve_gate=${{ steps.cve_gate.outcome }}
           run_sca=${{ steps.run_sca.outcome }}
           normalize_results=${{ steps.normalize_results.outcome }}
           artifact_name=${{ steps.artifact_name.outcome }}

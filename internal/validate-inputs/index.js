@@ -36,7 +36,8 @@ const {
     VERACODE_SANDBOX_NAME,
     UPLOAD_SCAN_ARTIFACTS,
     PIPELINE_SCAN_MAX_ARTIFACTS,
-    PIPELINE_SCAN_RETRY
+    PIPELINE_SCAN_RETRY,
+    FAIL_ON_CVE
 } = process.env;
 
 console.log("::group::Validar inputs condicionais");
@@ -143,6 +144,18 @@ if (!Number.isInteger(maxArtifacts) || maxArtifacts < 1 || maxArtifacts > 6) {
 const retryRaw = (PIPELINE_SCAN_RETRY || 'true').trim().toLowerCase();
 if (retryRaw !== 'true' && retryRaw !== 'false') {
     erros.push(message('error', 'PIPELINE_SCAN_RETRY_INVALID'));
+}
+
+const CVE_PATTERN = /^CVE-\d{4}-\d{4,}$/i;
+const failOnCveRaw = (FAIL_ON_CVE || '').trim();
+if (failOnCveRaw) {
+    const tokens = failOnCveRaw.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+    for (const token of tokens) {
+        if (!CVE_PATTERN.test(token)) {
+            erros.push(message('error', 'FAIL_ON_CVE_INVALID', { cve: token }));
+            break;
+        }
+    }
 }
 
 function failValidation() {

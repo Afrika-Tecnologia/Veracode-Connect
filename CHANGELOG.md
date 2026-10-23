@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-23
+
+### Added
+
+- Novo input `fail_on_cve`: após o SCA, compara o `scaResults.json` com uma lista de CVEs exatos (separados por vírgula, espaço ou quebra de linha). Com match e `policy_fail=true`, o SCA fica `failure` e, com `fail_build=true`, a esteira bloqueia ao final. O summary e o comentário do PR exibem **Findings bloqueados por CVE** acima de **Findings do SCA**. Output `cve_blocked_count` expõe a quantidade de matches.
+
 ## [1.7.5] - 2026-10-14
 
 ### Changed

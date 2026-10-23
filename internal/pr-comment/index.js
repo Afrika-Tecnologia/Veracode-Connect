@@ -13,6 +13,8 @@ const {
     GITHUB_RUN_ID,
     FAIL_BUILD,
     SCA_STATUS,
+    SCA_CVE_BLOCKED_COUNT,
+    FAIL_ON_CVE,
     VERACODE_URL,
     IAC_OUTCOME,
     IAC_POLICY_STATUS,
@@ -163,6 +165,8 @@ async function main() {
     const inputs = {
         fail_build: FAIL_BUILD,
         sca_status: SCA_STATUS || 'skipped',
+        sca_cve_blocked_count: SCA_CVE_BLOCKED_COUNT || '0',
+        fail_on_cve: FAIL_ON_CVE || '',
         veracode_url: VERACODE_URL || '',
         iac_outcome: IAC_OUTCOME || 'skipped',
         iac_policy_status: IAC_POLICY_STATUS || 'not_used',

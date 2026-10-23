@@ -14,6 +14,10 @@ inputs:
     description: 'Status do Veracode SCA.'
     required: false
     default: 'skipped'
+  sca_cve_blocked_count:
+    description: 'Quantidade de findings SCA bloqueados por fail_on_cve.'
+    required: false
+    default: '0'
   iac_outcome:
     description: 'Outcome do Veracode IaC/Secrets.'
     required: false
@@ -127,6 +131,7 @@ runs:
         FAIL_BUILD: ${{ inputs.fail_build }}
         BASELINE_MODE: ${{ inputs.baseline_mode }}
         SCA_STATUS: ${{ inputs.sca_status }}
+        SCA_CVE_BLOCKED_COUNT: ${{ inputs.sca_cve_blocked_count }}
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
         IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
@@ -188,7 +193,9 @@ runs:
           echo ""
 
           if [ "${has_failure}" = "true" ] && [ "${FAIL_BUILD}" = "true" ]; then
-            if [ "${SCA_STATUS}" = "failure" ]; then
+            if [ "${SCA_STATUS}" = "failure" ] && [ "${SCA_CVE_BLOCKED_COUNT:-0}" != "0" ] && [ -n "${SCA_CVE_BLOCKED_COUNT}" ]; then
+              echo "> ❌ **Build travado por CVE bloqueado no SCA**"
+            elif [ "${SCA_STATUS}" = "failure" ]; then
               echo "> ❌ **Build travado por falha do SCA**"
             else
               echo "> ❌ **Build travado por policy**"

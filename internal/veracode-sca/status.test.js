@@ -25,9 +25,12 @@ for (const scenario of [
     { outcome: 'failure', policyFail: 'true', results: '{invalid-json', want: 'warning' },
     { outcome: 'failure', policyFail: 'true', results: '{"records":[]}', want: 'warning' },
     { outcome: 'failure', policyFail: 'true', results: '{"records":[{"libraries":[{"name":"test"}]}]}', want: 'failure' },
-    { outcome: 'skipped', policyFail: 'true', want: 'warning' }
+    { outcome: 'skipped', policyFail: 'true', want: 'warning' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', cveBlocked: '2', want: 'failure' },
+    { outcome: 'success', policyFail: 'false', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', cveBlocked: '2', want: 'warning' },
+    { outcome: 'success', policyFail: 'true', cveBlocked: '1', want: 'warning' }
 ]) {
-    test(`SCA ${scenario.outcome}, policy_fail=${scenario.policyFail}, results=${scenario.results || 'absent'} reports ${scenario.want} without ending the flow`, {
+    test(`SCA ${scenario.outcome}, policy_fail=${scenario.policyFail}, cve=${scenario.cveBlocked || '0'}, results=${scenario.results || 'absent'} reports ${scenario.want} without ending the flow`, {
         skip: !available && 'Bash is required for composite-action scripts'
     }, () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-status-'));
@@ -39,7 +42,8 @@ for (const scenario of [
                 env: {
                     ...process.env, GITHUB_ACTION_PATH: __dirname.replace(/\\/g, '/'),
                     GITHUB_OUTPUT: output.replace(/\\/g, '/'),
-                    SCA_OUTCOME: scenario.outcome, POLICY_FAIL: scenario.policyFail
+                    SCA_OUTCOME: scenario.outcome, POLICY_FAIL: scenario.policyFail,
+                    CVE_BLOCKED_COUNT: scenario.cveBlocked || '0'
                 }, encoding: 'utf8'
             });
             assert.equal(run.status, 0, run.stderr);

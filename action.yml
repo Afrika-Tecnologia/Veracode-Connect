@@ -124,6 +124,10 @@ inputs:
   fail_on_severity:
     description: 'Severidades que fazem o scan falhar quando há baseline (ex.: "Very High, High").'
     required: false
+  fail_on_cve:
+    description: 'Lista de CVEs exatos que, se encontrados no resultado do SCA, marcam o SCA como failure (com policy_fail=true) e bloqueiam com fail_build=true. Separe por vírgula, espaço ou quebra de linha (ex.: CVE-2021-44228,CVE-2021-45046). Vazio desliga.'
+    required: false
+    default: ''
   fail_build:
     description: 'Com policy_fail=true, bloqueia ao final por falha SCA com resultado ou violacoes confirmadas de policy/baseline do Pipeline/IaC. Scan sem resultado gera warning (true/false).'
     required: false
@@ -161,6 +165,9 @@ outputs:
   sca_status:
     description: 'Resultado do Veracode SCA (success | failure | warning | skipped).'
     value: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
+  cve_blocked_count:
+    description: 'Quantidade de vulnerabilidades SCA cujo CVE está em fail_on_cve (0 quando desligado ou sem match).'
+    value: ${{ steps.veracode_sca.outputs.cve_blocked_count || '0' }}
   iac_status:
     description: 'Resultado do Veracode IaC/Secrets (success | failure | warning | skipped).'
     value: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
@@ -258,6 +265,7 @@ runs:
         baseline_github_app_private_key: ${{ inputs.baseline_github_app_private_key }}
         baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
         baseline_github_token: ${{ inputs.baseline_github_token }}
+        fail_on_cve: ${{ inputs.fail_on_cve }}
 
     # ── 2. Veracode SCA ──────────────────────────────────────────────
     - name: Veracode SCA
@@ -269,6 +277,7 @@ runs:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         policy_fail: ${{ inputs.policy_fail }}
+        fail_on_cve: ${{ inputs.fail_on_cve }}
         create_issues: ${{ inputs.create_issues }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
 
@@ -445,6 +454,7 @@ runs:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         veracode_url: ${{ inputs.veracode_url }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
+        sca_cve_blocked_count: ${{ steps.veracode_sca.outputs.cve_blocked_count || '0' }}
         iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
         iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         iac_policy_name: ${{ inputs.iac_policy }}
@@ -465,6 +475,8 @@ runs:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         veracode_url: ${{ inputs.veracode_url }}
         sca_status: ${{ steps.veracode_sca.outputs.sca_status || (steps.veracode_sca.outcome == 'failure' && 'warning') || 'skipped' }}
+        sca_cve_blocked_count: ${{ steps.veracode_sca.outputs.cve_blocked_count || '0' }}
+        fail_on_cve: ${{ inputs.fail_on_cve }}
         iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
         iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         iac_policy_name: ${{ inputs.iac_policy }}

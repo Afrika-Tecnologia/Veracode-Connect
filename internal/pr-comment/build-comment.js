@@ -9,6 +9,10 @@ const {
     loadFindings
 } = require('./sast-findings');
 const { extractMatches, countFromMatches } = require('../veracode-iac/summary-findings');
+const {
+    buildSummary: buildScaSummary,
+    loadBlockedArtifact
+} = require('../veracode-sca/summary-findings');
 const { commentState } = require('../build-gate/job-summary');
 const { accessLink } = require('../build-gate/access-link');
 
@@ -139,6 +143,9 @@ function resolveBanner(inputs) {
     const { failures, warnings } = collectModuleStatuses(inputs);
     if (failures.length > 0) {
         if (inputs.fail_build === 'true') {
+            if (Number(inputs.sca_cve_blocked_count) > 0 && isFailureStatus(inputs.sca_status)) {
+                return '> ❌ **Build travado por CVE bloqueado no SCA**';
+            }
             return '> ❌ **Build travado** - Falhas detectadas';
         }
         return '> ⚠️ **Falhas ou achados registrados; esteira preservada**';
@@ -189,7 +196,24 @@ function pipelineSection(workspace, inputs) {
     return `${heading}\n\n${tables}`;
 }
 
-function scaSection(workspace) {
+function scaSection(workspace, inputs = {}) {
+    const jsonPath = path.join(workspace, 'scaResults.json');
+    const txtPath = path.join(workspace, 'scaResults.txt');
+    const blockedPath = process.env.CVE_BLOCKED_PATH
+        || (process.env.RUNNER_TEMP
+            ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
+            : '');
+    const blocked = loadBlockedArtifact(blockedPath);
+
+    if (fs.existsSync(jsonPath) || blocked) {
+        return buildScaSummary({
+            jsonPath,
+            txtPath,
+            createIssues: false,
+            blocked
+        });
+    }
+
     const counts = parseScaLog(workspace);
     const lines = ['### 🔍 Veracode SCA (Software Composition Analysis)', ''];
     if (!counts) {
@@ -197,6 +221,8 @@ function scaSection(workspace) {
         lines.push('');
         return `${lines.join('\n')}\n`;
     }
+    lines.push('#### Findings do SCA');
+    lines.push('');
     lines.push('| Severidade | Quantidade |');
     lines.push('|---|---|');
     lines.push(`| 🔴 Very High | ${counts.veryHigh} |`);
@@ -337,7 +363,7 @@ function buildCommentBody(options) {
             : pipelineSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.sca_status)) {
-        lines.push(scaSection(workspace));
+        lines.push(scaSection(workspace, inputs));
     }
     if (isActiveStatus(inputs.iac_outcome)) {
         lines.push(iacSection(workspace, inputs));

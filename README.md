@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.7.3
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.0
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,7 +44,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.7` também apontam para a versão `v1.7.3`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.0`.
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
@@ -56,7 +56,7 @@ Nos modos `repo` e `portal_afrika`, o Pipeline Scan só bloqueia por política q
 
 Antes de planejar os scans, o Pipeline limpa seus arquivos de resultado gerados anteriormente. Isso evita usar findings antigos como evidência da execução atual; o arquivo de baseline continua disponível.
 
-Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy** ou **Build travado por falha do SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'` ou `fail_build: 'false'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
+Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy**, **Build travado por falha do SCA** ou **Build travado por CVE bloqueado no SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'` ou `fail_build: 'false'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
 
 O **Resumo Final** é gerado também quando a validação de inputs falha e reúne os resultados que puderam ser obtidos. Cada scan ou política reprovada aparece em vermelho (`❌ Failed`); violações confirmadas do Pipeline continuam vermelhas mesmo quando o bloqueio está desativado. Avisos técnicos sem violação confirmada usam amarelo. O resultado do scan e a decisão de reprovar o job são apresentados separadamente.
 
@@ -69,6 +69,8 @@ Quando o Connect é chamado mais de uma vez no mesmo job, o último **Resumo Fin
 Quando um scan não consegue executar ou produzir resultados, o **Resumo Final** mostra `⚠️ Warning`, preserva os avisos existentes (como `⚠️ Nenhum artefato de resultado SCA encontrado.`) e **não reprova o job por essa ausência**, mesmo com `policy_fail` e `fail_build` habilitados. Erros técnicos de execução/avaliação IaC e de Upload & Scan também ficam amarelos. Violações confirmadas por outro scan continuam bloqueantes. O diagnóstico técnico fica habilitado por padrão.
 
 No SCA, `policy_fail` é repassado ao parâmetro oficial `breakBuildOnPolicyFindings`. Sem resultado reconhecível com bibliotecas analisadas, o status é `warning`; arquivos ausentes, inválidos, contendo apenas erros ou sem bibliotecas não bloqueiam. Resultados SCA anteriores são removidos antes de cada scan. Com resultado de análise, a falha da action oficial continua bloqueante quando os dois inputs estão habilitados. A action oficial não distingue a causa de um retorno não zero; nessa situação o summary indica **falha do SCA**, sem afirmar que ela comprova uma violação de política.
+
+O input `fail_on_cve` é uma regra da própria Connect (não existe na action oficial SCA). Após o SCA, a Connect lê `scaResults.json` e compara cada vulnerabilidade com a lista informada (match exato de CVE, separados por vírgula, espaço ou quebra de linha; ex.: `CVE-2021-44228,CVE-2021-45046`). Com match e `policy_fail: 'true'`, o status SCA vira `failure` e, com `fail_build: 'true'`, a esteira bloqueia ao final. Sem `policy_fail`, o match aparece como warning e no relatório, sem travar. O summary e o comentário do PR mostram **Findings bloqueados por CVE** acima de **Findings do SCA**; os findings bloqueados também permanecem na lista geral.
 
 A action oficial SCA Agent-based não aceita uma política por nome. Para usar a mesma política selecionada por `veracode_policy_name` no Pipeline, atribua essa política ao **workspace SCA associado ao token**, na opção Policy Assignment da plataforma Veracode. A política precisa conter regras aplicáveis ao SCA Agent-based. A Connect não altera essa atribuição e não consegue garantir que as duas políticas sejam iguais apenas pelo input. Veja [atribuição de políticas ao workspace](https://docs.veracode.com/r/Manage_security_policies) e [inputs da action oficial SCA](https://github.com/veracode/veracode-sca/blob/aeeb6aaa608a49195cab32c44b75db4f6a07a2df/action.yml).
 
@@ -122,7 +124,8 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `veracode_sandbox_name` | Vazio | Obrigatório quando `veracode_sandbox` é `'true'`; no modo automático, a action gera o nome. |
 | `veracode_policy_name` | Vazio | Nome da policy para Pipeline Scan e, quando informado, Upload & Scan. |
 | `fail_on_severity` | Vazio | Severidades consideradas quando há baseline. |
-| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado ou violação confirmada de policy/baseline do Pipeline/IaC. |
+| `fail_on_cve` | Vazio | Lista de CVEs exatos que, se encontrados no resultado SCA, marcam o SCA como `failure` (com `policy_fail`) e bloqueiam com `fail_build`. Ex.: `CVE-2021-44228,CVE-2021-45046`. |
+| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado, CVE de `fail_on_cve` ou violação confirmada de policy/baseline do Pipeline/IaC. |
 | `fail_build` | `'true'` | Em conjunto com `policy_fail`, permite bloquear a esteira ao final, depois dos scans e do summary. |
 
 ### Baseline

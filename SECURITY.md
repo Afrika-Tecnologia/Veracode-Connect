@@ -16,7 +16,7 @@ A versão `v1.7.3` mantém essas correções, sinaliza scans indisponíveis como
 
 ## Bloqueio por resultados dos scans
 
-Com `policy_fail: 'true'` e `fail_build: 'true'`, findings confirmados de policy/baseline do Pipeline Scan, reprovação da política IaC ou falha reportada pelo SCA com resultado de análise bloqueiam o job somente no último step. Os scans habilitados continuam e o Resumo Final é publicado antes do bloqueio, com os resultados reprovados em vermelho. Com qualquer um desses inputs desabilitado, os resultados continuam visíveis, sem bloqueio por esta action.
+Com `policy_fail: 'true'` e `fail_build: 'true'`, findings confirmados de policy/baseline do Pipeline Scan, reprovação da política IaC ou falha reportada pelo SCA com resultado de análise bloqueiam o job somente no último step. Os scans habilitados continuam e o Resumo Final é publicado antes do bloqueio, com os resultados reprovados em vermelho. Com qualquer um desses inputs desabilitado, os resultados continuam visíveis, sem bloqueio por esta action. Com `bypass: 'true'`, a action também não bloqueia o job, mesmo com `policy_fail` e `fail_build` habilitados; os achados continuam visíveis. Nesse modo, o Upload & Scan habilitado é enviado para a sandbox chamada `bypass`.
 
 Quando `baseline_mode` é `repo` ou `portal_afrika`, o bloqueio do Pipeline exige que um baseline registrado tenha sido utilizado no scan. A execução inicial sem baseline preserva os findings e pode criar o baseline na branch padrão ou em PR destinado à `default_branch` do repositório analisado, mas não bloqueia por política; essa gravação só afeta scans posteriores. Em PRs, o baseline pode ser gravado antes do merge. SCA/IaC e o Pipeline sem provedor de baseline continuam com suas decisões independentes.
 

@@ -6,6 +6,12 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-29
+
+### Added
+
+- Novo input `bypass` (default `'false'`). Com `'true'`, os scans seguem os demais inputs e os achados continuam no summary, mas a esteira não bloqueia por `policy_fail`, `fail_build`, `fail_on_cve`, `fail_on_severity`, política IaC ou violação de Pipeline/baseline. Com `enable_upload_scan: 'true'`, o Upload & Scan ignora a sandbox configurada e envia o artefato para a sandbox chamada `bypass`.
+
 ## [1.8.0] - 2026-10-23
 
 ### Added

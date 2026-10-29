@@ -111,7 +111,7 @@ inputs:
     required: false
     default: ''
   veracode_sandbox_name:
-    description: 'Nome da sandbox no Veracode (mapeado para sandboxname do uploadandscan-action). Obrigatório quando veracode_sandbox=true. Em modo auto, se omitido usa "{branch} - {appname}" (até 80 chars).'
+    description: 'Nome da sandbox no Veracode (mapeado para sandboxname do uploadandscan-action). Obrigatório quando veracode_sandbox=true, exceto com bypass=true. Em modo auto, se omitido usa "{branch} - {appname}" (até 80 chars).'
     required: false
     default: ''
   scan_file:
@@ -129,9 +129,13 @@ inputs:
     required: false
     default: ''
   fail_build:
-    description: 'Com policy_fail=true, bloqueia ao final por falha SCA com resultado ou violacoes confirmadas de policy/baseline do Pipeline/IaC. Scan sem resultado gera warning (true/false).'
+    description: 'Com policy_fail=true, bloqueia ao final por falha SCA com resultado ou violacoes confirmadas de policy/baseline do Pipeline/IaC. Scan sem resultado gera warning (true/false). Ignorado quando bypass=true.'
     required: false
     default: 'true'
+  bypass:
+    description: 'Quando true, os scans seguem as demais configuracoes, mas a esteira nao bloqueia por policy_fail, fail_build, fail_on_cve ou fail_on_severity. Com enable_upload_scan=true, o Upload & Scan vai obrigatoriamente para a sandbox chamada bypass (true/false).'
+    required: false
+    default: 'false'
   veracode_appname:
     description: 'Nome do app no Veracode.'
     required: false
@@ -255,6 +259,7 @@ runs:
         comment_pr: ${{ inputs.comment_pr }}
         veracode_sandbox: ${{ inputs.veracode_sandbox }}
         veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
+        bypass: ${{ inputs.bypass }}
         upload_scan_artifacts: ${{ inputs.upload_scan_artifacts }}
         pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
         pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
@@ -416,8 +421,8 @@ runs:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
         repository_full_name: ${{ steps.resolve_repo.outputs.repository_full_name }}
-        veracode_sandbox: ${{ inputs.veracode_sandbox }}
-        veracode_sandbox_name: ${{ inputs.veracode_sandbox_name }}
+        veracode_sandbox: ${{ inputs.bypass == 'true' && 'true' || inputs.veracode_sandbox }}
+        veracode_sandbox_name: ${{ inputs.bypass == 'true' && 'bypass' || inputs.veracode_sandbox_name }}
         filepath: ${{ inputs.upload_scan_artifacts == 'primary' && steps.prepare_scan_file.outputs.scan_file || steps.prepare_scan_file.outputs.upload_dir || steps.prepare_scan_file.outputs.scan_file }}
         veracode_appname: ${{ inputs.veracode_appname }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
@@ -432,6 +437,7 @@ runs:
       env:
         FAIL_BUILD: ${{ inputs.fail_build }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
+        BYPASS: ${{ inputs.bypass }}
         IAC_POLICY_STATUS: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         BASELINE_MODE: ${{ steps.validate.outputs.baseline_mode || 'none' }}
         HAS_BASELINE: ${{ steps.validate.outputs.baseline_mode == 'repo' && steps.repo_baseline_flow.outputs.has_baseline || steps.validate.outputs.baseline_mode == 'portal_afrika' && steps.baseline_flow.outputs.has_baseline || 'false' }}

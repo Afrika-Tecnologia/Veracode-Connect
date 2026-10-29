@@ -34,6 +34,7 @@ const {
     BASELINE_GITHUB_TOKEN,
     VERACODE_SANDBOX,
     VERACODE_SANDBOX_NAME,
+    BYPASS,
     UPLOAD_SCAN_ARTIFACTS,
     PIPELINE_SCAN_MAX_ARTIFACTS,
     PIPELINE_SCAN_RETRY,
@@ -121,12 +122,17 @@ if (needsScanFile && ENABLE_AUTO_PACKAGER !== 'true' && !SCAN_FILE) {
     erros.push(message('error', 'SCAN_FILE_REQUIRED'));
 }
 
+const bypass = (BYPASS || '').trim();
+if (bypass && bypass !== 'true' && bypass !== 'false') {
+    erros.push(message('error', 'BYPASS_INVALID'));
+}
+
 const sandboxFlag = (VERACODE_SANDBOX || '').trim();
 const sandboxName = (VERACODE_SANDBOX_NAME || '').trim();
 if (sandboxFlag && sandboxFlag !== 'true' && sandboxFlag !== 'false') {
     erros.push(message('error', 'SANDBOX_INVALID'));
 }
-if (sandboxFlag === 'true' && !sandboxName) {
+if (sandboxFlag === 'true' && !sandboxName && bypass !== 'true') {
     erros.push(message('error', 'SANDBOX_NAME_REQUIRED'));
 }
 

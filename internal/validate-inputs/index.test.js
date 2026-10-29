@@ -155,6 +155,34 @@ test('validate-inputs passa quando veracode_sandbox=true com veracode_sandbox_na
     assert.match(stdout, /validação=ok/);
 });
 
+test('validate-inputs dispensa veracode_sandbox_name quando bypass=true', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            VERACODE_SANDBOX: 'true',
+            BYPASS: 'true'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /validação=ok/);
+    assert.doesNotMatch(stdout, /veracode_sandbox_name/);
+});
+
+test('validate-inputs falha quando bypass não é booleano', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: {
+            VID: '123',
+            VKEY: 'abc123bb',
+            BASELINE_MODE: 'none',
+            BYPASS: 'yes'
+        }
+    });
+    const stdout = result.stdout.toString();
+    assert.match(stdout, /bypass deve ser 'true' ou 'false'\./);
+});
+
 test('validate-inputs falha quando comment_pr inválido', () => {
     const result = cp.spawnSync(process.execPath, [scriptPath], {
         env: {

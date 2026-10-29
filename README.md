@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.0
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.1
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,7 +44,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.0`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.1`.
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
@@ -56,7 +56,9 @@ Nos modos `repo` e `portal_afrika`, o Pipeline Scan só bloqueia por política q
 
 Antes de planejar os scans, o Pipeline limpa seus arquivos de resultado gerados anteriormente. Isso evita usar findings antigos como evidência da execução atual; o arquivo de baseline continua disponível.
 
-Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy**, **Build travado por falha do SCA** ou **Build travado por CVE bloqueado no SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'` ou `fail_build: 'false'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
+Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy**, **Build travado por falha do SCA** ou **Build travado por CVE bloqueado no SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'`, `fail_build: 'false'` ou `bypass: 'true'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
+
+Com `bypass: 'true'`, a action executa os scans conforme os demais inputs, mas não bloqueia o job por `policy_fail`, `fail_build`, `fail_on_cve`, `fail_on_severity`, política IaC ou violação de Pipeline/baseline. Se `enable_upload_scan: 'true'`, o Upload & Scan ignora `veracode_sandbox` e `veracode_sandbox_name` e envia o artefato para a sandbox chamada `bypass` (`createsandbox` ativo). Com Upload & Scan desligado, nada é enviado.
 
 O **Resumo Final** é gerado também quando a validação de inputs falha e reúne os resultados que puderam ser obtidos. Cada scan ou política reprovada aparece em vermelho (`❌ Failed`); violações confirmadas do Pipeline continuam vermelhas mesmo quando o bloqueio está desativado. Avisos técnicos sem violação confirmada usam amarelo. O resultado do scan e a decisão de reprovar o job são apresentados separadamente.
 
@@ -120,13 +122,14 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `iac_policy` | `'none'` | Nome da política Container/IaC Veracode a baixar e aplicar. `none` mantém o fluxo atual; outro valor exige `enable_iac: 'true'` e uma política compatível com Rego. A reprovação aparece no status IaC e no resumo final sem encerrar o step do scan. |
 | `enable_upload_scan` | `'false'` | Ativa Upload & Scan. |
 | `upload_scan_artifacts` | `all` | Envia todos os pacotes do Auto Packager ou apenas o `primary`. |
-| `veracode_sandbox` | Automático | Usa aplicação principal na branch padrão e sandbox nas demais; aceita `'true'` ou `'false'`. |
-| `veracode_sandbox_name` | Vazio | Obrigatório quando `veracode_sandbox` é `'true'`; no modo automático, a action gera o nome. |
+| `veracode_sandbox` | Automático | Usa aplicação principal na branch padrão e sandbox nas demais; aceita `'true'` ou `'false'`. Ignorado quando `bypass` é `'true'`. |
+| `veracode_sandbox_name` | Vazio | Obrigatório quando `veracode_sandbox` é `'true'`, exceto com `bypass: 'true'`; no modo automático, a action gera o nome. |
 | `veracode_policy_name` | Vazio | Nome da policy para Pipeline Scan e, quando informado, Upload & Scan. |
 | `fail_on_severity` | Vazio | Severidades consideradas quando há baseline. |
 | `fail_on_cve` | Vazio | Lista de CVEs exatos que, se encontrados no resultado SCA, marcam o SCA como `failure` (com `policy_fail`) e bloqueiam com `fail_build`. Ex.: `CVE-2021-44228,CVE-2021-45046`. |
-| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado, CVE de `fail_on_cve` ou violação confirmada de policy/baseline do Pipeline/IaC. |
-| `fail_build` | `'true'` | Em conjunto com `policy_fail`, permite bloquear a esteira ao final, depois dos scans e do summary. |
+| `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado, CVE de `fail_on_cve` ou violação confirmada de policy/baseline do Pipeline/IaC. Não bloqueia o job quando `bypass` é `'true'`. |
+| `fail_build` | `'true'` | Em conjunto com `policy_fail`, permite bloquear a esteira ao final, depois dos scans e do summary. Ignorado quando `bypass` é `'true'`. |
+| `bypass` | `'false'` | Mantém os scans configurados, mas preserva a esteira mesmo com `policy_fail` e `fail_build`. Com Upload & Scan ativo, envia obrigatoriamente para a sandbox `bypass`. |
 
 ### Baseline
 

@@ -36,6 +36,7 @@ const errors = {
     FAIL_ON_CVE_INVALID: "fail_on_cve contém CVE inválido: '{cve}'. Use o formato CVE-YYYY-NNNN+ (ex.: CVE-2021-44228), separados por vírgula, espaço ou quebra de linha.",
     SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
     SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name.',
+    BYPASS_INVALID: "bypass deve ser 'true' ou 'false'.",
     BASELINE_MODE_INVALID: "baseline_mode inválido: '{mode}'. Use 'none', 'portal_afrika' ou 'repo'.",
     ISSUES_TOKEN_REQUIRED: 'create_issues=true requer GITHUB_TOKEN no contexto do job.',
     ISSUES_REPO_REQUIRED: 'create_issues=true requer github.repository no contexto do workflow.',

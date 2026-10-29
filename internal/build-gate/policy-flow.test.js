@@ -73,7 +73,8 @@ const scenarios = [
     { name: 'IaC rejection with blocking disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
     { name: 'Pipeline findings with blocking disabled', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'false', blocked: 'false', pipelineStatus: 'failure', banner: /esteira preservada/ },
     { name: 'IaC policy evaluation unavailable', iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'all policies passed', iac: 'passed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ }
+    { name: 'all policies passed', iac: 'passed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
+    { name: 'bypass preserves the job despite policy rejection', bypass: 'true', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'failure', banner: /esteira preservada/ }
 ];
 
 for (const scenario of scenarios) {
@@ -108,6 +109,7 @@ for (const scenario of scenarios) {
                 : scenario.mode === 'portal_afrika' ? 'baseline_flow' : 'pipeline_only';
             const context = {
                 'inputs.fail_build': scenario.failBuild || 'true', 'inputs.policy_fail': scenario.policyFail,
+                'inputs.bypass': scenario.bypass || '',
                 'steps.veracode_sca.outputs.sca_status': scaStatus,
                 'steps.veracode_iac.outputs.iac_policy_status': scenario.iac,
                 'steps.validate.outputs.baseline_mode': scenario.mode || 'none',

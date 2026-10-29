@@ -89,9 +89,13 @@ inputs:
     required: false
     default: ''
   veracode_sandbox_name:
-    description: 'Nome da sandbox (obrigatório quando veracode_sandbox=true).'
+    description: 'Nome da sandbox (obrigatório quando veracode_sandbox=true, exceto com bypass=true).'
     required: false
     default: ''
+  bypass:
+    description: 'Quando true, dispensa veracode_sandbox_name porque o orquestrador envia a sandbox bypass (true/false).'
+    required: false
+    default: 'false'
   upload_scan_artifacts:
     description: 'all | primary.'
     required: false
@@ -155,6 +159,7 @@ runs:
         BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
         VERACODE_SANDBOX: ${{ inputs.veracode_sandbox }}
         VERACODE_SANDBOX_NAME: ${{ inputs.veracode_sandbox_name }}
+        BYPASS: ${{ inputs.bypass }}
         UPLOAD_SCAN_ARTIFACTS: ${{ inputs.upload_scan_artifacts }}
         PIPELINE_SCAN_MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
         PIPELINE_SCAN_RETRY: ${{ inputs.pipeline_scan_retry }}

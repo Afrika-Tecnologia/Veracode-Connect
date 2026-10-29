@@ -38,6 +38,7 @@ function hasPolicyFailure({ scanErrorCount, policyViolations, plannedCount, scan
 }
 
 function shouldBlockPolicy(decision) {
+    if (decision.bypass === 'true') return false;
     return decision.failBuild === 'true' && decision.policyFail === 'true'
         && (hasPolicyFailure(decision) || decision.iacPolicyStatus === 'failed' || decision.scaStatus === 'failure');
 }
@@ -46,6 +47,7 @@ if (require.main === module) {
     const decision = {
         failBuild: process.env.FAIL_BUILD,
         policyFail: process.env.POLICY_FAIL,
+        bypass: process.env.BYPASS,
         baselineMode: process.env.BASELINE_MODE,
         hasBaseline: process.env.HAS_BASELINE,
         iacPolicyStatus: process.env.IAC_POLICY_STATUS,

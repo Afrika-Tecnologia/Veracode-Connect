@@ -233,6 +233,42 @@ test('CLI blocks on confirmed policy findings in an incomplete scan', () => {
     }
 });
 
+test('CLI preserves the job when bypass is enabled and policy findings would block', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-policy-'));
+    try {
+        const output = path.join(dir, 'github-output');
+        const marker = path.join(dir, 'started');
+        const resultPath = path.join(dir, 'results.json');
+        fs.writeFileSync(marker, '');
+        fs.writeFileSync(resultPath, '{"findings":[]}');
+        const run = cp.spawnSync(process.execPath, [path.join(__dirname, 'policy-decision.js')], {
+            env: {
+                ...process.env,
+                GITHUB_OUTPUT: output,
+                FAIL_BUILD: 'true',
+                POLICY_FAIL: 'true',
+                BYPASS: 'true',
+                IAC_POLICY_STATUS: 'failed',
+                SCA_STATUS: 'failure',
+                SCAN_ERROR_COUNT: '0',
+                POLICY_VIOLATIONS: '1',
+                PLANNED_COUNT: '1',
+                SCANNED_COUNT: '1',
+                FLOW_OUTCOME: 'success',
+                START_MARKER: marker,
+                PIPELINE_RESULT: resultPath
+            }
+        });
+        assert.equal(run.status, 0, run.stderr.toString());
+        assert.equal(fs.readFileSync(output, 'utf8'), 'blocked=false\npolicy_present=true\nscan_status=failure\n');
+        assert.equal(shouldBlockPolicy({
+            bypass: 'true', failBuild: 'true', policyFail: 'true', iacPolicyStatus: 'failed', scaStatus: 'failure'
+        }), false);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
 test('CLI reports confirmed policy findings as failure even when build blocking is disabled', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-policy-'));
     try {

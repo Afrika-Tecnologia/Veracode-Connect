@@ -6,9 +6,13 @@ Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.
 
 Versoes suportadas:
 
-- `v1.7.5`, com os aliases `v1.7` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.8.1`, com os aliases `v1.8` e `v1` apontando para o mesmo commit publicado na `main`.
 
-A versão `v1.7.1` corrige a classificação de reprovações da política IaC: a chamada do avaliador em `v1.7.0` podia retornar `error` e preservar o job mesmo com bloqueio habilitado. Atualize referências fixadas em `v1.7.0` para receber a correção.
+A versão `v1.8.1` adiciona `bypass`. Com `bypass: 'true'`, a action não bloqueia o job, mesmo com `policy_fail` e `fail_build` habilitados; os achados continuam visíveis. O Upload & Scan habilitado é enviado para a sandbox chamada `bypass`.
+
+A versão `v1.8.0` adiciona `fail_on_cve`. CVEs informados marcam o SCA como falha e bloqueiam ao final quando `policy_fail` e `fail_build` estão habilitados. `bypass: 'true'` preserva o job também nesse caso.
+
+A versão `v1.7.1` corrige a classificação de reprovações da política IaC: a chamada do avaliador em `v1.7.0` podia retornar `error` e preservar o job mesmo com bloqueio habilitado. Atualize referências fixadas em `v1.7.0` para receber a correção. Essas correções permanecem nas versões seguintes.
 
 A versão `v1.7.2` preserva essa correção e consolida os resultados das chamadas do Connect no mesmo job. Os bloqueantes SAST exibidos são os findings selecionados pelo Pipeline Scan após os filtros de política e baseline, sem promover findings fora da política a bloqueantes. Status e detalhes de outros jobs, execuções, tentativas e workspaces não são reutilizados.
 

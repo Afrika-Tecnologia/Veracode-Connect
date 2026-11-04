@@ -1,5 +1,5 @@
 name: 'Repo baseline flow'
-description: 'Consulta baseline no GitHub, roda Pipeline Scan e grava/atualiza baseline.json após scan válido na default_branch ou em PR destinado a ela.'
+description: 'Consulta baseline no GitHub, roda Pipeline Scan e grava baseline.json uma única vez (quando ainda não existe) após scan válido na default_branch ou em PR destinado a ela.'
 
 inputs:
   baseline_org:
@@ -215,7 +215,7 @@ runs:
 
     - name: Avisar seed bloqueado por scan_error
       id: seed_blocked_warning
-      if: steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count != '0'
+      if: steps.check_baseline.outputs.has_baseline == 'false' && steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count != '0'
       shell: bash
       env:
         SCAN_ERROR_COUNT: ${{ steps.pipeline_set.outputs.scan_error_count }}
@@ -223,9 +223,10 @@ runs:
       run: |
         echo "::warning::$(node "$GITHUB_ACTION_PATH/messages.js" warning SEED_BLOCKED_PARTIAL "failed=${SCAN_ERROR_COUNT}" "planned=${PLANNED_COUNT}")"
 
+    # Write-once: o baseline existente nunca é regravado pelo fluxo.
     - name: Gravar baseline no repositório
       id: seed_baseline
-      if: steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count == '0'
+      if: steps.check_baseline.outputs.has_baseline == 'false' && steps.seed_gate.outputs.can_seed == 'true' && steps.pipeline_set.outputs.scan_error_count == '0'
       shell: bash
       env:
         BASELINE_ORG: ${{ inputs.baseline_org }}
@@ -403,9 +404,6 @@ runs:
             else
               echo "> ⚠️ Sem baseline no repositório — scan executado **sem baseline** e seed **não gravado** (destino \`${TARGET_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`, ou default_branch indisponível). Rode na default_branch ou em PR destinado a ela para criar o baseline."
             fi
-            echo ""
-          elif [ "${CAN_SEED}" = "true" ]; then
-            echo "> Baseline existente — scan com baseline; \`baseline.json\` regravado após o scan de \`${CURRENT_BRANCH}\`, destino \`${TARGET_BRANCH}\` = default_branch \`${DEFAULT_BRANCH}\`."
             echo ""
           fi
           if [ "${CREATE_ISSUES}" = "true" ]; then

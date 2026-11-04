@@ -21,6 +21,15 @@ function seedStep(action, context) {
     return { env, script: source.split(/\r?\n/).slice(1).map(line => line.slice(8)).join('\n') };
 }
 
+test('repo-baseline-flow grava o baseline apenas quando ele ainda não existe', () => {
+    const yml = fs.readFileSync(path.resolve(__dirname, '..', 'repo-baseline-flow', 'action.yml'), 'utf8');
+    for (const id of ['seed_baseline', 'seed_blocked_warning']) {
+        const condition = yml.split(new RegExp(`      id: ${id}\\r?\\n`))[1].split(/\r?\n/)[0];
+        assert.match(condition, /^\s*if: steps\.check_baseline\.outputs\.has_baseline == 'false' && /, id);
+    }
+    assert.doesNotMatch(yml, /regravado após o scan/);
+});
+
 const scenarios = [
     { name: 'PR to main', head: 'feature/clean', ref: '42/merge', base: 'main', defaultBranch: 'main', allowed: 'true' },
     { name: 'PR to master', head: 'feature/clean', ref: '42/merge', base: 'master', defaultBranch: 'master', allowed: 'true' },

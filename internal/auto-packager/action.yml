@@ -10,9 +10,9 @@ inputs:
     description: 'Caminho do artefato ja empacotado quando o auto packager esta desativado.'
     required: false
   cli_version:
-    description: 'Versao da Veracode CLI a ser baixada.'
+    description: 'Versao da Veracode CLI usada sem o toolchain (manter igual a internal/toolchain/tools.json).'
     required: false
-    default: '2.51.2'
+    default: '2.54.1'
   cli_cache_key_prefix:
     description: 'Prefixo para a chave de cache da Veracode CLI.'
     required: false
@@ -48,12 +48,14 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    # Sem toolchain (enable_tools_cache=false ou runner não suportado): cache próprio,
+    # fora do workspace: o instalador oficial grava veracode, LICENSE e README no diretório atual.
     - name: Configurar Cache da Veracode CLI
       id: cli_cache
-      if: inputs.enable_auto_packager == 'true'
+      if: inputs.enable_auto_packager == 'true' && env.VERACODE_CONNECT_CLI == ''
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        path: ${{ github.workspace }}/veracode
+        path: ${{ runner.temp }}/veracode-connect-cli
         key: ${{ inputs.cli_cache_key_prefix }}-${{ inputs.cli_version }}-${{ runner.os }}
 
     - name: Preparar scan file (Veracode CLI)
@@ -86,23 +88,26 @@ runs:
             exit 0
           fi
 
-          if [ "${{ steps.cli_cache.outputs.cache-hit }}" != "true" ] && ! command -v veracode >/dev/null 2>&1; then
-            curl -fsSL --connect-timeout 15 --max-time 60 https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION="${CLI_VERSION}" sh
+          # Ordem: CLI do toolchain (cache) → CLI já instalada no runner → cache/instalação própria.
+          CLI_FALLBACK_DIR="${RUNNER_TEMP:-/tmp}/veracode-connect-cli"
+          if [ -n "${VERACODE_CONNECT_CLI:-}" ] && [ -x "${VERACODE_CONNECT_CLI}" ]; then
+            VERACODE_CMD="${VERACODE_CONNECT_CLI}"
+            echo "$(node "$GITHUB_ACTION_PATH/messages.js" success CLI_FROM_TOOLCHAIN "path=${VERACODE_CMD}")"
+          elif command -v veracode >/dev/null 2>&1; then
+            VERACODE_CMD="$(command -v veracode)"
+          else
+            if [ ! -x "${CLI_FALLBACK_DIR}/veracode" ]; then
+              mkdir -p "${CLI_FALLBACK_DIR}"
+              (cd "${CLI_FALLBACK_DIR}" && curl -fsSL --connect-timeout 15 --max-time 60 https://tools.veracode.com/veracode-cli/install | VERACODE_CLI_VERSION="${CLI_VERSION}" sh) || true
+            fi
+            VERACODE_CMD="${CLI_FALLBACK_DIR}/veracode"
           fi
 
           mkdir -p "${HOME}/.veracode"
           [ -f "${HOME}/.veracode/veracode.yml" ] || touch "${HOME}/.veracode/veracode.yml"
 
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
-          if command -v veracode >/dev/null 2>&1; then
-            VERACODE_CMD="$(command -v veracode)"
-          elif [ -x "${WORKSPACE}/veracode" ]; then
-            VERACODE_CMD="${WORKSPACE}/veracode"
-            echo "${WORKSPACE}" >> "$GITHUB_PATH"
-          elif [ -x "${PWD}/veracode" ]; then
-            VERACODE_CMD="${PWD}/veracode"
-            echo "${PWD}" >> "$GITHUB_PATH"
-          else
+          if [ ! -x "${VERACODE_CMD}" ]; then
             echo "::error::$(node "$GITHUB_ACTION_PATH/messages.js" error CLI_NOT_FOUND)"
             echo "::endgroup::"
             exit 1

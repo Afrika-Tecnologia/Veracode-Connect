@@ -289,3 +289,48 @@ test('validate-inputs aceita fail_on_cve com lista válida', () => {
     assert.equal(result.status, 0, result.stdout.toString());
     assert.match(result.stdout.toString(), /validação=ok/);
 });
+
+function validateWith(extra) {
+    return cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', ...extra }
+    });
+}
+
+test('validate-inputs aceita a configuração padrão e completa de cache/mirror', () => {
+    for (const extra of [
+        {},
+        { ENABLE_TOOLS_CACHE: 'true', TOOLS_CACHE_REFRESH: 'weekly', CACHE_DEPENDENCIES: 'true', MAVEN_MIRROR_OF: 'central' },
+        { ENABLE_TOOLS_CACHE: 'false', CACHE_DEPENDENCIES: 'false', TOOLS_CACHE_REFRESH: 'daily' },
+        {
+            TOOLS_CACHE_REFRESH: 'monthly',
+            TOOLS_MIRROR_URL: 'https://artifactory.example.com/veracode',
+            MAVEN_MIRROR_URL: 'https://nexus.example.com/repository/maven-public/',
+            MAVEN_MIRROR_OF: '*,!interno',
+            MAVEN_MIRROR_USERNAME: 'ci',
+            MAVEN_MIRROR_PASSWORD: 's3cr3t'
+        }
+    ]) {
+        const result = validateWith(extra);
+        assert.equal(result.status, 0, `${JSON.stringify(extra)}\n${result.stdout}`);
+    }
+});
+
+test('validate-inputs rejeita valores inválidos de cache e mirror', () => {
+    const cases = [
+        [{ ENABLE_TOOLS_CACHE: 'sim' }, /enable_tools_cache deve ser 'true' ou 'false'\./],
+        [{ CACHE_DEPENDENCIES: 'yes' }, /cache_dependencies deve ser 'true' ou 'false'\./],
+        [{ TOOLS_CACHE_REFRESH: 'hourly' }, /tools_cache_refresh deve ser 'daily', 'weekly' ou 'monthly'\./],
+        [{ TOOLS_MIRROR_URL: 'http://mirror.local' }, /tools_mirror_url deve ser uma URL https:\/\//],
+        [{ TOOLS_MIRROR_URL: 'https://m.local/$(id)' }, /tools_mirror_url deve ser uma URL https:\/\//],
+        [{ MAVEN_MIRROR_URL: 'http://nexus.local/maven' }, /maven_mirror_url deve ser uma URL https:\/\//],
+        [{ MAVEN_MIRROR_OF: 'central;rm' }, /maven_mirror_of aceita apenas/],
+        [{ MAVEN_MIRROR_URL: 'https://n.local', MAVEN_MIRROR_USERNAME: 'ci' }, /maven_mirror_username e maven_mirror_password juntos/],
+        [{ MAVEN_MIRROR_URL: 'https://n.local', MAVEN_MIRROR_PASSWORD: 'x' }, /maven_mirror_username e maven_mirror_password juntos/],
+        [{ MAVEN_MIRROR_USERNAME: 'ci', MAVEN_MIRROR_PASSWORD: 'x' }, /exigem maven_mirror_url/]
+    ];
+    for (const [extra, expected] of cases) {
+        const result = validateWith(extra);
+        assert.equal(result.status, 1, JSON.stringify(extra));
+        assert.match(result.stdout.toString(), expected, JSON.stringify(extra));
+    }
+});

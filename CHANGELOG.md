@@ -6,6 +6,23 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-04
+
+### Added
+
+- Novo `internal/toolchain`: baixa uma única vez a Veracode CLI, o `pipeline-scan-LATEST.zip` e o agente SCA, verifica a integridade (sha256 pinado em `internal/toolchain/tools.json` para a CLI), salva no `actions/cache` logo após o download e instala um shim de `curl` que serve essas URLs às actions oficiais sem rede. Com cache aquecido, um run deixa de fazer até 12 downloads do Pipeline Scan, 2 da CLI e 3 do agente SCA. Falhas de download/verificação e runners não Linux mantêm o download direto das actions oficiais.
+- Novo `internal/dependency-cache`: restaura `~/.m2`/`~/.gradle` antes do SCA e do Auto Packager e salva depois do Upload & Scan (mesmo com a esteira bloqueada), com chave pelo hash dos arquivos de build JVM. Opcionalmente gera um `~/.m2/settings.xml` temporário com mirror (`maven_mirror_url`), sem sobrescrever um existente e removendo-o ao final.
+- Inputs `enable_tools_cache`, `tools_cache_refresh`, `tools_mirror_url`, `cache_dependencies`, `maven_mirror_url`, `maven_mirror_of`, `maven_mirror_username` e `maven_mirror_password`, validados no `validate-inputs`.
+
+### Changed
+
+- Veracode CLI unificada na versão pinada `2.54.1` para IaC e Auto Packager (antes: IaC com `LATEST` e Auto Packager com `2.51.2`).
+- O shim do wrapper Java do Upload & Scan delega ao próximo `curl`/`wget` do `PATH` em vez de `/usr/bin/curl`, encadeando com o shim do toolchain quando o Connect é chamado mais de uma vez no mesmo job.
+
+### Fixed
+
+- Auto Packager deixa de instalar a Veracode CLI na raiz do workspace. O instalador oficial gravava ali `veracode`, `LICENSE` e `README` (sobrescrevendo um `LICENSE` do repositório analisado) e o workspace entrava no `PATH`. Sem toolchain, a CLI vai para `$RUNNER_TEMP/veracode-connect-cli`.
+
 ## [1.8.1] - 2026-10-29
 
 ### Added

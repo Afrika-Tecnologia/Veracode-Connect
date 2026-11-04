@@ -6,7 +6,9 @@ Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.
 
 Versoes suportadas:
 
-- `v1.8.1`, com os aliases `v1.8` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.8.2`, com os aliases `v1.8` e `v1` apontando para o mesmo commit publicado na `main`.
+
+A versão `v1.8.2` reduz downloads externos. A Veracode CLI, o Pipeline Scan e o agente SCA são baixados uma única vez, guardados no `actions/cache` do próprio repositório e servidos às actions oficiais por um shim de `curl` que responde apenas às URLs dessas ferramentas e repassa as demais ao `curl` real. A CLI é aceita somente se o sha256 do pacote e do binário corresponder ao pinado em `internal/toolchain/tools.json`, inclusive quando vem do cache. As ferramentas ficam em `$RUNNER_TEMP`, fora do workspace analisado. `tools_mirror_url` e `maven_mirror_url` aceitam apenas `https`. O `settings.xml` gerado para o mirror Maven tem permissão `600`, nunca sobrescreve um arquivo existente, não entra no cache e é removido ao final; use secrets para `maven_mirror_password`. Desative com `enable_tools_cache: 'false'` e `cache_dependencies: 'false'`.
 
 A versão `v1.8.1` adiciona `bypass`. Com `bypass: 'true'`, a action não bloqueia o job, mesmo com `policy_fail` e `fail_build` habilitados; os achados continuam visíveis. O Upload & Scan habilitado é enviado para a sandbox chamada `bypass`.
 

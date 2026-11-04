@@ -1,0 +1,31 @@
+{
+    "schema": 1,
+    "cache_version": "v1",
+    "veracode_cli": {
+        "version": "2.54.1",
+        "url": "https://tools.veracode.com/veracode-cli/veracode-cli_{version}_{platform}.tar.gz",
+        "mirror_path": "veracode-cli/veracode-cli_{version}_{platform}.tar.gz",
+        "install_url": "https://tools.veracode.com/veracode-cli/install",
+        "platforms": {
+            "linux_x86": {
+                "archive_sha256": "bd7141ee89ca02b02ee4a5205537be5c4d190de4db56b41779aa47deceab173b",
+                "binary_sha256": "8586eff4c7cf90746432628048187f8052153923802c29a5eb2e8912e87a7b84"
+            }
+        }
+    },
+    "pipeline_scan": {
+        "url": "https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip",
+        "mirror_path": "securityscan/pipeline-scan-LATEST.zip"
+    },
+    "sca_agent": {
+        "ci_url": "https://download.sourceclear.com/ci.sh",
+        "ci_mirror_path": "sca/ci.sh",
+        "ci_alias_urls": [
+            "https://sca-downloads.veracode.com/ci.sh"
+        ],
+        "version_url": "https://sca-downloads.veracode.com/LATEST_VERSION",
+        "version_mirror_path": "sca/LATEST_VERSION",
+        "archive_url": "https://sca-downloads.veracode.com/srcclr-{version}-linux.tgz",
+        "archive_mirror_path": "sca/srcclr-{version}-linux.tgz"
+    }
+}

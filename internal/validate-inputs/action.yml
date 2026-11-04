@@ -112,6 +112,38 @@ inputs:
     description: 'Lista de CVEs exatos para bloqueio pós-SCA (separados por vírgula, espaço ou quebra de linha).'
     required: false
     default: ''
+  enable_tools_cache:
+    description: 'Cache de ferramentas Veracode (true/false).'
+    required: false
+    default: 'true'
+  tools_cache_refresh:
+    description: 'daily | weekly | monthly.'
+    required: false
+    default: 'weekly'
+  tools_mirror_url:
+    description: 'Mirror https das ferramentas Veracode (opcional).'
+    required: false
+    default: ''
+  cache_dependencies:
+    description: 'Cache de ~/.m2 e ~/.gradle (true/false).'
+    required: false
+    default: 'true'
+  maven_mirror_url:
+    description: 'Mirror Maven https (opcional).'
+    required: false
+    default: ''
+  maven_mirror_of:
+    description: 'mirrorOf do mirror Maven.'
+    required: false
+    default: 'central'
+  maven_mirror_username:
+    description: 'Usuário do mirror Maven.'
+    required: false
+    default: ''
+  maven_mirror_password:
+    description: 'Senha/token do mirror Maven.'
+    required: false
+    default: ''
 
 outputs:
   baseline_mode:
@@ -164,6 +196,14 @@ runs:
         PIPELINE_SCAN_MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
         PIPELINE_SCAN_RETRY: ${{ inputs.pipeline_scan_retry }}
         FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
+        ENABLE_TOOLS_CACHE: ${{ inputs.enable_tools_cache }}
+        TOOLS_CACHE_REFRESH: ${{ inputs.tools_cache_refresh }}
+        TOOLS_MIRROR_URL: ${{ inputs.tools_mirror_url }}
+        CACHE_DEPENDENCIES: ${{ inputs.cache_dependencies }}
+        MAVEN_MIRROR_URL: ${{ inputs.maven_mirror_url }}
+        MAVEN_MIRROR_OF: ${{ inputs.maven_mirror_of }}
+        MAVEN_MIRROR_USERNAME: ${{ inputs.maven_mirror_username }}
+        MAVEN_MIRROR_PASSWORD: ${{ inputs.maven_mirror_password }}
       run: |
         set -euo pipefail
         node "$GITHUB_ACTION_PATH/index.js"

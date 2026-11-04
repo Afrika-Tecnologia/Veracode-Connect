@@ -126,3 +126,32 @@ test('status command exports policy failure for the composite action outputs', (
         fs.rmSync(dir, { recursive: true, force: true });
     }
 });
+
+test('baseline IaC comparado: só findings novos que violam reprovam a política', () => {
+    const scan = { policyName: 'Pol', scanStatus: 'success', policyStatus: 'failed' };
+    assert.deepEqual(resolveIacStatus({ ...scan, baselineStatus: 'compared', newPolicyCount: '2' }),
+        { iac_status: 'failure', iac_policy_status: 'failed' });
+    assert.deepEqual(resolveIacStatus({ ...scan, baselineStatus: 'compared', newPolicyCount: '0' }),
+        { iac_status: 'success', iac_policy_status: 'passed' });
+});
+
+test('baseline IaC ausente ou recém-gravado adia a política sem reprovar', () => {
+    for (const baselineStatus of ['deferred', 'seeded']) {
+        assert.deepEqual(resolveIacStatus({ policyName: 'Pol', scanStatus: 'success', policyStatus: 'failed', baselineStatus }),
+            { iac_status: 'success', iac_policy_status: 'deferred' });
+    }
+});
+
+test('baseline IaC com erro nunca reprova pela política', () => {
+    assert.deepEqual(resolveIacStatus({ policyName: 'Pol', scanStatus: 'success', policyStatus: 'failed', baselineStatus: 'error' }),
+        { iac_status: 'warning', iac_policy_status: 'error' });
+    assert.deepEqual(resolveIacStatus({ policyName: 'none', scanOutcome: 'success', baselineStatus: 'error' }),
+        { iac_status: 'warning', iac_policy_status: 'not_used' });
+});
+
+test('baseline IaC comparado sem política ou com política não avaliada mantém o status do scan', () => {
+    assert.deepEqual(resolveIacStatus({ policyName: 'none', scanOutcome: 'success', baselineStatus: 'compared', newPolicyCount: '0' }),
+        { iac_status: 'success', iac_policy_status: 'not_used' });
+    assert.deepEqual(resolveIacStatus({ policyName: 'Pol', scanStatus: 'failure', policyStatus: 'error', baselineStatus: 'compared' }),
+        { iac_status: 'warning', iac_policy_status: 'error' });
+});

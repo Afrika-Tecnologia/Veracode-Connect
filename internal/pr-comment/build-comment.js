@@ -8,7 +8,8 @@ const {
     countBySeverity,
     loadFindings
 } = require('./sast-findings');
-const { extractMatches, countFromMatches } = require('../veracode-iac/summary-findings');
+const { extractMatches, countFromMatches, policyLabel, baselineNote } = require('../veracode-iac/summary-findings');
+const { renderComparedMarkdown } = require('../iac-baseline/iac-baseline');
 const {
     buildSummary: buildScaSummary,
     loadBlockedArtifact
@@ -104,6 +105,9 @@ function statusIcon(status) {
     }
     if (status === 'warning' || status === 'error') {
         return '⚠️ Warning';
+    }
+    if (status === 'deferred') {
+        return '⏸️ Sem baseline IaC (não bloqueia)';
     }
     if (status === 'skipped' || !status) {
         return '⏭️ Skipped';
@@ -242,13 +246,25 @@ function scaSection(workspace, inputs = {}) {
 }
 
 function iacSection(workspace, inputs) {
+    const baselineStatus = inputs.iac_baseline_status || 'not_used';
+    if (baselineStatus === 'compared') {
+        const diff = readJsonFile(path.join(workspace, 'iac-results', 'iac-baseline-diff.json'));
+        if (diff) {
+            // O comentário tem limite de tamanho: detalha só os novos, com teto de linhas.
+            return renderComparedMarkdown(diff, { detailsLimit: 30, groups: ['new_policy', 'new_other'] });
+        }
+    }
     const counts = parseIacResults(workspace);
-    const lines = ['### 🛡️ Veracode IaC / Secrets', ''];
+    const baselineActive = baselineStatus !== 'not_used';
+    const lines = [baselineActive ? '### 🛡️ Veracode IaC / Secrets (Repo Baseline)' : '### 🛡️ Veracode IaC / Secrets', ''];
+    const note = baselineActive ? baselineNote({ baselineStatus, canSeed: '' }) : '';
+    if (note) {
+        lines.push(note);
+        lines.push('');
+    }
     if (inputs.iac_policy_status && inputs.iac_policy_status !== 'not_used' && inputs.iac_policy_status !== 'skipped') {
         const policyName = String(inputs.iac_policy_name || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
-        const result = inputs.iac_policy_status === 'passed' ? '✅ Passou'
-            : inputs.iac_policy_status === 'failed' ? '❌ Não passou' : '⚠️ Não avaliada';
-        lines.push(`**Política IaC${policyName ? ` (${policyName})` : ''}:** ${result}`);
+        lines.push(`**Política IaC${policyName ? ` (${policyName})` : ''}:** ${policyLabel(inputs.iac_policy_status)}`);
         lines.push('');
     }
     if (!counts) {

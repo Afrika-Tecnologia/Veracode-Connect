@@ -14,7 +14,10 @@ function format(template, vars = {}) {
 }
 
 const errors = {
-    IAC_CONFIG_ORG_REQUIRED: 'enable_iac_configs=true com IaC ativo requer baseline_org para baixar veracode.yml do repositório de baseline.',
+    IAC_BASELINE_INVALID: "enable_iac_baseline deve ser 'true' ou 'false'.",
+    IAC_BASELINE_REQUIRES_REPO: "enable_iac_baseline=true requer baseline_mode='repo' (o baseline IaC fica no repositório de baseline).",
+    IAC_BASELINE_REQUIRES_IAC: "enable_iac_baseline=true requer enable_iac='true'.",
+    IAC_CONFIG_ORG_REQUIRED:'enable_iac_configs=true com IaC ativo requer baseline_org para baixar veracode.yml do repositório de baseline.',
     IAC_CONFIG_AUTH_REQUIRED: 'enable_iac_configs=true com IaC ativo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     VID_REQUIRED: 'veracode_api_id é obrigatório.',
     VKEY_REQUIRED: 'veracode_api_key é obrigatório.',
@@ -69,6 +72,7 @@ const errors = {
 };
 
 const warnings = {
+    IAC_BASELINE_WITHOUT_POLICY: "enable_iac_baseline=true com iac_policy='none': os findings novos são mostrados, mas nenhum bloqueia. Informe iac_policy para bloquear pelos findings novos.",
     APP_INCOMPLETE_PAT_FALLBACK: 'Credenciais de GitHub App incompletas; usando baseline_github_token (PAT) como fallback.'
 };
 

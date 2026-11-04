@@ -30,6 +30,10 @@ inputs:
     description: 'Nome da política IaC selecionada.'
     required: false
     default: ''
+  iac_baseline_status:
+    description: 'Estado do baseline IaC (not_used | deferred | seeded | compared | error).'
+    required: false
+    default: 'not_used'
   baseline_outcome:
     description: 'Outcome do Portal Afrika Baseline Flow.'
     required: false
@@ -135,6 +139,7 @@ runs:
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
         IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
+        IAC_BASELINE_STATUS: ${{ inputs.iac_baseline_status }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
         REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
@@ -160,6 +165,7 @@ runs:
             success|passed) echo "✅ Success" ;;
             failure|failed|scan_failed*) echo "❌ Failed" ;;
             warning|error) echo "⚠️ Warning" ;;
+            deferred)      echo "⏸️ Sem baseline IaC (não bloqueia)" ;;
             skipped|not_used) echo "⏭️ Skipped" ;;
             *)             echo "❓ ${status}" ;;
           esac

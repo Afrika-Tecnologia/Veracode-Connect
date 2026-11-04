@@ -14,6 +14,9 @@
  * Placeholders: {nome} interpolados por format().
  */
 
+// Mensagens do store compartilhado (auth, leitura/gravação); os textos abaixo podem complementá-las.
+const store = require('../baseline-store/messages');
+
 function format(template, vars = {}) {
     return String(template).replace(/\{(\w+)\}/g, (_, key) => (
         Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : `{${key}}`
@@ -21,6 +24,7 @@ function format(template, vars = {}) {
 }
 
 const errors = {
+    ...store.errors,
     GET_IAC_CONFIG_FAILED:
         'Falha ao baixar veracode.yml do repositório de baseline (HTTP {status}).',
     IAC_CONFIG_INVALID:
@@ -84,6 +88,7 @@ const errors = {
 };
 
 const warnings = {
+    ...store.warnings,
     IAC_CONFIG_ABSENT:
         'veracode.yml não encontrado na raiz de {repo}@{branch}; o scan IaC continuará sem regras customizadas do baseline.',
     RETRY:
@@ -99,6 +104,7 @@ const warnings = {
 };
 
 const success = {
+    ...store.success,
     POLICY_CHECK_DEFERRED: 'Scan executado sem baseline registrado: findings de política não bloqueiam esta execução. O bloqueio começa quando o baseline é utilizado pelo scan.',
     IAC_CONFIG_DOWNLOADED: 'veracode.yml baixado de {repo}@{branch} para a raiz do repositório analisado.',
     AUTH: 'auth={source}',

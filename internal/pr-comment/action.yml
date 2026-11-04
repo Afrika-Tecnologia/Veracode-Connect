@@ -38,6 +38,10 @@ inputs:
     description: 'Nome da política IaC selecionada.'
     required: false
     default: ''
+  iac_baseline_status:
+    description: 'Estado do baseline IaC (not_used | deferred | seeded | compared | error).'
+    required: false
+    default: 'not_used'
   pipeline_outcome:
     description: 'Outcome do Pipeline Scan (sem baseline).'
     required: false
@@ -109,6 +113,7 @@ runs:
         IAC_OUTCOME: ${{ inputs.iac_outcome }}
         IAC_POLICY_STATUS: ${{ inputs.iac_policy_status }}
         IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
+        IAC_BASELINE_STATUS: ${{ inputs.iac_baseline_status }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
         REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}

@@ -498,3 +498,40 @@ test('buildCommentBody não lista artefatos do manifesto de scans', () => {
     assert.doesNotMatch(body, /veracode-auto-pack-app-java\.zip/);
     assert.match(body, /\| 🟠 High \| 1 \|/);
 });
+
+test('PR com baseline IaC comparado mostra os três grupos e detalha só os novos', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-iac-baseline-'));
+    try {
+        const finding = (id, severity) => ({ category: 'config', fingerprint: id, detail: 'd', id, severity, title: id, location: 'a.tf:1' });
+        fs.mkdirSync(path.join(dir, 'iac-results'));
+        fs.writeFileSync(path.join(dir, 'iac-results', 'iac-baseline-diff.json'), JSON.stringify({
+            policy_name: 'Container IaC Policy - N2',
+            baseline: { commit: 'abc1234', generated_at: '2026-11-04T00:00:00Z' },
+            counts: { new_policy: 1, new_other: 0, backlog: 2, fixed: 0 },
+            new_policy: [finding('AVD-NEW', 'high')],
+            new_other: [],
+            backlog: [finding('AVD-OLD-1', 'medium'), finding('AVD-OLD-2', 'low')]
+        }));
+        const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/o/r/actions/runs/1', inputs: {
+            iac_outcome: 'failure', iac_policy_status: 'failed', iac_policy_name: 'Container IaC Policy - N2',
+            iac_baseline_status: 'compared', fail_build: 'true'
+        } });
+        assert.match(body, /Veracode IaC \/ Secrets \(Repo Baseline\)/);
+        assert.match(body, /\| ❌ Novos que afetam a política \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+        assert.match(body, /\| 📦 Backlog \(já no baseline\) \| 0 \| 0 \| 1 \| 1 \| 0 \| \*\*2\*\* \|/);
+        assert.match(body, /AVD-NEW/);
+        assert.doesNotMatch(body, /AVD-OLD-1/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('PR sem baseline IaC usado mostra a política como adiada', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-iac-deferred-'));
+    try {
+        const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/o/r/actions/runs/1', inputs: {
+            iac_outcome: 'success', iac_policy_status: 'deferred', iac_policy_name: 'Pol', iac_baseline_status: 'seeded'
+        } });
+        assert.match(body, /baseline gravado após este scan/);
+        assert.match(body, /Política IaC \(Pol\):\*\* ⏸️ Não bloqueia \(sem baseline IaC\)/);
+        assert.match(body, /\| Política IaC — Pol \| ⏸️ Sem baseline IaC \(não bloqueia\) \|/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

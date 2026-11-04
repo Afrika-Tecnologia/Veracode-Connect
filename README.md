@@ -46,6 +46,24 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.2`.
 
+### Baseline IaC/Secrets
+
+A Veracode não oferece baseline para Container/IaC/Secrets; o Veracode Connect mantém um próprio. Com `enable_iac_baseline: 'true'`, `baseline_mode: 'repo'` e `enable_iac: 'true'`, a primeira execução elegível grava `<org>/<repo>/iac-baseline.json` no repositório de baseline, na mesma pasta do `baseline.json` do Pipeline Scan. É elegível a execução cujo destino é a branch padrão do repositório analisado: push nela ou PR destinado a ela. O arquivo é gravado uma única vez e nunca é regravado; para refazê-lo, apague `iac-baseline.json` no repositório de baseline.
+
+Nas execuções seguintes, o scan IaC roda como antes e cada finding é comparado ao baseline:
+
+| Grupo | Bloqueia |
+| --- | --- |
+| Novos que afetam a política: ausentes do baseline e reprovados pela política de `iac_policy` | Sim, com `policy_fail` e `fail_build` ligados e `bypass` desligado |
+| Novos que não afetam a política | Não |
+| Backlog: presentes no baseline e no scan atual | Não |
+
+Os findings corrigidos não aparecem; o card informa só quantos foram. O summary e o comentário do PR mostram os três grupos por severidade num único card IaC. O detalhamento completo fica em `iac-results/iac-baseline-diff.json`, no artefato do IaC.
+
+A identidade de cada finding não depende do número da linha: vulnerabilidades usam identificador, pacote e manifesto (sem a versão); secrets usam regra e arquivo; configurações usam regra, arquivo e recurso. Deslocar linhas, editar o recurso ou subir a versão de uma biblioteca sem corrigir a vulnerabilidade mantém o finding no backlog. O baseline guarda só identificadores e campos de exibição; o trecho e o valor dos secrets nunca são gravados.
+
+Enquanto não houver baseline IaC, inclusive na execução que o grava, a política IaC é avaliada e exibida, mas não bloqueia (`iac_policy_status: deferred`). Sem `iac_policy`, os findings novos aparecem, mas nenhum bloqueia. Falha ao ler o baseline gera aviso e também não bloqueia por IaC. A autenticação é a mesma do modo `repo` (GitHub App ou PAT com Contents read/write).
+
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
 ## Resultado da esteira
@@ -172,6 +190,7 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `enable_iac` | `'false'` | Ativa IaC/Secrets. |
 | `enable_iac_configs` | `'false'` | Baixa `veracode.yml` da raiz do repositório de baseline para o workspace e aplica as regras no IaC. Só tem efeito com `enable_iac: 'true'`; exige organização e GitHub App/PAT do baseline, independentemente de `baseline_mode`. Se o arquivo faltar ou o download falhar, a action avisa e continua sem as regras customizadas do baseline. |
 | `iac_policy` | `'none'` | Nome da política Container/IaC Veracode a baixar e aplicar. `none` mantém o fluxo atual; outro valor exige `enable_iac: 'true'` e uma política compatível com Rego. A reprovação aparece no status IaC e no resumo final sem encerrar o step do scan. |
+| `enable_iac_baseline` | `'false'` | Baseline IaC/Secrets no repositório de baseline (`iac-baseline.json`, gravado uma única vez). Só findings novos são avaliados pela política IaC. Exige `baseline_mode: 'repo'` e `enable_iac: 'true'`. Veja [Baseline IaC/Secrets](#baseline-iacsecrets). |
 | `enable_upload_scan` | `'false'` | Ativa Upload & Scan. |
 | `upload_scan_artifacts` | `all` | Envia todos os pacotes do Auto Packager ou apenas o `primary`. |
 | `veracode_sandbox` | Automático | Usa aplicação principal na branch padrão e sandbox nas demais; aceita `'true'` ou `'false'`. Ignorado quando `bypass` é `'true'`. |
@@ -232,7 +251,10 @@ Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de S
 | `repository_full_name` | Nome completo do repositório analisado. |
 | `sca_status` | Status do SCA: `success`, `failure`, `warning` ou `skipped`. Sem resultado de análise, retorna `warning`. `success` não comprova qual política está atribuída ao workspace. |
 | `iac_status` | Status do IaC/Secrets: `success`, `failure`, `warning` ou `skipped`. Erros técnicos retornam `warning`; política reprovada retorna `failure`. |
-| `iac_policy_status` | Resultado da política IaC: `not_used`, `passed`, `failed` ou `error`. |
+| `iac_policy_status` | Resultado da política IaC: `not_used`, `passed`, `failed`, `error` ou `deferred` (baseline IaC ainda não utilizado). Com baseline IaC comparado, considera só os findings novos. |
+| `iac_baseline_status` | Estado do baseline IaC: `not_used`, `deferred`, `seeded`, `compared` ou `error`. |
+| `has_iac_baseline` | Indica se o baseline IaC já existia. |
+| `iac_new_policy_count` | Findings IaC novos que violam a política. |
 | `upload_scan_status` | Status do Upload & Scan. |
 
 Os módulos ativos também podem publicar artefatos de resultado no GitHub Actions. A presença desses arquivos depende de cada ferramenta e do ponto em que a execução terminou.

@@ -11,7 +11,6 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Novo `internal/toolchain`: baixa uma única vez a Veracode CLI, o `pipeline-scan-LATEST.zip` e o agente SCA, verifica a integridade (sha256 pinado em `internal/toolchain/tools.json` para a CLI), salva no `actions/cache` logo após o download e instala um shim de `curl` que serve essas URLs às actions oficiais sem rede. Com cache aquecido, um run deixa de fazer até 12 downloads do Pipeline Scan, 2 da CLI e 3 do agente SCA. Falhas de download/verificação e runners não Linux mantêm o download direto das actions oficiais.
 - Novo `internal/dependency-cache`: restaura `~/.m2`/`~/.gradle` antes do SCA e do Auto Packager e salva depois do Upload & Scan (mesmo com a esteira bloqueada), com chave pelo hash dos arquivos de build JVM. Opcionalmente gera um `~/.m2/settings.xml` temporário com mirror (`maven_mirror_url`), sem sobrescrever um existente e removendo-o ao final.
 - Inputs `enable_tools_cache`, `tools_cache_refresh`, `tools_mirror_url`, `cache_dependencies`, `maven_mirror_url`, `maven_mirror_of`, `maven_mirror_username` e `maven_mirror_password`, validados no `validate-inputs`.
-- Workflow `Testes` (`.github/workflows/tests.yml`): `npm test` e testes ponta a ponta que bloqueiam os hosts da Veracode e do Maven Central em `/etc/hosts` e executam os comandos idênticos aos das actions oficiais, além de validar o reuso do `actions/cache` em um segundo job.
 
 ### Changed
 

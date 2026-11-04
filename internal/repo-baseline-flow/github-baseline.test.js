@@ -216,15 +216,18 @@ test('putBaseline grava na branch informada', async () => {
     assert.ok(calls.some((c) => c.method === 'GET' && c.url.includes('heads/develop')));
 });
 
-test('putBaseline atualiza o arquivo quando ele já existe', async () => {
+test('putBaseline não sobrescreve um baseline existente', async () => {
     const { file } = writeResults();
     const calls = mockGitData({ fileExists: true, patchStatuses: [200] });
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
-    assert.equal(result.seeded, true);
+    assert.equal(result.seeded, false);
     assert.equal(result.alreadyExists, true);
-    assert.equal(result.updated, true);
-    assert.ok(calls.some((c) => c.method === 'PATCH' && c.url.includes('/git/refs/')));
+    assert.equal(calls.some((c) => c.method === 'POST'), false);
+    assert.equal(calls.some((c) => c.method === 'PATCH'), false);
+    const outputs = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8');
+    assert.match(outputs, /^baseline_seeded=false$/m);
+    assert.match(outputs, /^baseline_already_exists=true$/m);
 });
 
 test('putBaseline grava commit filho em cima do HEAD (README preservado)', async () => {
@@ -239,7 +242,7 @@ test('putBaseline grava commit filho em cima do HEAD (README preservado)', async
     assert.equal(calls.some((c) => c.method === 'PUT' && c.url.includes('/contents/')), false);
 });
 
-test('putBaseline faz retry de fast-forward mesmo se o arquivo passar a existir', async () => {
+test('putBaseline mantém o baseline gravado por outra execução durante o retry', async () => {
     const { file } = writeResults();
     process.env.BASELINE_PUT_MAX_ATTEMPTS = '3';
     process.env.BASELINE_PUT_RETRY_MS = '0';
@@ -250,8 +253,9 @@ test('putBaseline faz retry de fast-forward mesmo se o arquivo passar a existir'
     });
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
-    assert.equal(result.seeded, true);
-    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
+    assert.equal(result.seeded, false);
+    assert.equal(result.alreadyExists, true);
+    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 1);
 });
 
 test('putBaseline faz retry quando o fast-forward falha e o arquivo ainda não existe', async () => {
@@ -273,14 +277,14 @@ test('putBaseline faz retry quando PATCH devolve Reference cannot be updated', a
     process.env.BASELINE_PUT_MAX_ATTEMPTS = '3';
     process.env.BASELINE_PUT_RETRY_MS = '0';
     const calls = mockGitData({
-        fileExists: true,
+        fileExists: false,
         patchStatuses: [422, 200],
         patchErrorMessage: 'Reference cannot be updated'
     });
 
     const result = await putBaseline('token', STORE_ORG, STORE_REPO, SCAN_REPO, file);
     assert.equal(result.seeded, true);
-    assert.equal(result.updated, true);
+    assert.equal(result.alreadyExists, false);
     assert.equal(calls.filter((c) => c.method === 'PATCH').length, 2);
 });
 

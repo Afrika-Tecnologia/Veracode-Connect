@@ -488,15 +488,23 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     const storeLabel = `${baselineOrg}/${baselineRepoName}/${relativePath}`;
     setOutput('baseline_repo_branch', targetBranch);
 
-    const existing = await getFileExists(token, url);
-    const alreadyExists = Boolean(existing.exists);
+    // Write-once: um baseline existente nunca é sobrescrito, inclusive quando
+    // outra execução o grava entre a consulta e o commit desta.
+    const keepExisting = () => {
+        setOutput('baseline_seeded', 'false');
+        setOutput('baseline_already_exists', 'true');
+        console.log(message('success', 'BASELINE_EXISTS_KEPT', { store: storeLabel, branch: targetBranch }));
+        return { seeded: false, alreadyExists: true };
+    };
+
+    if ((await getFileExists(token, url)).exists) {
+        return keepExisting();
+    }
 
     console.log(message('success', 'API', { api }));
     const appName = String(scanRepository).split('/')[1] || scanRepository;
     const raw = fs.readFileSync(resultsFile);
-    const commitMessage = alreadyExists
-        ? `Baseline atualizado para a aplicação "${appName}" (${scanRepository})`
-        : `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
+    const commitMessage = `Baseline criado para a aplicação "${appName}" (${scanRepository})`;
     const contentBase64 = raw.toString('base64');
 
     const maxAttempts = putMaxAttempts();
@@ -504,6 +512,9 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
     let lastDetail = '';
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (attempt > 1 && (await getFileExists(token, url)).exists) {
+            return keepExisting();
+        }
         const result = await commitNewFileOnBranch(
             token,
             api,
@@ -517,14 +528,13 @@ async function putBaseline(token, baselineOrg, baselineRepoName, scanRepository,
 
         if (result.response.ok) {
             setOutput('baseline_seeded', 'true');
-            setOutput('baseline_already_exists', alreadyExists ? 'true' : 'false');
-            setOutput('baseline_updated', alreadyExists ? 'true' : 'false');
-            console.log(message('success', alreadyExists ? 'BASELINE_UPDATED' : 'BASELINE_WRITTEN', {
+            setOutput('baseline_already_exists', 'false');
+            console.log(message('success', 'BASELINE_WRITTEN', {
                 store: storeLabel,
                 branch: targetBranch,
                 sha: result.commitSha
             }));
-            return { seeded: true, alreadyExists, updated: alreadyExists };
+            return { seeded: true, alreadyExists: false };
         }
 
         lastDetail = githubErrorDetail(result.json, result.text);

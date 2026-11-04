@@ -109,7 +109,7 @@ const success = {
     BASELINE_FOUND: 'baseline=encontrado path={store}',
     LOCAL_FILE: 'local_file={file}',
     BASELINE_WRITTEN: 'baseline gravado: {store} branch={branch} sha={sha}',
-    BASELINE_UPDATED: 'baseline atualizado: {store} branch={branch} sha={sha}',
+    BASELINE_EXISTS_KEPT: 'baseline já existe e foi mantido (não é regravado): {store} branch={branch}',
     GIT_REF_FALLBACK: 'GET /git/ref HTTP 404; usando GET /git/refs.',
     SEED_ELIGIBLE: 'seed=elegível branch={branch} destino={target_branch}',
     PIPELINE_STATUS_SET: 'pipeline_status={status}',

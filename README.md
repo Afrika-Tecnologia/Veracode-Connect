@@ -21,7 +21,7 @@ O Auto Packager empacota o conteúdo do commit em análise. Arquivos criados dur
 | --- | --- |
 | `none` | Pipeline Scan sem baseline. |
 | `portal_afrika` | Consulta o Portal Afrika e envia resultados ao Portal. Um baseline ausente só pode ser criado a partir da branch padrão do repositório analisado. |
-| `repo` | Lê o baseline de um repositório GitHub. Cria ou atualiza o baseline apenas na branch padrão do repositório analisado; outras branches somente o consultam. |
+| `repo` | Lê o baseline de um repositório GitHub. Cria o baseline uma única vez, quando ele ainda não existe, a partir da branch padrão do repositório analisado ou de um PR destinado a ela. Depois de criado, o baseline não é regravado; para refazê-lo, apague `<org>/<repo>/baseline.json` no repositório de baseline. |
 
 Para `repo`, prepare um repositório de baseline com pelo menos um commit. A autenticação pode usar um GitHub App instalado nesse repositório ou um PAT; a credencial precisa de acesso de leitura e escrita a Contents. O App usa `baseline_github_app_id`, `baseline_github_app_private_key` e `baseline_github_app_installation_id`. O PAT usa `baseline_github_token`. Essas credenciais também são necessárias com IaC e `enable_iac_configs: 'true'`; para apenas baixar `veracode.yml`, basta Contents: read.
 

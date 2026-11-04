@@ -152,6 +152,38 @@ inputs:
     description: 'Publica ou atualiza comentário sticky no Pull Request e remove comentários extras de SCA e IaC/Secrets publicados pelo bot. Default false.'
     required: false
     default: 'false'
+  enable_tools_cache:
+    description: 'Baixa uma única vez a Veracode CLI, o Pipeline Scan e o agente SCA, guarda no actions/cache e serve às actions oficiais sem novos downloads (Linux). Default true.'
+    required: false
+    default: 'true'
+  tools_cache_refresh:
+    description: 'Janela de renovação do Pipeline Scan e do agente SCA (publicados como LATEST): daily | weekly | monthly. A Veracode CLI segue a versão pinada. Default weekly.'
+    required: false
+    default: 'weekly'
+  tools_mirror_url:
+    description: 'URL https base de um mirror próprio das ferramentas Veracode (layout no README). Vazio usa as URLs oficiais.'
+    required: false
+    default: ''
+  cache_dependencies:
+    description: 'Guarda ~/.m2 e ~/.gradle no actions/cache quando SCA ou Auto Packager estão ativos, evitando baixar de novo as dependências do Maven Central. Default true.'
+    required: false
+    default: 'true'
+  maven_mirror_url:
+    description: 'URL https de um mirror Maven (Nexus/Artifactory). Gera um ~/.m2/settings.xml temporário (somente se não existir) usado por SCA e Auto Packager.'
+    required: false
+    default: ''
+  maven_mirror_of:
+    description: 'Valor de <mirrorOf> do mirror Maven: central (default, só substitui o Maven Central) ou * (todos os repositórios).'
+    required: false
+    default: 'central'
+  maven_mirror_username:
+    description: 'Usuário do mirror Maven (opcional; exige maven_mirror_password).'
+    required: false
+    default: ''
+  maven_mirror_password:
+    description: 'Senha/token do mirror Maven (opcional; use um secret).'
+    required: false
+    default: ''
 
 outputs:
   baseline_mode:
@@ -271,6 +303,45 @@ runs:
         baseline_github_app_installation_id: ${{ inputs.baseline_github_app_installation_id }}
         baseline_github_token: ${{ inputs.baseline_github_token }}
         fail_on_cve: ${{ inputs.fail_on_cve }}
+        enable_tools_cache: ${{ inputs.enable_tools_cache }}
+        tools_cache_refresh: ${{ inputs.tools_cache_refresh }}
+        tools_mirror_url: ${{ inputs.tools_mirror_url }}
+        cache_dependencies: ${{ inputs.cache_dependencies }}
+        maven_mirror_url: ${{ inputs.maven_mirror_url }}
+        maven_mirror_of: ${{ inputs.maven_mirror_of }}
+        maven_mirror_username: ${{ inputs.maven_mirror_username }}
+        maven_mirror_password: ${{ inputs.maven_mirror_password }}
+
+    # ── 1a. Ferramentas Veracode: baixa uma vez, cache e shim de curl ─
+    - name: Preparar ferramentas Veracode (cache)
+      id: toolchain
+      continue-on-error: true
+      if: inputs.enable_tools_cache == 'true'
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/toolchain@v1
+      with:
+        enable_tools_cache: ${{ inputs.enable_tools_cache }}
+        tools_cache_refresh: ${{ inputs.tools_cache_refresh }}
+        tools_mirror_url: ${{ inputs.tools_mirror_url }}
+        enable_pipelinescan: ${{ inputs.enable_pipelinescan }}
+        baseline_mode: ${{ steps.validate.outputs.baseline_mode || inputs.baseline_mode }}
+        enable_upload_scan: ${{ inputs.enable_upload_scan }}
+        enable_sca: ${{ inputs.enable_sca }}
+        enable_iac: ${{ inputs.enable_iac }}
+        enable_auto_packager: ${{ inputs.enable_auto_packager }}
+
+    # ── 1b. Dependências Maven/Gradle (SCA e Auto Packager) ─────────
+    - name: Restaurar cache de dependências
+      id: deps_cache
+      continue-on-error: true
+      if: (inputs.cache_dependencies == 'true' || inputs.maven_mirror_url != '') && (inputs.enable_sca == 'true' || inputs.enable_auto_packager == 'true')
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1
+      with:
+        mode: restore
+        cache_dependencies: ${{ inputs.cache_dependencies }}
+        maven_mirror_url: ${{ inputs.maven_mirror_url }}
+        maven_mirror_of: ${{ inputs.maven_mirror_of }}
+        maven_mirror_username: ${{ inputs.maven_mirror_username }}
+        maven_mirror_password: ${{ inputs.maven_mirror_password }}
 
     # ── 2. Veracode SCA ──────────────────────────────────────────────
     - name: Veracode SCA
@@ -427,6 +498,19 @@ runs:
         veracode_appname: ${{ inputs.veracode_appname }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         platform_type: ${{ steps.resolve_platform.outputs.platform_type }}
+
+    # ── 7a. Salvar dependências e remover settings.xml temporário ─────
+    - name: Salvar cache de dependências
+      id: deps_cache_save
+      continue-on-error: true
+      if: always() && (steps.deps_cache.outcome == 'success' || steps.deps_cache.outcome == 'failure')
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1
+      with:
+        mode: save
+        cache_dependencies: ${{ inputs.cache_dependencies }}
+        key: ${{ steps.deps_cache.outputs.key }}
+        cache_hit: ${{ steps.deps_cache.outputs.cache_hit }}
+        settings_created: ${{ steps.deps_cache.outputs.settings_created }}
 
     # ── 8. Trava de Build (step final obrigatório) ───────────────────
     - name: Decidir bloqueio por policy

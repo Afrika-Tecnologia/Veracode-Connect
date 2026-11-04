@@ -38,7 +38,15 @@ const {
     UPLOAD_SCAN_ARTIFACTS,
     PIPELINE_SCAN_MAX_ARTIFACTS,
     PIPELINE_SCAN_RETRY,
-    FAIL_ON_CVE
+    FAIL_ON_CVE,
+    ENABLE_TOOLS_CACHE,
+    TOOLS_CACHE_REFRESH,
+    TOOLS_MIRROR_URL,
+    CACHE_DEPENDENCIES,
+    MAVEN_MIRROR_URL,
+    MAVEN_MIRROR_OF,
+    MAVEN_MIRROR_USERNAME,
+    MAVEN_MIRROR_PASSWORD
 } = process.env;
 
 console.log("::group::Validar inputs condicionais");
@@ -162,6 +170,44 @@ if (failOnCveRaw) {
             break;
         }
     }
+}
+
+// ── Cache de ferramentas e dependências ────────────────────────────────────
+const HTTPS_URL_PATTERN = /^https:\/\/[^\s'"`$\\]+$/;
+
+function isBooleanOrEmpty(value) {
+    const normalized = (value || '').trim().toLowerCase();
+    return normalized === '' || normalized === 'true' || normalized === 'false';
+}
+
+if (!isBooleanOrEmpty(ENABLE_TOOLS_CACHE)) {
+    erros.push(message('error', 'ENABLE_TOOLS_CACHE_INVALID'));
+}
+if (!isBooleanOrEmpty(CACHE_DEPENDENCIES)) {
+    erros.push(message('error', 'CACHE_DEPENDENCIES_INVALID'));
+}
+const toolsRefresh = (TOOLS_CACHE_REFRESH || 'weekly').trim().toLowerCase();
+if (!['daily', 'weekly', 'monthly'].includes(toolsRefresh)) {
+    erros.push(message('error', 'TOOLS_CACHE_REFRESH_INVALID'));
+}
+const toolsMirror = (TOOLS_MIRROR_URL || '').trim();
+if (toolsMirror && !HTTPS_URL_PATTERN.test(toolsMirror)) {
+    erros.push(message('error', 'TOOLS_MIRROR_URL_INVALID'));
+}
+const mavenMirror = (MAVEN_MIRROR_URL || '').trim();
+if (mavenMirror && !HTTPS_URL_PATTERN.test(mavenMirror)) {
+    erros.push(message('error', 'MAVEN_MIRROR_URL_INVALID'));
+}
+const mavenMirrorOf = (MAVEN_MIRROR_OF || 'central').trim();
+if (!/^[A-Za-z0-9*!,:._-]+$/.test(mavenMirrorOf)) {
+    erros.push(message('error', 'MAVEN_MIRROR_OF_INVALID'));
+}
+const hasMavenUser = Boolean((MAVEN_MIRROR_USERNAME || '').trim());
+const hasMavenPassword = Boolean(MAVEN_MIRROR_PASSWORD);
+if (hasMavenUser !== hasMavenPassword) {
+    erros.push(message('error', 'MAVEN_MIRROR_CREDENTIALS_INCOMPLETE'));
+} else if (hasMavenUser && !mavenMirror) {
+    erros.push(message('error', 'MAVEN_MIRROR_CREDENTIALS_WITHOUT_URL'));
 }
 
 function failValidation() {

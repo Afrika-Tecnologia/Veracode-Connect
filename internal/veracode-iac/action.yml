@@ -175,14 +175,20 @@ runs:
           exit 0
         fi
 
-        cli_dir="${GITHUB_WORKSPACE}/../veracode-cli"
-        mkdir -p "${cli_dir}"
-        if ! (cd "${cli_dir}" && curl -fsS https://tools.veracode.com/veracode-cli/install | sh); then
-          echo "::warning::Falha ao instalar o Veracode CLI; o scan com política IaC não foi executado."
-          finish
-          exit 0
+        if [ -n "${VERACODE_CONNECT_CLI:-}" ] && [ -x "${VERACODE_CONNECT_CLI}" ]; then
+          # CLI do toolchain (cache do Veracode Connect): nenhum download.
+          cli_path="${VERACODE_CONNECT_CLI}"
+          echo "Veracode CLI do cache do toolchain: ${cli_path}"
+        else
+          cli_dir="${GITHUB_WORKSPACE}/../veracode-cli"
+          mkdir -p "${cli_dir}"
+          if ! (cd "${cli_dir}" && curl -fsS https://tools.veracode.com/veracode-cli/install | sh); then
+            echo "::warning::Falha ao instalar o Veracode CLI; o scan com política IaC não foi executado."
+            finish
+            exit 0
+          fi
+          cli_path="${cli_dir}/veracode"
         fi
-        cli_path="${cli_dir}/veracode"
         if [ ! -x "${cli_path}" ]; then
           echo "::warning::Veracode CLI não encontrado após a instalação; scan IaC não executado."
           finish

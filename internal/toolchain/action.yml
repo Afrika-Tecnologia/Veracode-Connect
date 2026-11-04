@@ -1,0 +1,191 @@
+name: 'Toolchain Veracode (cache)'
+description: 'Baixa uma única vez a Veracode CLI, o Pipeline Scan e o agente SCA, guarda no actions/cache e instala um shim de curl para as actions oficiais reutilizarem os arquivos sem acessar a rede.'
+
+inputs:
+  enable_tools_cache:
+    description: 'Ativa o cache de ferramentas (true/false).'
+    required: false
+    default: 'true'
+  tools_cache_refresh:
+    description: 'Janela de renovação do Pipeline Scan e do agente SCA (versões LATEST): daily | weekly | monthly.'
+    required: false
+    default: 'weekly'
+  tools_mirror_url:
+    description: 'URL https base de um mirror com o layout documentado no README. Vazio usa as URLs oficiais da Veracode.'
+    required: false
+    default: ''
+  enable_pipelinescan:
+    description: 'Pipeline Scan ativo (true/false).'
+    required: false
+    default: 'false'
+  baseline_mode:
+    description: 'none | portal_afrika | repo (os fluxos de baseline também rodam Pipeline Scan).'
+    required: false
+    default: 'none'
+  enable_upload_scan:
+    description: 'Upload & Scan ativo (true/false).'
+    required: false
+    default: 'false'
+  enable_sca:
+    description: 'SCA ativo (true/false).'
+    required: false
+    default: 'false'
+  enable_iac:
+    description: 'IaC/Secrets ativo (true/false).'
+    required: false
+    default: 'false'
+  enable_auto_packager:
+    description: 'Auto Packager ativo (true/false).'
+    required: false
+    default: 'false'
+
+outputs:
+  shims_installed:
+    description: 'true quando o shim de curl foi instalado no PATH.'
+    value: ${{ steps.shims.outputs.shims_installed || 'false' }}
+  shim_dir:
+    description: 'Diretório do shim de curl (contém map.tsv e served.log).'
+    value: ${{ steps.shims.outputs.shim_dir || '' }}
+  pipeline_ready:
+    description: 'pipeline-scan-LATEST.zip disponível localmente (true/false).'
+    value: ${{ steps.fetch.outputs.pipeline_ready || 'false' }}
+  cli_ready:
+    description: 'Veracode CLI disponível localmente (true/false).'
+    value: ${{ steps.fetch.outputs.cli_ready || 'false' }}
+  sca_ready:
+    description: 'Agente SCA disponível localmente (true/false).'
+    value: ${{ steps.fetch.outputs.sca_ready || 'false' }}
+  pipeline_cache_hit:
+    description: 'Pipeline Scan restaurado do actions/cache (true/false).'
+    value: ${{ steps.restore_pipeline.outputs.cache-hit || 'false' }}
+  cli_cache_hit:
+    description: 'Veracode CLI restaurada do actions/cache (true/false).'
+    value: ${{ steps.restore_cli.outputs.cache-hit || 'false' }}
+  sca_cache_hit:
+    description: 'Agente SCA restaurado do actions/cache (true/false).'
+    value: ${{ steps.restore_sca.outputs.cache-hit || 'false' }}
+  cli_path:
+    description: 'Caminho do binário da Veracode CLI em cache (vazio se indisponível).'
+    value: ${{ steps.fetch.outputs.cli_ready == 'true' && format('{0}/veracode', steps.plan.outputs.cli_dir) || '' }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Planejar cache de ferramentas
+      id: plan
+      shell: bash
+      env:
+        ENABLE_TOOLS_CACHE: ${{ inputs.enable_tools_cache }}
+        TOOLS_CACHE_REFRESH: ${{ inputs.tools_cache_refresh }}
+        TOOLS_MIRROR_URL: ${{ inputs.tools_mirror_url }}
+        ENABLE_PIPELINESCAN: ${{ inputs.enable_pipelinescan }}
+        BASELINE_MODE: ${{ inputs.baseline_mode }}
+        ENABLE_UPLOAD_SCAN: ${{ inputs.enable_upload_scan }}
+        ENABLE_SCA: ${{ inputs.enable_sca }}
+        ENABLE_IAC: ${{ inputs.enable_iac }}
+        ENABLE_AUTO_PACKAGER: ${{ inputs.enable_auto_packager }}
+      run: |
+        set -euo pipefail
+        echo "::group::Planejar cache de ferramentas"
+        node "$GITHUB_ACTION_PATH/plan.js"
+        echo "::endgroup::"
+
+    - name: Restaurar Pipeline Scan do cache
+      id: restore_pipeline
+      if: steps.plan.outputs.need_pipeline == 'true'
+      continue-on-error: true
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.pipeline_dir }}
+        key: ${{ steps.plan.outputs.pipeline_key }}
+
+    - name: Restaurar Veracode CLI do cache
+      id: restore_cli
+      if: steps.plan.outputs.need_cli == 'true'
+      continue-on-error: true
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.cli_dir }}
+        key: ${{ steps.plan.outputs.cli_key }}
+
+    - name: Restaurar agente SCA do cache
+      id: restore_sca
+      if: steps.plan.outputs.need_sca == 'true'
+      continue-on-error: true
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.sca_dir }}
+        key: ${{ steps.plan.outputs.sca_key }}
+
+    - name: Baixar ferramentas ausentes (uma vez)
+      id: fetch
+      if: steps.plan.outputs.enabled == 'true'
+      shell: bash
+      env:
+        TOOLS_ROOT: ${{ steps.plan.outputs.root }}
+        NEED_PIPELINE: ${{ steps.plan.outputs.need_pipeline }}
+        PIPELINE_DIR: ${{ steps.plan.outputs.pipeline_dir }}
+        PIPELINE_URL: ${{ steps.plan.outputs.pipeline_url }}
+        NEED_CLI: ${{ steps.plan.outputs.need_cli }}
+        CLI_DIR: ${{ steps.plan.outputs.cli_dir }}
+        CLI_URL: ${{ steps.plan.outputs.cli_url }}
+        CLI_ARCHIVE_SHA256: ${{ steps.plan.outputs.cli_archive_sha256 }}
+        CLI_BINARY_SHA256: ${{ steps.plan.outputs.cli_binary_sha256 }}
+        NEED_SCA: ${{ steps.plan.outputs.need_sca }}
+        SCA_DIR: ${{ steps.plan.outputs.sca_dir }}
+        SCA_CI_URL: ${{ steps.plan.outputs.sca_ci_url }}
+        SCA_VERSION_URL: ${{ steps.plan.outputs.sca_version_url }}
+        SCA_ARCHIVE_URL: ${{ steps.plan.outputs.sca_archive_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Baixar ferramentas ausentes"
+        bash "$GITHUB_ACTION_PATH/toolchain.sh" fetch
+        echo "::endgroup::"
+
+    - name: Salvar Pipeline Scan no cache
+      if: steps.fetch.outputs.pipeline_fetched == 'true' && steps.restore_pipeline.outputs.cache-hit != 'true'
+      continue-on-error: true
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.pipeline_dir }}
+        key: ${{ steps.plan.outputs.pipeline_key }}
+
+    - name: Salvar Veracode CLI no cache
+      if: steps.fetch.outputs.cli_fetched == 'true' && steps.restore_cli.outputs.cache-hit != 'true'
+      continue-on-error: true
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.cli_dir }}
+        key: ${{ steps.plan.outputs.cli_key }}
+
+    - name: Salvar agente SCA no cache
+      if: steps.fetch.outputs.sca_fetched == 'true' && steps.restore_sca.outputs.cache-hit != 'true'
+      continue-on-error: true
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.plan.outputs.sca_dir }}
+        key: ${{ steps.plan.outputs.sca_key }}
+
+    - name: Instalar shim de rede das ferramentas
+      id: shims
+      if: steps.plan.outputs.enabled == 'true'
+      shell: bash
+      env:
+        PIPELINE_READY: ${{ steps.fetch.outputs.pipeline_ready }}
+        PIPELINE_DIR: ${{ steps.plan.outputs.pipeline_dir }}
+        PIPELINE_INTERCEPT_URL: ${{ steps.plan.outputs.pipeline_intercept_url }}
+        CLI_READY: ${{ steps.fetch.outputs.cli_ready }}
+        CLI_DIR: ${{ steps.plan.outputs.cli_dir }}
+        CLI_VERSION: ${{ steps.plan.outputs.cli_version }}
+        CLI_INSTALL_URL: ${{ steps.plan.outputs.cli_install_url }}
+        SCA_READY: ${{ steps.fetch.outputs.sca_ready }}
+        SCA_DIR: ${{ steps.plan.outputs.sca_dir }}
+        SCA_VERSION: ${{ steps.fetch.outputs.sca_version }}
+        SCA_CI_INTERCEPT_URLS: ${{ steps.plan.outputs.sca_ci_intercept_urls }}
+        SCA_VERSION_INTERCEPT_URL: ${{ steps.plan.outputs.sca_version_intercept_url }}
+        SCA_ARCHIVE_INTERCEPT_URL: ${{ steps.plan.outputs.sca_archive_intercept_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Instalar shim de rede das ferramentas"
+        bash "$GITHUB_ACTION_PATH/toolchain.sh" shims
+        echo "::endgroup::"

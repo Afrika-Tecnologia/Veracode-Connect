@@ -41,7 +41,8 @@ const success = {
     SCAN_FILE_CONSOLIDATED: 'scan_file={file} (origem: {source})',
     ARTIFACTS_SELECTED: 'artefatos={count} scan_file={file}',
     SUMMARY_WRITTEN: 'summary=escrito',
-    CLEAN_TREE_READY: 'package_source={dir} sha={sha}'
+    CLEAN_TREE_READY: 'package_source={dir} sha={sha}',
+    CLI_FROM_TOOLCHAIN: 'veracode_cli={path} (cache do toolchain, sem download)'
 };
 
 const catalogs = {

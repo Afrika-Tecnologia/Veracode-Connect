@@ -78,6 +78,58 @@ A action oficial SCA Agent-based não aceita uma política por nome. Para usar a
 
 Findings do Upload & Scan não acionam essa decisão de bloqueio. Com `iac_policy: 'none'` (padrão), não há avaliação de política IaC nem bloqueio por ela. `enable_iac_configs` aplica as regras customizadas do `veracode.yml`; para bloquear por política IaC, também informe a política em `iac_policy`. Falha ao baixar/aplicar uma política pedida aparece como política não avaliada e IaC com status de warning, sem ser confundida com reprovação de policy. O Upload & Scan faz um envio assíncrono; seu resultado de policy deve ser acompanhado na plataforma Veracode.
 
+## Downloads, cache e Maven Central
+
+As actions oficiais da Veracode baixam suas ferramentas a cada execução: o `pipeline-scan-LATEST.zip` (≈8 MB) em **cada** slot do Pipeline Scan (até 12 por run, com retries), a Veracode CLI (≈64 MB) no IaC e no Auto Packager, e o agente SCA (≈140 MB). O SCA e o Auto Packager também rodam o Maven/Gradle do projeto, que baixa todas as dependências do Maven Central em runners limpos.
+
+Com `enable_tools_cache: 'true'` (padrão, runners Linux), a action:
+
+1. Calcula quais ferramentas a execução usa e restaura cada uma do `actions/cache` (chave por versão/janela).
+2. Baixa **uma única vez** o que faltar, verifica a integridade (sha256 pinado em [`internal/toolchain/tools.json`](internal/toolchain/tools.json) para a CLI; zip/tgz válidos para Pipeline Scan e agente SCA) e salva no cache logo em seguida, mesmo que a esteira seja bloqueada depois.
+3. Coloca um shim de `curl` na frente do `PATH`. Ele responde do disco local apenas as URLs de download dessas ferramentas e repassa qualquer outra chamada ao `curl` real. As actions oficiais continuam inalteradas e pinadas.
+
+| Ferramenta | Antes (por execução) | Com cache aquecido |
+| --- | --- | --- |
+| `pipeline-scan-LATEST.zip` | 1 por slot (até 12) | 0 |
+| Veracode CLI | até 2 (IaC + Auto Packager) | 0 |
+| Agente SCA (`ci.sh`, `LATEST_VERSION`, `.tgz`) | 3 | 0 |
+| Wrapper Java do Upload & Scan (Maven Central) | 0 (vendorizado) | 0 |
+| Dependências Maven/Gradle | 1 resolução completa por SCA/Auto Packager | só artefatos novos |
+
+A CLI segue a versão pinada (`2.54.1`), a mesma usada pelo IaC e pelo Auto Packager. O Pipeline Scan e o agente SCA só são publicados como `LATEST`, então são renovados por janela em `tools_cache_refresh` (`weekly` por padrão). As ferramentas ficam em `$RUNNER_TEMP`, nunca no workspace, e o cache do `actions/cache` é isolado por repositório. Se algo falhar (download, verificação, runner Windows/macOS/ARM ou Alpine), a ferramenta afetada não entra no cache e a action oficial baixa normalmente, como antes.
+
+Com `cache_dependencies: 'true'` (padrão) e SCA ou Auto Packager ativos, `~/.m2/repository`, `~/.m2/wrapper`, `~/.gradle/caches` e `~/.gradle/wrapper` são restaurados antes do SCA e salvos depois do Upload & Scan. A chave usa o hash de `pom.xml`, `build.gradle(.kts)`, `settings.gradle(.kts)`, `libs.versions.toml`, `gradle.lockfile` e dos `*-wrapper.properties`; sem esses arquivos o cache não é usado. Se o workflow já faz cache do Maven/Gradle (por exemplo, `actions/setup-java` com `cache: maven`), use `cache_dependencies: 'false'` para não duplicar.
+
+Para não usar o Maven Central, informe `maven_mirror_url` (Nexus/Artifactory, `https`). A action cria um `~/.m2/settings.xml` temporário com `<mirrorOf>central</mirrorOf>` (ou o valor de `maven_mirror_of`, por exemplo `*`) e o remove ao final. Um `settings.xml` existente nunca é sobrescrito. Credenciais opcionais: `maven_mirror_username` e `maven_mirror_password` (use secrets). Para Gradle, configure o mirror no próprio projeto (`settings.gradle`/`init.gradle`).
+
+Para não depender da CDN da Veracode, publique as ferramentas em um mirror `https` próprio e informe a URL base em `tools_mirror_url`:
+
+```text
+<tools_mirror_url>/veracode-cli/veracode-cli_<versão>_linux_x86.tar.gz
+<tools_mirror_url>/securityscan/pipeline-scan-LATEST.zip
+<tools_mirror_url>/sca/ci.sh
+<tools_mirror_url>/sca/LATEST_VERSION
+<tools_mirror_url>/sca/srcclr-<versão>-linux.tgz
+```
+
+O mirror precisa aceitar leitura anônima. O sha256 pinado da CLI continua sendo verificado.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: Afrika-Tecnologia/Veracode-Connect@v1
+  with:
+    veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+    veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+    enable_sca: 'true'
+    veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
+    enable_auto_packager: 'true'
+    maven_mirror_url: https://nexus.example.com/repository/maven-public/
+    maven_mirror_username: ${{ secrets.NEXUS_USER }}
+    maven_mirror_password: ${{ secrets.NEXUS_TOKEN }}
+```
+
+Para atualizar a CLI, troque `version` e os dois sha256 em `internal/toolchain/tools.json` e o default de `cli_version` em `internal/auto-packager/action.yml`; o teste `wiring.test.js` falha se divergirem.
+
 ## Diagnóstico de falhas técnicas
 
 Com `enable_error_logs: 'true'`, valor padrão, a action publica um artefato `veracode-connect-error-*` quando identifica um incidente técnico ou uma falha do SCA oficial, que não distingue erro técnico de reprovação de política. O arquivo `diagnostic.json` contém repositório, run, tentativa, job, commit e uma lista de componentes, etapas e códigos de erro. Ele não contém credenciais, respostas de API, findings nem o log bruto. Findings de policy isolados do Pipeline/IaC e tentativas recuperadas por retry não geram esse artefato. Use `enable_error_logs: 'false'` para desativar a publicação.
@@ -154,6 +206,19 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `comment_pr` | `'false'` | Publica ou atualiza um comentário no Pull Request e remove comentários extras de SCA e IaC/Secrets publicados pelo bot. |
 | `veracode_url` | `https://analysiscenter.veracode.com/` | Endereço HTTP/HTTPS do link **Acesse Aqui**, abaixo do título do Resumo Final no summary e no comentário do PR. |
 | `enable_error_logs` | `'true'` | Publica diagnóstico em falhas técnicas ou falhas reportadas pelo SCA oficial. |
+
+### Cache e rede
+
+| Input | Default | Finalidade |
+| --- | --- | --- |
+| `enable_tools_cache` | `'true'` | Baixa uma vez a Veracode CLI, o Pipeline Scan e o agente SCA, guarda no `actions/cache` e serve às actions oficiais sem novos downloads (Linux). |
+| `tools_cache_refresh` | `weekly` | Janela de renovação do Pipeline Scan e do agente SCA: `daily`, `weekly` ou `monthly`. |
+| `tools_mirror_url` | Vazio | URL `https` base de um mirror próprio das ferramentas (layout em [Downloads, cache e Maven Central](#downloads-cache-e-maven-central)). |
+| `cache_dependencies` | `'true'` | Cache de `~/.m2` e `~/.gradle` quando SCA ou Auto Packager estão ativos. |
+| `maven_mirror_url` | Vazio | Mirror Maven `https`; gera um `settings.xml` temporário se não existir. |
+| `maven_mirror_of` | `central` | Valor de `<mirrorOf>`; use `*` para redirecionar todos os repositórios. |
+| `maven_mirror_username` | Vazio | Usuário do mirror (exige `maven_mirror_password`). |
+| `maven_mirror_password` | Vazio | Senha/token do mirror; use um secret. |
 
 Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de SCA e Container/IaC/Secrets são removidos ao final do job, inclusive os de execuções anteriores. Essas actions ainda podem publicá-los temporariamente durante o scan; a remoção não impede notificações já enviadas pelo GitHub.
 

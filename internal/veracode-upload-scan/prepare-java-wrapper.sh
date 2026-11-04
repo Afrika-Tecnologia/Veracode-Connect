@@ -35,19 +35,28 @@ case "$(uname -s 2>/dev/null || echo unknown)" in
     ;;
 esac
 
-REAL_CURL="/usr/bin/curl"
-REAL_WGET="/usr/bin/wget"
-if [ ! -x "${REAL_CURL}" ]; then
-  REAL_CURL="$(command -v curl || true)"
-fi
-if [ ! -x "${REAL_WGET}" ]; then
-  REAL_WGET="$(command -v wget || true)"
-fi
-if [ -z "${REAL_CURL}" ] || [ ! -x "${REAL_CURL}" ]; then
+SHIM_MARKER='# veracode-connect-shim'
+
+# Primeiro binário do PATH que não seja shim do Veracode Connect.
+real_bin() {
+  local name="$1" entry candidate
+  local -a entries
+  IFS=':' read -r -a entries <<< "${PATH}"
+  for entry in "${entries[@]}"; do
+    candidate="${entry:-.}/${name}"
+    if [ -f "${candidate}" ] && [ -x "${candidate}" ] && ! grep -qF "${SHIM_MARKER}" "${candidate}" 2>/dev/null; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! real_bin curl >/dev/null; then
   echo "::error::$(node "${ACTION_PATH}/messages.js" error WRAPPER_CURL_MISSING)"
   exit 1
 fi
-if [ -z "${REAL_WGET}" ] || [ ! -x "${REAL_WGET}" ]; then
+if ! real_bin wget >/dev/null; then
   echo "::error::$(node "${ACTION_PATH}/messages.js" error WRAPPER_WGET_MISSING)"
   exit 1
 fi
@@ -73,42 +82,85 @@ cat > "${SHIM_DIR}/maven-metadata.xml" <<EOF
 </metadata>
 EOF
 
-cat > "${SHIM_DIR}/curl" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-REAL_CURL="${REAL_CURL}"
-META="${SHIM_DIR}/maven-metadata.xml"
-for arg in "\$@"; do
-  case "\$arg" in
-    *vosp-api-wrappers-java*maven-metadata.xml*)
-      cat "\${META}"
-      exit 0
-      ;;
-  esac
-done
-exec "\${REAL_CURL}" "\$@"
+# Delegação: próximo binário do PATH depois da ÚLTIMA ocorrência do diretório do
+# shim. Encadeia com o shim do toolchain (internal/toolchain) sem risco de loop.
+SHIM_NEXT_BIN="$(cat <<'EOF'
+next_bin() {
+  local name="$1" own="$2" entry idx last=-1
+  local -a entries
+  IFS=':' read -r -a entries <<< "${PATH}"
+  for idx in "${!entries[@]}"; do
+    entry="${entries[$idx]:-.}"
+    if [ -d "${entry}" ] && [ "${entry}" -ef "${own}" ]; then
+      last="${idx}"
+    fi
+  done
+  for idx in "${!entries[@]}"; do
+    [ "${idx}" -le "${last}" ] && continue
+    entry="${entries[$idx]:-.}"
+    if [ -d "${entry}" ] && [ "${entry}" -ef "${own}" ]; then
+      continue
+    fi
+    if [ -f "${entry}/${name}" ] && [ -x "${entry}/${name}" ]; then
+      printf '%s\n' "${entry}/${name}"
+      return 0
+    fi
+  done
+  echo "veracode-connect: nenhum ${name} real encontrado no PATH após ${own}." >&2
+  return 1
+}
 EOF
+)"
 
-cat > "${SHIM_DIR}/wget" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-REAL_WGET="${REAL_WGET}"
-VENDOR_JAR="${SHIM_DIR}/${JAR_NAME}"
-for arg in "\$@"; do
-  case "\$arg" in
-    *vosp-api-wrappers-java*.jar*)
-      out="\$(basename "\${arg%%\\?*}")"
-      cp -f "\${VENDOR_JAR}" "\${PWD}/\${out}"
+{
+  echo '#!/usr/bin/env bash'
+  echo "${SHIM_MARKER}"
+  echo 'set -euo pipefail'
+  echo "SHIM_DIR='${SHIM_DIR}'"
+  echo "META='${SHIM_DIR}/maven-metadata.xml'"
+  echo "${SHIM_NEXT_BIN}"
+  cat <<'EOF'
+for arg in "$@"; do
+  case "$arg" in
+    *vosp-api-wrappers-java*maven-metadata.xml*)
+      cat "${META}"
       exit 0
       ;;
   esac
 done
-exec "\${REAL_WGET}" "\$@"
+NEXT="$(next_bin curl "${SHIM_DIR}")" || exit 127
+exec "${NEXT}" "$@"
 EOF
+} > "${SHIM_DIR}/curl"
+
+{
+  echo '#!/usr/bin/env bash'
+  echo "${SHIM_MARKER}"
+  echo 'set -euo pipefail'
+  echo "SHIM_DIR='${SHIM_DIR}'"
+  echo "VENDOR_JAR='${SHIM_DIR}/${JAR_NAME}'"
+  echo "${SHIM_NEXT_BIN}"
+  cat <<'EOF'
+for arg in "$@"; do
+  case "$arg" in
+    *vosp-api-wrappers-java*.jar*)
+      out="$(basename "${arg%%\?*}")"
+      cp -f "${VENDOR_JAR}" "${PWD}/${out}"
+      exit 0
+      ;;
+  esac
+done
+NEXT="$(next_bin wget "${SHIM_DIR}")" || exit 127
+exec "${NEXT}" "$@"
+EOF
+} > "${SHIM_DIR}/wget"
 
 chmod +x "${SHIM_DIR}/curl" "${SHIM_DIR}/wget"
 
-echo "${SHIM_DIR}" >> "${GITHUB_PATH}"
+case ":${PATH}:" in
+  *":${SHIM_DIR}:"*) ;;
+  *) echo "${SHIM_DIR}" >> "${GITHUB_PATH}" ;;
+esac
 echo "wrapper_version=${VERSION}" >> "${GITHUB_OUTPUT}"
 echo "wrapper_jar=${WORKSPACE}/${JAR_NAME}" >> "${GITHUB_OUTPUT}"
 echo "$(node "${ACTION_PATH}/messages.js" success WRAPPER_READY "version=${VERSION}" "jar=${JAR_NAME}")"

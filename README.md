@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.1
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.2
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,7 +44,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.1`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.2`.
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
@@ -116,7 +116,7 @@ O mirror precisa aceitar leitura anônima. O sha256 pinado da CLI continua sendo
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.2
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}

@@ -6,6 +6,8 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-04
+
 ### Added
 
 - Novo `internal/toolchain`: baixa uma única vez a Veracode CLI, o `pipeline-scan-LATEST.zip` e o agente SCA, verifica a integridade (sha256 pinado em `internal/toolchain/tools.json` para a CLI), salva no `actions/cache` logo após o download e instala um shim de `curl` que serve essas URLs às actions oficiais sem rede. Com cache aquecido, um run deixa de fazer até 12 downloads do Pipeline Scan, 2 da CLI e 3 do agente SCA. Falhas de download/verificação e runners não Linux mantêm o download direto das actions oficiais.

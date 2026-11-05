@@ -73,16 +73,6 @@ function extractMatches(data) {
     );
 }
 
-function bandLabel(band) {
-    switch (band) {
-        case 'critical': return { icon: '🔴', label: 'Very High', order: 1 };
-        case 'high': return { icon: '🟠', label: 'High', order: 2 };
-        case 'medium': return { icon: '🟡', label: 'Medium', order: 3 };
-        case 'low': return { icon: '🔵', label: 'Low', order: 4 };
-        default: return { icon: '⚪', label: 'Very Low', order: 5 };
-    }
-}
-
 function countFromMatches(matches) {
     const counts = emptyCounts();
     const rows = [];
@@ -124,65 +114,60 @@ function countFromMatches(matches) {
     return { counts, rows };
 }
 
-function tableCell(value) {
-    return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|');
+function bandLabel(band) {
+    switch (band) {
+        case 'critical': return { icon: '🔴', label: 'Very High', order: 1 };
+        case 'high': return { icon: '🟠', label: 'High', order: 2 };
+        case 'medium': return { icon: '🟡', label: 'Medium', order: 3 };
+        case 'low': return { icon: '🔵', label: 'Low', order: 4 };
+        default: return { icon: '⚪', label: 'Very Low', order: 5 };
+    }
 }
 
-function renderMarkdown(counts, rows, policyStatus, policyName) {
-    const lines = [];
-    lines.push('### 🛡️ Veracode IaC / Secrets');
-    lines.push('');
-    if (policyStatus && policyStatus !== 'not_used' && policyStatus !== 'skipped') {
-        const safeName = String(policyName || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
-        const label = policyStatus === 'passed' ? '✅ Passou'
-            : policyStatus === 'failed' ? '❌ Não passou'
-                : '⚠️ Não avaliada';
-        lines.push(`**Política IaC${safeName ? ` (${safeName})` : ''}:** ${label}`);
-        lines.push('');
-    }
-    lines.push('| Severidade | Quantidade |');
-    lines.push('|---|---|');
-    lines.push(`| 🔴 Very High | ${counts.critical} |`);
-    lines.push(`| 🟠 High | ${counts.high} |`);
-    lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low | ${counts.low} |`);
-    lines.push(`| ⚪ Very Low | ${counts.very_low} |`);
-    lines.push(`| **Total Findings** | **${counts.total}** |`);
-    lines.push('');
+const BASELINE_HEADING = '### 🛡️ Veracode IaC / Secrets (Repo Baseline)';
 
-    if (rows.length > 0) {
-        lines.push(`<details><summary>Detalhamento de IaC / Secrets (${rows.length})</summary>`);
-        lines.push('');
-        lines.push('| # | Severidade | CVE / ID | Descrição | Biblioteca / Arquivo | Fix |');
-        lines.push('|---|---|---|---|---|---|');
-        rows.forEach((row, index) => {
-            const { icon, label } = bandLabel(row.band);
-            lines.push(`| ${index + 1} | ${icon} ${label} | ${tableCell(row.cve)} | ${tableCell(row.desc)} | ${tableCell(row.lib)} | ${tableCell(row.fix)} |`);
-        });
-        lines.push('');
-        lines.push('</details>');
-        lines.push('');
-    }
-    return `${lines.join('\n')}\n`;
+function policyActive(policyStatus, policyName) {
+    const name = String(policyName || '').trim();
+    return Boolean(name) && name !== 'none' && !['', 'not_used', 'skipped'].includes(String(policyStatus || ''));
 }
 
-function buildSummary({ jsonPath, policyStatus = 'not_used', policyName = '' }) {
-    const filePath = jsonPath || 'iac-results/results.json';
-    const data = readJson(filePath);
+/** Findings normalizados ({severity, category, id, title, location, policy}) do results.json. */
+function normalizedFindings(data, iacBaseline) {
+    if (iacBaseline.isIacResults(data)) return iacBaseline.extractFindings(data);
+    return countFromMatches(extractMatches(data)).rows.map((row) => ({
+        severity: row.band, category: '', id: row.cve, title: row.desc, location: row.lib, policy: ''
+    }));
+}
+
+/**
+ * Card IaC no padrão único: com baseline comparado, os três grupos; sem baseline,
+ * a linha de vulnerabilidades e, com política ativa, a das que afetam a política.
+ * @param {{detailsLimit?: number, details?: boolean}} options
+ */
+function buildSummary({ jsonPath, policyStatus = 'not_used', policyName = '', baselineStatus = 'not_used', diffPath = '', details = true, detailsLimit, groups }) {
+    // Carregado sob demanda: iac-baseline depende deste módulo.
+    const iacBaseline = require('../iac-baseline/iac-baseline');
+    const { ROW, severityTable, countBands } = require('../summary-table/severity-table');
+    if (baselineStatus === 'compared') {
+        const diff = readJson(diffPath);
+        if (diff) return iacBaseline.renderComparedMarkdown(diff, { detailsLimit, groups });
+    }
+    const active = Boolean(baselineStatus) && baselineStatus !== 'not_used';
+    const lines = [active ? BASELINE_HEADING : '### 🛡️ Veracode IaC / Secrets', ''];
+    const withPolicy = policyActive(policyStatus, policyName);
+    if (withPolicy) {
+        lines.push(`**Política IaC:** ${String(policyName).replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&')}`, '');
+    }
+    const data = readJson(jsonPath || 'iac-results/results.json');
     if (!data) {
-        return [
-            '### 🛡️ Veracode IaC / Secrets',
-            '',
-            ...(policyStatus && policyStatus !== 'not_used' && policyStatus !== 'skipped'
-                ? [`**Política IaC${policyName ? ` (${String(policyName).replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&')})` : ''}:** ${policyStatus === 'failed' ? '❌ Não passou' : policyStatus === 'passed' ? '✅ Passou' : '⚠️ Não avaliada'}`, '']
-                : []),
-            '> ⚠️ Nenhum arquivo de resultado encontrado.',
-            ''
-        ].join('\n') + '\n';
+        return [...lines, '> ⚠️ Nenhum arquivo de resultado encontrado.', ''].join('\n') + '\n';
     }
-    const matches = extractMatches(data);
-    const parsed = countFromMatches(matches);
-    return renderMarkdown(parsed.counts, parsed.rows, policyStatus, policyName);
+    const findings = normalizedFindings(data, iacBaseline);
+    const rows = [{ label: ROW.all, counts: countBands(findings) }];
+    if (withPolicy) rows.push({ label: ROW.policy, counts: countBands(findings.filter((f) => f.policy === 'failed')) });
+    lines.push(...severityTable(rows), '');
+    if (details) lines.push(...iacBaseline.detailsBlock('Vulnerabilidades', findings, detailsLimit ?? iacBaseline.DETAILS_LIMIT));
+    return `${lines.join('\n')}\n`;
 }
 
 if (require.main === module) {
@@ -194,7 +179,9 @@ if (require.main === module) {
         const md = buildSummary({
             jsonPath: process.argv[3] || process.env.IAC_JSON || 'iac-results/results.json',
             policyStatus: process.env.IAC_POLICY_STATUS || 'not_used',
-            policyName: process.env.IAC_POLICY_NAME || ''
+            policyName: process.env.IAC_POLICY_NAME || '',
+            baselineStatus: process.env.IAC_BASELINE_STATUS || 'not_used',
+            diffPath: process.env.IAC_BASELINE_DIFF || ''
         });
         process.stdout.write(md);
         process.stderr.write(`${message('success', 'SUMMARY_WRITTEN')}\n`);

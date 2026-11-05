@@ -6,7 +6,9 @@ Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.
 
 Versoes suportadas:
 
-- `v1.8.2`, com os aliases `v1.8` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.9.0`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
+
+A versão `v1.9.0` adiciona baselines IaC/Secrets (`enable_iac_baseline`) e SCA (`enable_sca_baseline`) no modo `repo`. Os arquivos `iac-baseline.json` e `sca-baseline.json` são gravados uma única vez no repositório de baseline e nunca sobrescritos; a gravação confirma de novo que o arquivo não existe antes de cada tentativa. O baseline guarda apenas identificadores, hashes e campos de exibição: o trecho (`Code`) e o valor (`Match`) dos secrets nunca são gravados nem publicados. `fail_on_severity` passa a aceitar só severidades conhecidas e é repassado entre aspas ao Pipeline Scan oficial, o que corrige a quebra do comando e impede a injeção de argumentos de shell por esse input. `fail_on_cve` passa a bloquear também com `create_issues: false`: a action oficial do SCA roda com `sca_fix_enabled: true` para gerar `scaResults.json`; sem `pr_number`, a etapa de correção dessa action não é executada e nenhuma credencial adicional é usada.
 
 A versão `v1.8.2` reduz downloads externos. A Veracode CLI, o Pipeline Scan e o agente SCA são baixados uma única vez, guardados no `actions/cache` do próprio repositório e servidos às actions oficiais por um shim de `curl` que responde apenas às URLs dessas ferramentas e repassa as demais ao `curl` real. A CLI é aceita somente se o sha256 do pacote e do binário corresponder ao pinado em `internal/toolchain/tools.json`, inclusive quando vem do cache. As ferramentas ficam em `$RUNNER_TEMP`, fora do workspace analisado. `tools_mirror_url` e `maven_mirror_url` aceitam apenas `https`. O `settings.xml` gerado para o mirror Maven tem permissão `600`, nunca sobrescreve um arquivo existente, não entra no cache e é removido ao final; use secrets para `maven_mirror_password`. Desative com `enable_tools_cache: 'false'` e `cache_dependencies: 'false'`.
 
@@ -24,6 +26,8 @@ A versão `v1.7.3` mantém essas correções, sinaliza scans indisponíveis como
 
 Com `policy_fail: 'true'` e `fail_build: 'true'`, findings confirmados de policy/baseline do Pipeline Scan, reprovação da política IaC ou falha reportada pelo SCA com resultado de análise bloqueiam o job somente no último step. Os scans habilitados continuam e o Resumo Final é publicado antes do bloqueio, com os resultados reprovados em vermelho. Com qualquer um desses inputs desabilitado, os resultados continuam visíveis, sem bloqueio por esta action. Com `bypass: 'true'`, a action também não bloqueia o job, mesmo com `policy_fail` e `fail_build` habilitados; os achados continuam visíveis. Nesse modo, o Upload & Scan habilitado é enviado para a sandbox chamada `bypass`.
 
+Com `enable_iac_baseline` ou `enable_sca_baseline`, só os findings novos (ausentes do baseline) que afetam a política bloqueiam; enquanto o baseline não existir, a política IaC/SCA não bloqueia. `fail_on_cve` continua bloqueando qualquer CVE listado, inclusive do backlog. Com baseline SCA, `breakBuildOnPolicyFindings` não é repassado à action oficial, porque ela avalia todas as vulnerabilidades.
+
 Quando `baseline_mode` é `repo` ou `portal_afrika`, o bloqueio do Pipeline exige que um baseline registrado tenha sido utilizado no scan. A execução inicial sem baseline preserva os findings e pode criar o baseline na branch padrão ou em PR destinado à `default_branch` do repositório analisado, mas não bloqueia por política; essa gravação só afeta scans posteriores. Em PRs, o baseline pode ser gravado antes do merge. SCA/IaC e o Pipeline sem provedor de baseline continuam com suas decisões independentes.
 
 No SCA, `policy_fail` controla `breakBuildOnPolicyFindings`. A ausência de resultado reconhecível com bibliotecas analisadas gera `warning`, sem bloqueio; artefatos SCA anteriores são removidos antes do scan. Com resultado de análise, a falha oficial continua bloqueante quando ambos os inputs estão habilitados. A action oficial não distingue reprovação de política de erro técnico nesse caso. A política SCA deve ser atribuída ao workspace na Veracode. A action oficial não aceita seleção de política por nome; para compartilhar a política do Pipeline Scan, atribua a mesma política ao workspace do token SCA.
@@ -32,7 +36,7 @@ Scans sem resultado, erros técnicos de execução/avaliação IaC e falhas de U
 
 ## Baseline via repositorio (GitHub App)
 
-Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`). Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo.
+Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`). Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo. O mesmo acesso grava `baseline.json`, `iac-baseline.json` e `sca-baseline.json` em `<org>/<repo>/`; restrinja quem pode escrever nesse repositório, porque apagar um desses arquivos faz o próximo scan elegível gravar um baseline novo.
 
 Com `enable_iac_configs: 'true'`, a action também usa esse acesso para baixar o `veracode.yml` da raiz do repositório de baseline para a raiz do workspace analisado. Para somente ler essa configuração, `Contents: Read` é suficiente; o fluxo Repo Baseline que atualiza arquivos continua exigindo escrita. Mantenha as credenciais em secrets do GitHub e revise as regras centralizadas antes de publicá-las no baseline.
 

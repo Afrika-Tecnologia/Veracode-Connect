@@ -28,9 +28,18 @@ for (const scenario of [
     { outcome: 'skipped', policyFail: 'true', want: 'warning' },
     { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', cveBlocked: '2', want: 'failure' },
     { outcome: 'success', policyFail: 'false', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', cveBlocked: '2', want: 'warning' },
-    { outcome: 'success', policyFail: 'true', cveBlocked: '1', want: 'warning' }
+    { outcome: 'success', policyFail: 'true', cveBlocked: '1', want: 'warning' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'compared', newPolicy: '0', want: 'success' },
+    { outcome: 'failure', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'compared', newPolicy: '0', want: 'success' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'compared', newPolicy: '2', want: 'failure' },
+    { outcome: 'success', policyFail: 'false', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'compared', newPolicy: '2', want: 'warning' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'compared', newPolicy: '0', cveBlocked: '1', want: 'failure' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'deferred', want: 'success' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'seeded', want: 'success' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'error', want: 'warning' },
+    { outcome: 'success', policyFail: 'true', results: 'Total Libraries 1\nHigh Risk Vulnerabilities 1', baseline: 'deferred', cveBlocked: '1', want: 'failure' }
 ]) {
-    test(`SCA ${scenario.outcome}, policy_fail=${scenario.policyFail}, cve=${scenario.cveBlocked || '0'}, results=${scenario.results || 'absent'} reports ${scenario.want} without ending the flow`, {
+    test(`SCA ${scenario.outcome}, policy_fail=${scenario.policyFail}, cve=${scenario.cveBlocked || '0'}, baseline=${scenario.baseline || 'off'}/${scenario.newPolicy || '0'}, results=${scenario.results || 'absent'} reports ${scenario.want} without ending the flow`, {
         skip: !available && 'Bash is required for composite-action scripts'
     }, () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-status-'));
@@ -43,7 +52,8 @@ for (const scenario of [
                     ...process.env, GITHUB_ACTION_PATH: __dirname.replace(/\\/g, '/'),
                     GITHUB_OUTPUT: output.replace(/\\/g, '/'),
                     SCA_OUTCOME: scenario.outcome, POLICY_FAIL: scenario.policyFail,
-                    CVE_BLOCKED_COUNT: scenario.cveBlocked || '0'
+                    CVE_BLOCKED_COUNT: scenario.cveBlocked || '0',
+                    SCA_BASELINE_STATUS: scenario.baseline || '', SCA_NEW_POLICY_COUNT: scenario.newPolicy || '0'
                 }, encoding: 'utf8'
             });
             assert.equal(run.status, 0, run.stderr);

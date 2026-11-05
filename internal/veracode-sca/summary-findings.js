@@ -220,50 +220,8 @@ function renderBlockedCveSection(blocked) {
     return lines;
 }
 
-function renderScaFindingsSection(counts, vulns, { createIssues }) {
-    const lines = [];
-    lines.push('#### Findings do SCA');
-    lines.push('');
-    if (createIssues) {
-        lines.push('> 📝 Issues GitHub: **habilitado** (`create_issues: true`)');
-        lines.push('');
-    }
-    lines.push('| Severidade | Quantidade |');
-    lines.push('|---|---|');
-    lines.push(`| 🔴 Very High | ${counts.critical} |`);
-    lines.push(`| 🟠 High | ${counts.high} |`);
-    lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low | ${counts.low} |`);
-    lines.push(`| ⚪ Very Low | ${counts.very_low} |`);
-    lines.push(`| **Total Vulnerabilidades** | **${counts.total}** |`);
-    lines.push(`| Bibliotecas vulneráveis | ${counts.vulnerable_libraries} |`);
-    lines.push(`| Total de bibliotecas analisadas | ${counts.libraries} |`);
-    lines.push(`| Bibliotecas diretas | ${counts.direct} |`);
-    const transitive = Math.max(0, (counts.libraries || 0) - (counts.direct || 0));
-    lines.push(`| Bibliotecas transitivas | ${transitive} |`);
-    lines.push('');
-
-    if (vulns.length > 0) {
-        lines.push(`<details><summary>Findings do SCA (${vulns.length})</summary>`);
-        lines.push('');
-        lines.push('| # | Severidade | CVE | Descrição | Biblioteca |');
-        lines.push('|---|---|---|---|---|');
-        lines.push(...findingsTableRows(vulns));
-        lines.push('');
-        lines.push('</details>');
-        lines.push('');
-    }
-    return lines;
-}
-
-function renderMarkdown(counts, vulns, { createIssues, blocked } = {}) {
-    const lines = [];
-    lines.push('### 🔍 Veracode SCA (Software Composition Analysis)');
-    lines.push('');
-    lines.push(...renderBlockedCveSection(blocked));
-    lines.push(...renderScaFindingsSection(counts, vulns, { createIssues }));
-    return `${lines.join('\n')}\n`;
-}
+const HEADING = '### 🔍 Veracode SCA (Software Composition Analysis)';
+const BASELINE_HEADING = '### 🔍 Veracode SCA (Repo Baseline)';
 
 function resolveInputs(jsonPath, txtPath) {
     const json = jsonPath || 'scaResults.json';
@@ -283,41 +241,60 @@ function loadBlockedArtifact(blockedPath) {
     return data;
 }
 
-function buildSummary({ jsonPath, txtPath, createIssues, blockedPath, blocked }) {
-    const paths = resolveInputs(jsonPath, txtPath);
-    const blockedData = blocked || loadBlockedArtifact(blockedPath);
-    const jsonData = readJson(paths.json);
-    if (jsonData?.records) {
-        const parsed = countFromJson(jsonData);
-        return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
+/** Lê o resultado SCA como findings normalizados ({severity, id, title, library}) ou só contagens. */
+function loadScaFindings(paths) {
+    // Carregado sob demanda: sca-baseline depende deste módulo.
+    const { extractFindings, isScaResults } = require('../sca-baseline/sca-baseline');
+    for (const candidate of [paths.json, paths.txt, paths.log]) {
+        const data = readJson(candidate);
+        if (isScaResults(data)) return { findings: extractFindings(data) };
     }
-
-    let text = '';
     for (const candidate of [paths.txt, paths.log]) {
-        if (candidate && fs.existsSync(candidate)) {
-            text = fs.readFileSync(candidate, 'utf8');
-            if (text.trim().startsWith('{')) {
-                const parsedJson = readJson(candidate);
-                if (parsedJson?.records) {
-                    const parsed = countFromJson(parsedJson);
-                    return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
-                }
-                continue;
+        if (!candidate || !fs.existsSync(candidate)) continue;
+        const text = fs.readFileSync(candidate, 'utf8');
+        if (/Risk\s+Vulnerabilities/i.test(text) || /^\s*(CVE-\S+|NO-CVE)\s+/m.test(text)) {
+            const parsed = countFromText(text);
+            if (parsed.vulns.length) {
+                return { findings: parsed.vulns.map((row) => ({ severity: row.band, id: row.cve, title: row.title, library: row.library })) };
             }
-            if (/Risk\s+Vulnerabilities/i.test(text) || /^\s*(CVE-\S+|NO-CVE)\s+/m.test(text)) {
-                const parsed = countFromText(text);
-                return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
-            }
+            return { findings: [], counts: parsed.counts };
         }
     }
+    return null;
+}
 
-    const lines = [
-        '### 🔍 Veracode SCA (Software Composition Analysis)',
-        '',
-        ...renderBlockedCveSection(blockedData),
-        '> ⚠️ Nenhum artefato de resultado SCA encontrado.',
-        ''
-    ];
+/**
+ * Card SCA no padrão único: com baseline comparado, os três grupos; sem baseline, só a linha
+ * de vulnerabilidades (o agente não informa, por finding, se ele viola a política).
+ * Os CVEs de fail_on_cve encontrados ficam acima da tabela.
+ */
+function buildSummary({ jsonPath, txtPath, blockedPath, blocked, baselineStatus = 'not_used', diffPath = '', diff, details = true, detailsLimit, groups }) {
+    const paths = resolveInputs(jsonPath, txtPath);
+    const blockedData = blocked || loadBlockedArtifact(blockedPath);
+    const scaBaseline = require('../sca-baseline/sca-baseline');
+    if (baselineStatus === 'compared') {
+        const diffData = diff || readJson(diffPath);
+        if (diffData) {
+            return `${[
+                BASELINE_HEADING,
+                '',
+                ...renderBlockedCveSection(blockedData),
+                ...scaBaseline.renderComparedBody(diffData, { detailsLimit, groups })
+            ].join('\n')}\n`;
+        }
+    }
+    const { ROW, severityTable, countBands } = require('../summary-table/severity-table');
+    const active = Boolean(baselineStatus) && baselineStatus !== 'not_used';
+    const lines = [active ? BASELINE_HEADING : HEADING, '', ...renderBlockedCveSection(blockedData)];
+    const loaded = loadScaFindings(paths);
+    if (!loaded) {
+        lines.push('> ⚠️ Nenhum artefato de resultado SCA encontrado.', '');
+        return `${lines.join('\n')}\n`;
+    }
+    lines.push(...severityTable([{ label: ROW.all, counts: loaded.counts || countBands(loaded.findings) }]), '');
+    if (details) {
+        lines.push(...scaBaseline.detailsBlock('Vulnerabilidades', loaded.findings, detailsLimit ?? scaBaseline.DETAILS_LIMIT));
+    }
     return `${lines.join('\n')}\n`;
 }
 
@@ -330,11 +307,12 @@ if (require.main === module) {
         const md = buildSummary({
             jsonPath: process.argv[3] || process.env.SCA_JSON || 'scaResults.json',
             txtPath: process.argv[4] || process.env.SCA_TXT || 'scaResults.txt',
-            createIssues: String(process.env.CREATE_ISSUES || '').toLowerCase() === 'true',
             blockedPath: process.env.CVE_BLOCKED_PATH
                 || (process.env.RUNNER_TEMP
                     ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
-                    : '')
+                    : ''),
+            baselineStatus: process.env.SCA_BASELINE_STATUS || 'not_used',
+            diffPath: process.env.SCA_BASELINE_DIFF || ''
         });
         process.stdout.write(md);
         process.stderr.write(`${message('success', 'SUMMARY_WRITTEN')}\n`);
@@ -345,13 +323,13 @@ if (require.main === module) {
 }
 
 module.exports = {
+    HEADING,
+    BASELINE_HEADING,
     cvssBand,
     countFromJson,
     countFromText,
     buildSummary,
-    renderMarkdown,
     renderBlockedCveSection,
-    renderScaFindingsSection,
     emptyCounts,
     loadBlockedArtifact
 };

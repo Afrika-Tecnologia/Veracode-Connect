@@ -11,6 +11,10 @@ const {
     ENABLE_SCA,
     ENABLE_IAC,
     ENABLE_IAC_CONFIGS,
+    ENABLE_IAC_BASELINE,
+    ENABLE_SCA_BASELINE,
+    SCA_FAIL_ON_SEVERITY,
+    IAC_POLICY,
     ENABLE_ERROR_LOGS,
     SCA_TOKEN,
     ENABLE_PIPELINE,
@@ -87,6 +91,33 @@ if (VKEY && (!/^[0-9a-fA-F]+$/.test(VKEY) || VKEY.length % 2 !== 0)) {
     erros.push(message('error', 'VKEY_INVALID_HEX'));
 }
 if (ENABLE_SCA === 'true' && !SCA_TOKEN) erros.push(message('error', 'SCA_TOKEN_REQUIRED'));
+
+const iacBaseline = (ENABLE_IAC_BASELINE || '').trim();
+if (iacBaseline && iacBaseline !== 'true' && iacBaseline !== 'false') {
+    erros.push(message('error', 'IAC_BASELINE_INVALID'));
+} else if (iacBaseline === 'true') {
+    if (resolvedBaselineMode !== 'repo') erros.push(message('error', 'IAC_BASELINE_REQUIRES_REPO'));
+    if (ENABLE_IAC !== 'true') erros.push(message('error', 'IAC_BASELINE_REQUIRES_IAC'));
+    if (!(IAC_POLICY || '').trim() || (IAC_POLICY || '').trim() === 'none') {
+        console.log("::warning::" + message('warning', 'IAC_BASELINE_WITHOUT_POLICY'));
+    }
+}
+
+const scaBaseline = (ENABLE_SCA_BASELINE || '').trim();
+if (scaBaseline && scaBaseline !== 'true' && scaBaseline !== 'false') {
+    erros.push(message('error', 'SCA_BASELINE_INVALID'));
+} else if (scaBaseline === 'true') {
+    if (resolvedBaselineMode !== 'repo') erros.push(message('error', 'SCA_BASELINE_REQUIRES_REPO'));
+    if (ENABLE_SCA !== 'true') erros.push(message('error', 'SCA_BASELINE_REQUIRES_SCA'));
+}
+const SCA_SEVERITIES = ['very high', 'high', 'medium', 'low', 'very low'];
+for (const token of String(SCA_FAIL_ON_SEVERITY || '').split(',')) {
+    const severity = token.trim().replace(/\s+/g, ' ');
+    if (severity && !SCA_SEVERITIES.includes(severity.toLowerCase())) {
+        erros.push(message('error', 'SCA_FAIL_ON_SEVERITY_INVALID', { severity }));
+        break;
+    }
+}
 
 if (resolvedBaselineMode === 'portal_afrika') {
     if (!PORTAL_AFRIKA_KEY) erros.push(message('error', 'PORTAL_AFRIKA_KEY_REQUIRED'));

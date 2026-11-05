@@ -6,8 +6,23 @@ outputs:
     description: 'Resultado do scan IaC/Secrets (success | failure | warning | skipped).'
     value: ${{ steps.status.outputs.iac_status }}
   iac_policy_status:
-    description: 'Resultado da política IaC (not_used | passed | failed | error).'
+    description: 'Resultado da política IaC (not_used | passed | failed | error | deferred). Com baseline IaC comparado, considera só findings novos.'
     value: ${{ steps.status.outputs.iac_policy_status }}
+  iac_baseline_status:
+    description: 'Estado do baseline IaC (not_used | deferred | seeded | compared | error).'
+    value: ${{ steps.baseline_state.outputs.status || 'not_used' }}
+  has_iac_baseline:
+    description: 'true quando o baseline IaC já existia no repositório de baseline.'
+    value: ${{ steps.get_iac_baseline.outputs.has_baseline || 'false' }}
+  iac_new_policy_count:
+    description: 'Findings IaC novos (fora do baseline) que violam a política.'
+    value: ${{ steps.iac_baseline.outputs.new_policy_count || '0' }}
+  iac_new_count:
+    description: 'Findings IaC novos (fora do baseline), afetando ou não a política.'
+    value: ${{ steps.iac_baseline.outputs.new_count || '0' }}
+  iac_backlog_count:
+    description: 'Findings IaC já presentes no baseline que continuam no scan atual.'
+    value: ${{ steps.iac_baseline.outputs.backlog_count || '0' }}
 
 inputs:
   veracode_api_id:
@@ -24,6 +39,10 @@ inputs:
     description: 'Nome da política Container/IaC Veracode; none mantém o fluxo atual.'
     required: false
     default: 'none'
+  enable_iac_baseline:
+    description: 'Baseline IaC no repositório de baseline (iac-baseline.json, write-once): só findings novos são avaliados pela política.'
+    required: false
+    default: 'false'
   artifact_suffix:
     description: 'Sufixo único para o nome do artefato (evita conflito 409 em jobs paralelos).'
     required: false
@@ -113,6 +132,31 @@ runs:
         fi
 
         trap - EXIT
+
+    # Fora do workspace: o próprio scan não pode analisar o arquivo de baseline.
+    - name: Consultar baseline IaC no repositório
+      id: get_iac_baseline
+      if: inputs.enable_iac_baseline == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+        BASELINE_FILE: ${{ runner.temp }}/veracode-connect-iac-baseline/iac-baseline.json
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline IaC (consulta)"
+        rm -f -- "${BASELINE_FILE}"
+        node "$GITHUB_ACTION_PATH/../baseline-store/cli.js" get --kind iac --out "${BASELINE_FILE}"
+        echo "::endgroup::"
 
     - name: Veracode Container/IaC/Secrets scan (diretório)
       id: iac_scan
@@ -282,22 +326,6 @@ runs:
             ;;
         esac
 
-    - name: Definir status
-      if: always()
-      id: status
-      shell: bash
-      env:
-        IAC_POLICY: ${{ inputs.iac_policy }}
-        IAC_SCAN_OUTCOME: ${{ steps.iac_scan.outcome }}
-        IAC_SCAN_STATUS: ${{ steps.iac_policy_scan.outputs.scan_status || 'failure' }}
-        IAC_POLICY_STATUS: ${{ steps.iac_policy_scan.outputs.iac_policy_status || 'error' }}
-      run: |
-        set -euo pipefail
-        echo "::group::Definir status IaC/Secrets"
-        iac_status="$(node "$GITHUB_ACTION_PATH/policy-evaluation.js" status)"
-        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success IAC_STATUS_SET "status=${iac_status}")"
-        echo "::endgroup::"
-
     - name: Coletar arquivos de resultado do IaC
       id: collect_results
       if: always()
@@ -351,6 +379,99 @@ runs:
         fi
         echo "::endgroup::"
 
+    - name: Comparar com o baseline IaC
+      id: iac_baseline
+      if: always() && inputs.enable_iac_baseline == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        GET_OUTCOME: ${{ steps.get_iac_baseline.outcome }}
+        HAS_BASELINE: ${{ steps.get_iac_baseline.outputs.has_baseline }}
+        SCAN_OK: ${{ (inputs.iac_policy == 'none' && steps.iac_scan.outcome == 'success') || (inputs.iac_policy != 'none' && steps.iac_policy_scan.outputs.scan_status == 'success') }}
+        RESULTS_FILE: ${{ github.workspace }}/iac-results/results.json
+        BASELINE_FILE: ${{ runner.temp }}/veracode-connect-iac-baseline/iac-baseline.json
+        DIFF_FILE: ${{ github.workspace }}/iac-results/iac-baseline-diff.json
+        IAC_POLICY: ${{ inputs.iac_policy }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline IaC (comparação)"
+        rm -f -- "${DIFF_FILE}"
+        node "$GITHUB_ACTION_PATH/../iac-baseline/iac-baseline.js" evaluate
+        echo "::endgroup::"
+
+    - name: Resolver elegibilidade do seed do baseline IaC
+      id: iac_seed_gate
+      if: always() && steps.iac_baseline.outputs.iac_baseline_status == 'deferred'
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        BASE_REF: ${{ github.base_ref }}
+        REF_NAME: ${{ github.ref_name }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        HAS_BASELINE: 'false'
+      run: node "$GITHUB_ACTION_PATH/../baseline-store/seed-gate.js"
+
+    # Write-once: o store recusa sobrescrever um iac-baseline.json existente.
+    - name: Gravar baseline IaC no repositório
+      id: iac_seed
+      if: always() && steps.iac_seed_gate.outputs.can_seed == 'true' && ((inputs.iac_policy == 'none' && steps.iac_scan.outcome == 'success') || (inputs.iac_policy != 'none' && steps.iac_policy_scan.outputs.scan_status == 'success'))
+      continue-on-error: true
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+        RESULTS_FILE: ${{ github.workspace }}/iac-results/results.json
+        SEED_FILE: ${{ runner.temp }}/veracode-connect-iac-baseline/iac-baseline-seed.json
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline IaC (gravar)"
+        node "$GITHUB_ACTION_PATH/../iac-baseline/iac-baseline.js" build --results "${RESULTS_FILE}" --out "${SEED_FILE}"
+        node "$GITHUB_ACTION_PATH/../baseline-store/cli.js" put --kind iac --file "${SEED_FILE}"
+        echo "::endgroup::"
+
+    - name: Consolidar estado do baseline IaC
+      id: baseline_state
+      if: always() && inputs.enable_iac_baseline == 'true'
+      shell: bash
+      env:
+        EVALUATED: ${{ steps.iac_baseline.outputs.iac_baseline_status || 'error' }}
+        SEEDED: ${{ steps.iac_seed.outputs.baseline_seeded }}
+      run: |
+        set -euo pipefail
+        status="${EVALUATED}"
+        if [ "${status}" = "deferred" ] && [ "${SEEDED}" = "true" ]; then
+          status="seeded"
+        fi
+        echo "status=${status}" >> "$GITHUB_OUTPUT"
+        echo "iac_baseline_status=${status}"
+
+    - name: Definir status
+      if: always()
+      id: status
+      shell: bash
+      env:
+        IAC_POLICY: ${{ inputs.iac_policy }}
+        IAC_SCAN_OUTCOME: ${{ steps.iac_scan.outcome }}
+        IAC_SCAN_STATUS: ${{ steps.iac_policy_scan.outputs.scan_status || 'failure' }}
+        IAC_POLICY_STATUS: ${{ steps.iac_policy_scan.outputs.iac_policy_status || 'error' }}
+        IAC_BASELINE_STATUS: ${{ steps.baseline_state.outputs.status || 'not_used' }}
+        IAC_NEW_POLICY_COUNT: ${{ steps.iac_baseline.outputs.new_policy_count || '0' }}
+      run: |
+        set -euo pipefail
+        echo "::group::Definir status IaC/Secrets"
+        iac_status="$(node "$GITHUB_ACTION_PATH/policy-evaluation.js" status)"
+        echo "$(node "$GITHUB_ACTION_PATH/messages.js" success IAC_STATUS_SET "status=${iac_status}")"
+        echo "::endgroup::"
+
     - name: Calcular nome do artefato IaC
       id: artifact_name
       if: always()
@@ -392,6 +513,9 @@ runs:
         mkdir -p "${FRAG_DIR}"
         export IAC_POLICY_STATUS="${{ steps.status.outputs.iac_policy_status || 'not_used' }}"
         export IAC_POLICY_NAME="${{ inputs.iac_policy }}"
+        export IAC_BASELINE_STATUS="${{ steps.baseline_state.outputs.status || 'not_used' }}"
+        export IAC_BASELINE_DIFF="${GITHUB_WORKSPACE}/iac-results/iac-baseline-diff.json"
+        export IAC_BASELINE_CAN_SEED="${{ steps.iac_seed_gate.outputs.can_seed }}"
         node "$GITHUB_ACTION_PATH/summary-findings.js" summary-md \
           "${GITHUB_WORKSPACE}/iac-results/results.json" \
           > "${FRAG_DIR}/iac.md"
@@ -406,7 +530,12 @@ runs:
         VC_STEPS: |
           download_iac_config=${{ steps.download_iac_config.outcome }}
           prepare_iac_config=${{ steps.prepare_iac_config.outcome }}
+          get_iac_baseline=${{ steps.get_iac_baseline.outcome }}
           iac_scan=${{ steps.iac_scan.outcome }}
+          iac_baseline=${{ steps.iac_baseline.outcome }}
+          iac_seed_gate=${{ steps.iac_seed_gate.outcome }}
+          iac_seed=${{ steps.iac_seed.outcome }}
+          baseline_state=${{ steps.baseline_state.outcome }}
           status=${{ steps.status.outcome }}
           collect_results=${{ steps.collect_results.outcome }}
           artifact_name=${{ steps.artifact_name.outcome }}

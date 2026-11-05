@@ -22,7 +22,43 @@ inputs:
     required: false
     default: 'false'
   fail_on_cve:
-    description: 'Lista de CVEs exatos que, se encontrados no scaResults.json, marcam o SCA como failure (com policy_fail=true).'
+    description: 'Lista de CVEs exatos que, se encontrados no resultado SCA, marcam o SCA como failure (com policy_fail=true). Vale com ou sem baseline.'
+    required: false
+    default: ''
+  enable_sca_baseline:
+    description: 'Baseline SCA no repositório de baseline (sca-baseline.json, write-once): só vulnerabilidades novas que afetam a política bloqueiam.'
+    required: false
+    default: 'false'
+  sca_fail_on_severity:
+    description: 'Com baseline SCA, severidades das vulnerabilidades novas que afetam a política (ex.: "Very High, High"). Vazio = todas.'
+    required: false
+    default: ''
+  baseline_org:
+    description: 'Organização dona do repositório de baseline.'
+    required: false
+    default: ''
+  baseline_repo_name:
+    description: 'Repositório de baseline.'
+    required: false
+    default: 'Afrika-Veracode-Connect-Baseline'
+  baseline_repo_branch:
+    description: 'Branch do repositório de baseline. Vazio usa a default_branch dele.'
+    required: false
+    default: ''
+  baseline_github_app_id:
+    description: 'GitHub App ID do repositório de baseline.'
+    required: false
+    default: ''
+  baseline_github_app_private_key:
+    description: 'Private key PEM do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_app_installation_id:
+    description: 'Installation ID do GitHub App.'
+    required: false
+    default: ''
+  baseline_github_token:
+    description: 'PAT fallback com Contents: read/write no repositório de baseline.'
     required: false
     default: ''
 
@@ -39,6 +75,21 @@ outputs:
   scan_url:
     description: 'URL do relatório SCA no portal Veracode.'
     value: ${{ steps.veracode_sca_run.outputs.scan-url }}
+  sca_baseline_status:
+    description: 'Estado do baseline SCA (not_used | deferred | seeded | compared | error).'
+    value: ${{ steps.baseline_state.outputs.status || 'not_used' }}
+  has_sca_baseline:
+    description: 'true quando o baseline SCA já existia no repositório de baseline.'
+    value: ${{ steps.get_sca_baseline.outputs.has_baseline || 'false' }}
+  sca_new_policy_count:
+    description: 'Vulnerabilidades SCA novas (fora do baseline) que afetam a política.'
+    value: ${{ steps.sca_baseline.outputs.new_policy_count || '0' }}
+  sca_new_count:
+    description: 'Vulnerabilidades SCA novas (fora do baseline), afetando ou não a política.'
+    value: ${{ steps.sca_baseline.outputs.new_count || '0' }}
+  sca_backlog_count:
+    description: 'Vulnerabilidades SCA já presentes no baseline que continuam no scan atual.'
+    value: ${{ steps.sca_baseline.outputs.backlog_count || '0' }}
 
 runs:
   using: 'composite'
@@ -48,7 +99,31 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        rm -f -- scaResults.txt scaResults.json veracode_sca.log
+        rm -f -- scaResults.txt scaResults.json veracode_sca.log sca-results/sca-baseline-diff.json
+
+    - name: Consultar baseline SCA no repositório
+      id: get_sca_baseline
+      if: inputs.enable_sca_baseline == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        BASELINE_FILE: ${{ runner.temp }}/veracode-connect-sca-baseline/sca-baseline.json
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline SCA (consulta)"
+        rm -f -- "${BASELINE_FILE}"
+        node "$GITHUB_ACTION_PATH/../baseline-store/cli.js" get --kind sca --out "${BASELINE_FILE}"
+        echo "::endgroup::"
 
     - name: Rodar Veracode SCA
       id: veracode_sca_run
@@ -63,7 +138,10 @@ runs:
         recursive: 'true'
         update_advisor: 'true'
         platformType: ${{ inputs.platform_type }}
-        breakBuildOnPolicyFindings: ${{ inputs.policy_fail }}
+        # Com baseline SCA o break-build do agente (que avalia todas as vulnerabilidades) não é repassado.
+        breakBuildOnPolicyFindings: ${{ inputs.enable_sca_baseline == 'true' && 'false' || inputs.policy_fail }}
+        # Gera scaResults.json (e scaResults.txt) sem depender de create-issues; sem pr_number a etapa de fix é pulada.
+        sca_fix_enabled: 'true'
 
     - name: Avaliar fail_on_cve
       id: cve_gate
@@ -72,11 +150,86 @@ runs:
       env:
         FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
         SCA_JSON: ${{ github.workspace }}/scaResults.json
+        SCA_TXT: ${{ github.workspace }}/scaResults.txt
       run: |
         set -euo pipefail
         echo "::group::Avaliar fail_on_cve"
         node "$GITHUB_ACTION_PATH/cve-gate.js"
         echo "::endgroup::"
+
+    - name: Comparar com o baseline SCA
+      id: sca_baseline
+      if: always() && inputs.enable_sca_baseline == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        GET_OUTCOME: ${{ steps.get_sca_baseline.outcome }}
+        HAS_BASELINE: ${{ steps.get_sca_baseline.outputs.has_baseline }}
+        RESULTS_FILE: ${{ github.workspace }}/scaResults.json
+        BASELINE_FILE: ${{ runner.temp }}/veracode-connect-sca-baseline/sca-baseline.json
+        DIFF_FILE: ${{ github.workspace }}/sca-results/sca-baseline-diff.json
+        SCA_FAIL_ON_SEVERITY: ${{ inputs.sca_fail_on_severity }}
+        FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline SCA (comparação)"
+        node "$GITHUB_ACTION_PATH/../sca-baseline/sca-baseline.js" evaluate
+        echo "::endgroup::"
+
+    - name: Resolver elegibilidade do seed do baseline SCA
+      id: sca_seed_gate
+      if: always() && steps.sca_baseline.outputs.sca_baseline_status == 'deferred'
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        BASE_REF: ${{ github.base_ref }}
+        REF_NAME: ${{ github.ref_name }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        HAS_BASELINE: 'false'
+      run: node "$GITHUB_ACTION_PATH/../baseline-store/seed-gate.js"
+
+    # Write-once: o store recusa sobrescrever um sca-baseline.json existente.
+    - name: Gravar baseline SCA no repositório
+      id: sca_seed
+      if: always() && steps.sca_seed_gate.outputs.can_seed == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        BASELINE_ORG: ${{ inputs.baseline_org }}
+        BASELINE_REPO_NAME: ${{ inputs.baseline_repo_name }}
+        BASELINE_REPO_BRANCH: ${{ inputs.baseline_repo_branch }}
+        BASELINE_GITHUB_APP_ID: ${{ inputs.baseline_github_app_id }}
+        BASELINE_GITHUB_APP_PRIVATE_KEY: ${{ inputs.baseline_github_app_private_key }}
+        BASELINE_GITHUB_APP_INSTALLATION_ID: ${{ inputs.baseline_github_app_installation_id }}
+        BASELINE_GITHUB_TOKEN: ${{ inputs.baseline_github_token }}
+        SCAN_REPOSITORY: ${{ github.repository }}
+        GITHUB_API_URL: ${{ github.api_url }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        RESULTS_FILE: ${{ github.workspace }}/scaResults.json
+        SEED_FILE: ${{ runner.temp }}/veracode-connect-sca-baseline/sca-baseline-seed.json
+      run: |
+        set -euo pipefail
+        echo "::group::Baseline SCA (gravar)"
+        node "$GITHUB_ACTION_PATH/../sca-baseline/sca-baseline.js" build --results "${RESULTS_FILE}" --out "${SEED_FILE}"
+        node "$GITHUB_ACTION_PATH/../baseline-store/cli.js" put --kind sca --file "${SEED_FILE}"
+        echo "::endgroup::"
+
+    - name: Consolidar estado do baseline SCA
+      id: baseline_state
+      if: always() && inputs.enable_sca_baseline == 'true'
+      shell: bash
+      env:
+        EVALUATED: ${{ steps.sca_baseline.outputs.sca_baseline_status || 'error' }}
+        SEEDED: ${{ steps.sca_seed.outputs.baseline_seeded }}
+      run: |
+        set -euo pipefail
+        status="${EVALUATED}"
+        if [ "${status}" = "deferred" ] && [ "${SEEDED}" = "true" ]; then
+          status="seeded"
+        fi
+        echo "status=${status}" >> "$GITHUB_OUTPUT"
+        echo "sca_baseline_status=${status}"
 
     - name: Definir status do SCA
       id: run_sca
@@ -86,6 +239,8 @@ runs:
         SCA_OUTCOME: ${{ steps.veracode_sca_run.outcome }}
         POLICY_FAIL: ${{ inputs.policy_fail }}
         CVE_BLOCKED_COUNT: ${{ steps.cve_gate.outputs.cve_blocked_count || '0' }}
+        SCA_BASELINE_STATUS: ${{ steps.baseline_state.outputs.status || '' }}
+        SCA_NEW_POLICY_COUNT: ${{ steps.sca_baseline.outputs.new_policy_count || '0' }}
       run: |
         set -euo pipefail
         echo "::group::Definir status do SCA"
@@ -143,6 +298,7 @@ runs:
           veracode_sca.log
           scaResults.txt
           scaResults.json
+          sca-results/sca-baseline-diff.json
         if-no-files-found: warn
         retention-days: 3
 
@@ -154,6 +310,9 @@ runs:
         CREATE_ISSUES: ${{ inputs.create_issues }}
         FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
         CVE_BLOCKED_PATH: ${{ runner.temp }}/veracode-connect-summary/sca-cve-blocked.json
+        SCA_BASELINE_STATUS: ${{ steps.baseline_state.outputs.status || 'not_used' }}
+        SCA_BASELINE_DIFF: ${{ github.workspace }}/sca-results/sca-baseline-diff.json
+        SCA_BASELINE_CAN_SEED: ${{ steps.sca_seed_gate.outputs.can_seed }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do SCA"
@@ -173,8 +332,13 @@ runs:
       env:
         VC_COMPONENT: sca
         VC_STEPS: |
+          get_sca_baseline=${{ steps.get_sca_baseline.outcome }}
           veracode_sca_run=${{ steps.veracode_sca_run.outcome }}
           cve_gate=${{ steps.cve_gate.outcome }}
+          sca_baseline=${{ steps.sca_baseline.outcome }}
+          sca_seed_gate=${{ steps.sca_seed_gate.outcome }}
+          sca_seed=${{ steps.sca_seed.outcome }}
+          baseline_state=${{ steps.baseline_state.outcome }}
           run_sca=${{ steps.run_sca.outcome }}
           normalize_results=${{ steps.normalize_results.outcome }}
           artifact_name=${{ steps.artifact_name.outcome }}

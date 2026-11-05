@@ -8,7 +8,8 @@ const GROUPS = [
     { fragment: 'pipeline', statuses: ['pipeline_outcome', 'baseline_outcome', 'repo_baseline_outcome'],
         fields: ['pipeline_outcome', 'baseline_outcome', 'repo_baseline_outcome', 'baseline_mode'] },
     { fragment: 'sca', statuses: ['sca_status'], fields: ['sca_status'] },
-    { fragment: 'iac', statuses: ['iac_outcome'], fields: ['iac_outcome', 'iac_policy_status', 'iac_policy_name'] },
+    { fragment: 'iac', statuses: ['iac_outcome'],
+        fields: ['iac_outcome', 'iac_policy_status', 'iac_policy_name', 'iac_baseline_status'] },
     { fragment: 'upload', statuses: ['upload_outcome'], fields: ['upload_outcome'] }
 ];
 const FIELDS = ['fail_build', 'validate_outcome', 'veracode_url', ...GROUPS.flatMap(group => group.fields)];

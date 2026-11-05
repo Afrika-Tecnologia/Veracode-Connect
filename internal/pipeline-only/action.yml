@@ -203,7 +203,7 @@ runs:
       if: always() && steps.pipeline_set.outcome != 'skipped'
       shell: bash
       env:
-        CREATE_ISSUES: ${{ inputs.create_issues }}
+        POLICY_NAME: ${{ inputs.veracode_policy_name }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Pipeline Scan"
@@ -213,50 +213,17 @@ runs:
         {
           echo "### 🔬 Veracode Pipeline Scan"
           echo ""
-          if [ "${CREATE_ISSUES}" = "true" ]; then
-            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
-            echo ""
-          fi
 
           if [ -f "results.json" ]; then
-            TOTAL=$(jq '.findings | length' results.json 2>/dev/null || echo "0")
-            VERY_HIGH=$(jq '[.findings[] | select(.severity == 5)] | length' results.json 2>/dev/null || echo "0")
-            HIGH=$(jq '[.findings[] | select(.severity == 4)] | length' results.json 2>/dev/null || echo "0")
-            MEDIUM=$(jq '[.findings[] | select(.severity == 3)] | length' results.json 2>/dev/null || echo "0")
-            LOW=$(jq '[.findings[] | select(.severity == 2)] | length' results.json 2>/dev/null || echo "0")
-            VERY_LOW=$(jq '[.findings[] | select(.severity <= 1)] | length' results.json 2>/dev/null || echo "0")
-
-            echo "#### SAST - Vulnerabilidades"
-            echo ""
-            echo "| Severidade | Quantidade |"
-            echo "|---|---|"
-            echo "| 🔴 Very High | ${VERY_HIGH} |"
-            echo "| 🟠 High | ${HIGH} |"
-            echo "| 🟡 Medium | ${MEDIUM} |"
-            echo "| 🔵 Low | ${LOW} |"
-            echo "| ⚪ Very Low | ${VERY_LOW} |"
-            echo "| **Total** | **${TOTAL}** |"
-            echo ""
-
-            if [ "${TOTAL}" != "0" ] && [ "${TOTAL}" != "null" ]; then
-              echo "<details><summary>Detalhamento de Vulnerabilidades (${TOTAL})</summary>"
-              echo ""
-              echo "| # | Severidade | CWE | Título | Arquivo | Linha |"
-              echo "|---|---|---|---|---|---|"
-
-              jq -r '.findings | to_entries[] |
-                def sev_icon:
-                  if . == 5 then "🔴 Very High"
-                  elif . == 4 then "🟠 High"
-                  elif . == 3 then "🟡 Medium"
-                  elif . == 2 then "🔵 Low"
-                  elif . == 1 then "⚪ Very Low"
-                  else "ℹ️ Info" end;
-                "| \(.key + 1) | \(.value.severity | sev_icon) | CWE-\(.value.cwe_id) | \(.value.title // "N/A") | \(.value.files.source_file.file // "N/A") | \(.value.files.source_file.line // "N/A") |"' results.json 2>/dev/null || echo "| - | - | - | Erro ao parsear | - | - |"
-
-              echo ""
-              echo "</details>"
+            POLICY_ACTIVE="false"
+            if [ -n "${POLICY_NAME// /}" ]; then
+              POLICY_ACTIVE="true"
             fi
+            node "$GITHUB_ACTION_PATH/../repo-baseline-flow/sast-findings.js" summary-md \
+              --results results.json \
+              --filtered filtered_results.json \
+              --split false \
+              --policy-active "${POLICY_ACTIVE}"
           else
             echo "> ⚠️ Arquivo results.json não encontrado."
           fi

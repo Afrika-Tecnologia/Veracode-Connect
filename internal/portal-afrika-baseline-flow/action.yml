@@ -435,11 +435,7 @@ runs:
       shell: bash
       env:
         HAS_BASELINE: ${{ steps.check_baseline.outputs.has_baseline }}
-        CREATE_ISSUES: ${{ inputs.create_issues }}
-        CAN_SEED: ${{ steps.seed_gate.outputs.can_seed }}
-        CURRENT_BRANCH: ${{ steps.seed_gate.outputs.current_branch }}
-        TARGET_BRANCH: ${{ steps.seed_gate.outputs.target_branch }}
-        DEFAULT_BRANCH: ${{ steps.seed_gate.outputs.default_branch }}
+        POLICY_NAME: ${{ inputs.veracode_policy_name }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Baseline Pipeline Scan"
@@ -451,31 +447,21 @@ runs:
           echo "### 🔬 Veracode Pipeline Scan (Portal Afrika Baseline)"
           echo ""
 
-          if [ "${HAS_BASELINE}" != "true" ]; then
-            echo "> ℹ️ $(node "$GITHUB_ACTION_PATH/messages.js" success POLICY_CHECK_DEFERRED)"
-            echo ""
-            if [ "${CAN_SEED}" = "true" ]; then
-              echo "> 🆕 Sem baseline no Portal Afrika — scan executado **sem baseline** (baseline enviado após scan de \`${CURRENT_BRANCH}\`, destino \`${TARGET_BRANCH}\` = default_branch \`${DEFAULT_BRANCH}\`)"
-            else
-              echo "> ⚠️ Sem baseline no Portal Afrika — scan executado **sem baseline** e seed **não enviado** (destino \`${TARGET_BRANCH}\` ≠ default_branch \`${DEFAULT_BRANCH}\`, ou default_branch indisponível). Rode na default_branch ou em PR destinado a ela para criar o baseline."
-            fi
-            echo ""
-          fi
-          if [ "${CREATE_ISSUES}" = "true" ]; then
-            echo "> 📝 Issues GitHub: **habilitado** (\`create_issues: true\` — via \`veracode-flaws-to-issues\`)"
-            echo ""
-          fi
-
           if [ -f "results.json" ]; then
             SPLIT="false"
             if [ "${HAS_BASELINE}" = "true" ]; then
               SPLIT="true"
             fi
+            POLICY_ACTIVE="false"
+            if [ -n "${POLICY_NAME// /}" ]; then
+              POLICY_ACTIVE="true"
+            fi
             node "$GITHUB_ACTION_PATH/sast-findings.js" summary-md \
               --results results.json \
               --baseline baseline.json \
               --filtered filtered_results.json \
-              --split "${SPLIT}"
+              --split "${SPLIT}" \
+              --policy-active "${POLICY_ACTIVE}"
           else
             echo "> ⚠️ Arquivo results.json não encontrado."
           fi

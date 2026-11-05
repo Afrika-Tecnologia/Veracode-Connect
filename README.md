@@ -66,6 +66,22 @@ Enquanto não houver baseline IaC, inclusive na execução que o grava, a polít
 
 O summary IaC e o comentário do PR somam as vulnerabilidades de dependências, os findings de secrets (incluindo regras customizadas) e os findings de configurações. O detalhamento usa identificador da regra, título e arquivo/linha; os campos `Code` e `Match` dos secrets não são publicados. As severidades exibidas são as reportadas nos findings pelo scanner.
 
+### Baseline SCA
+
+O baseline SCA segue o modelo do IaC. Com `enable_sca_baseline: 'true'`, `baseline_mode: 'repo'` e `enable_sca: 'true'`, a primeira execução elegível grava `<org>/<repo>/sca-baseline.json` no repositório de baseline, uma única vez (push na branch padrão ou PR destinado a ela). Para refazê-lo, apague `sca-baseline.json` no repositório de baseline.
+
+Cada vulnerabilidade de cada biblioteca é um finding. Nas execuções seguintes:
+
+| Grupo | Bloqueia |
+| --- | --- |
+| Novos que afetam a política: ausentes do baseline, com severidade em `sca_fail_on_severity` (vazio = qualquer severidade) ou CVE em `fail_on_cve` | Sim, com `policy_fail` e `fail_build` ligados e `bypass` desligado |
+| Novos que não afetam a política | Não |
+| Backlog: presentes no baseline e no scan atual | Não |
+
+O resultado do agente SCA não informa, por vulnerabilidade, se ela viola a política do workspace; por isso o critério é explícito. Com baseline ativo, `breakBuildOnPolicyFindings` não é repassado à action oficial, porque ele avalia todas as vulnerabilidades e bloquearia pelo backlog. `fail_on_cve` continua valendo para qualquer finding, inclusive do backlog.
+
+A identidade usa a vulnerabilidade (CVE ou identificador do banco SCA) e a biblioteca, sem a versão: subir a versão sem corrigir mantém o finding no backlog. Enquanto não houver baseline, a política SCA não bloqueia (só `fail_on_cve`). O summary e o comentário do PR mostram os três grupos por severidade; o detalhamento completo fica em `sca-results/sca-baseline-diff.json`, no artefato do SCA.
+
 ## Resultado da esteira
 
 Com `policy_fail: 'true'` e `fail_build: 'true'` (padrão), a action bloqueia a esteira por falha reportada pelo SCA com resultado de análise, reprovação da política IaC ou findings confirmados de policy/baseline do Pipeline Scan. No Pipeline, é necessário um resultado válido desta execução e ao menos um artefato analisado com violação. Se outro artefato apresentar erro técnico ou não puder ser analisado, isso não apaga uma violação já confirmada. Resultado ausente ou inválido, sem evidência de violação, não aciona o bloqueio do Pipeline.
@@ -74,7 +90,7 @@ Nos modos `repo` e `portal_afrika`, o Pipeline Scan só bloqueia por política q
 
 Antes de planejar os scans, o Pipeline limpa seus arquivos de resultado gerados anteriormente. Isso evita usar findings antigos como evidência da execução atual; o arquivo de baseline continua disponível.
 
-Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação; o summary exibe **Build travado por policy**, **Build travado por falha do SCA** ou **Build travado por CVE bloqueado no SCA** conforme o resultado. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'`, `fail_build: 'false'` ou `bypass: 'true'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
+Todos os scans habilitados continuam antes da decisão final. O summary e o comentário consolidado do PR mostram a reprovação na tabela de status do **Resumo Final**. Somente o último step retorna erro, depois do summary, comentário e diagnóstico. Com `policy_fail: 'false'`, `fail_build: 'false'` ou `bypass: 'true'`, os achados registrados continuam sinalizados no summary, com a esteira preservada.
 
 Com `bypass: 'true'`, a action executa os scans conforme os demais inputs, mas não bloqueia o job por `policy_fail`, `fail_build`, `fail_on_cve`, `fail_on_severity`, política IaC ou violação de Pipeline/baseline. Se `enable_upload_scan: 'true'`, o Upload & Scan ignora `veracode_sandbox` e `veracode_sandbox_name` e envia o artefato para a sandbox chamada `bypass` (`createsandbox` ativo). Com Upload & Scan desligado, nada é enviado.
 
@@ -90,7 +106,7 @@ Quando um scan não consegue executar ou produzir resultados, o **Resumo Final**
 
 No SCA, `policy_fail` é repassado ao parâmetro oficial `breakBuildOnPolicyFindings`. Sem resultado reconhecível com bibliotecas analisadas, o status é `warning`; arquivos ausentes, inválidos, contendo apenas erros ou sem bibliotecas não bloqueiam. Resultados SCA anteriores são removidos antes de cada scan. Com resultado de análise, a falha da action oficial continua bloqueante quando os dois inputs estão habilitados. A action oficial não distingue a causa de um retorno não zero; nessa situação o summary indica **falha do SCA**, sem afirmar que ela comprova uma violação de política.
 
-O input `fail_on_cve` é uma regra da própria Connect (não existe na action oficial SCA). Após o SCA, a Connect lê `scaResults.json` e compara cada vulnerabilidade com a lista informada (match exato de CVE, separados por vírgula, espaço ou quebra de linha; ex.: `CVE-2021-44228,CVE-2021-45046`). Com match e `policy_fail: 'true'`, o status SCA vira `failure` e, com `fail_build: 'true'`, a esteira bloqueia ao final. Sem `policy_fail`, o match aparece como warning e no relatório, sem travar. O summary e o comentário do PR mostram **Findings bloqueados por CVE** acima de **Findings do SCA**; os findings bloqueados também permanecem na lista geral.
+O input `fail_on_cve` é uma regra da própria Connect (não existe na action oficial SCA). A action oficial roda com `sca_fix_enabled: true`, que gera `scaResults.json` mesmo com `create_issues: false`; sem o JSON, a Connect usa as linhas de CVE de `scaResults.txt`. Após o SCA, a Connect compara cada vulnerabilidade com a lista informada (match exato de CVE, separados por vírgula, espaço ou quebra de linha; ex.: `CVE-2021-44228,CVE-2021-45046`). Com match e `policy_fail: 'true'`, o status SCA vira `failure` e, com `fail_build: 'true'`, a esteira bloqueia ao final. Sem `policy_fail`, o match aparece como warning e no relatório, sem travar. O summary e o comentário do PR mostram **Findings bloqueados por CVE** acima de **Findings do SCA**; os findings bloqueados também permanecem na lista geral.
 
 A action oficial SCA Agent-based não aceita uma política por nome. Para usar a mesma política selecionada por `veracode_policy_name` no Pipeline, atribua essa política ao **workspace SCA associado ao token**, na opção Policy Assignment da plataforma Veracode. A política precisa conter regras aplicáveis ao SCA Agent-based. A Connect não altera essa atribuição e não consegue garantir que as duas políticas sejam iguais apenas pelo input. Veja [atribuição de políticas ao workspace](https://docs.veracode.com/r/Manage_security_policies) e [inputs da action oficial SCA](https://github.com/veracode/veracode-sca/blob/aeeb6aaa608a49195cab32c44b75db4f6a07a2df/action.yml).
 
@@ -197,6 +213,8 @@ Os defaults abaixo correspondem ao [manifesto da action](action.yml). Campos con
 | `veracode_sandbox_name` | Vazio | Obrigatório quando `veracode_sandbox` é `'true'`, exceto com `bypass: 'true'`; no modo automático, a action gera o nome. |
 | `veracode_policy_name` | Vazio | Nome da policy para Pipeline Scan e, quando informado, Upload & Scan. |
 | `fail_on_severity` | Vazio | Severidades consideradas quando há baseline. |
+| `enable_sca_baseline` | `'false'` | Baseline SCA no repositório de baseline (`sca-baseline.json`, gravado uma única vez). Só vulnerabilidades novas que afetam a política bloqueiam. Exige `baseline_mode: 'repo'` e `enable_sca: 'true'`. Veja [Baseline SCA](#baseline-sca). |
+| `sca_fail_on_severity` | Vazio | Com baseline SCA, severidades das vulnerabilidades novas que afetam a política (`Very High, High, Medium, Low, Very Low`). Vazio = qualquer severidade. |
 | `fail_on_cve` | Vazio | Lista de CVEs exatos que, se encontrados no resultado SCA, marcam o SCA como `failure` (com `policy_fail`) e bloqueiam com `fail_build`. Ex.: `CVE-2021-44228,CVE-2021-45046`. |
 | `policy_fail` | `'false'` | Repassa `breakBuildOnPolicyFindings` ao SCA e habilita bloqueio final por falha SCA com resultado, CVE de `fail_on_cve` ou violação confirmada de policy/baseline do Pipeline/IaC. Não bloqueia o job quando `bypass` é `'true'`. |
 | `fail_build` | `'true'` | Em conjunto com `policy_fail`, permite bloquear a esteira ao final, depois dos scans e do summary. Ignorado quando `bypass` é `'true'`. |
@@ -255,6 +273,9 @@ Com `comment_pr: 'true'`, os comentários automáticos das actions oficiais de S
 | `iac_baseline_status` | Estado do baseline IaC: `not_used`, `deferred`, `seeded`, `compared` ou `error`. |
 | `has_iac_baseline` | Indica se o baseline IaC já existia. |
 | `iac_new_policy_count` | Findings IaC novos que violam a política. |
+| `sca_baseline_status` | Estado do baseline SCA: `not_used`, `deferred`, `seeded`, `compared` ou `error`. |
+| `has_sca_baseline` | `true` quando o baseline SCA já existia. |
+| `sca_new_policy_count` | Vulnerabilidades SCA novas que afetam a política. |
 | `upload_scan_status` | Status do Upload & Scan. |
 
 Os módulos ativos também podem publicar artefatos de resultado no GitHub Actions. A presença desses arquivos depende de cada ferramenta e do ponto em que a execução terminou.

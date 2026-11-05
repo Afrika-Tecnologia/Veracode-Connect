@@ -9,6 +9,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 ### Added
 
 - Baseline IaC/Secrets (`enable_iac_baseline`, default `'false'`, somente `baseline_mode: 'repo'`). A primeira execução elegível grava `<org>/<repo>/iac-baseline.json` no repositório de baseline, uma única vez. Nas seguintes, cada finding é classificado em novo que afeta a política, novo que não afeta ou backlog; só os novos reprovados pela política de `iac_policy` bloqueiam. O card IaC do summary e do PR mostra os três grupos por severidade. Outputs `iac_baseline_status`, `has_iac_baseline` e `iac_new_policy_count`.
+- Baseline SCA (`enable_sca_baseline`, default `'false'`, somente `baseline_mode: 'repo'`). Grava `<org>/<repo>/sca-baseline.json` uma única vez e classifica cada vulnerabilidade x biblioteca em novo que afeta a política (severidade em `sca_fail_on_severity` ou CVE de `fail_on_cve`), novo que não afeta ou backlog; com baseline comparado só os novos que afetam bloqueiam. Inputs `enable_sca_baseline` e `sca_fail_on_severity`; outputs `sca_baseline_status`, `has_sca_baseline` e `sca_new_policy_count`.
 - `internal/baseline-store`: autenticação GitHub App/PAT e leitura/gravação no repositório de baseline compartilhadas por Repo Baseline, IaC e, futuramente, SCA. A leitura passa a aceitar arquivos acima de 1 MB.
 
 ### Changed
@@ -17,6 +18,7 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ### Fixed
 
+- `fail_on_cve` não bloqueava com `create_issues: false` (padrão): a action oficial do SCA só gerava `scaResults.json` com `create-issues`, e o gate de CVE lia apenas o JSON. Agora a action oficial roda com `sca_fix_enabled: true` (JSON e texto no mesmo scan) e o gate usa `scaResults.txt` quando o JSON falta.
 - `fail_on_severity` com mais de uma severidade (ex.: `Very High, High`) quebrava o Pipeline Scan com baseline: a action oficial monta o comando sem aspas e o `pipeline-scan.jar` abortava com `unrecognized arguments`, deixando o SAST sem resultado. O valor agora é validado no `validate-inputs` (Very High, High, Medium, Low, Very Low, Informational) e repassado entre aspas; severidade desconhecida falha na validação.
 
 ## [1.8.2] - 2026-11-04

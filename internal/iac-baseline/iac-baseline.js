@@ -270,18 +270,19 @@ function safeName(value) {
     return String(value || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
 }
 
-/** Severidades nas linhas e os três grupos nas colunas, como nos demais cards. */
+/** Um grupo por linha e as severidades nas colunas. */
 function groupsTable(diff) {
-    const counts = [diff.new_policy, diff.new_other, diff.backlog].map((list) => countBands(list || []));
-    const row = (label, band, bold) => {
-        const values = counts.map((c) => (bold ? `**${c[band]}**` : c[band]));
-        return `| ${label} | ${values.join(' | ')} |`;
+    const bands = Object.keys(BAND_LABEL);
+    const row = (label, findings) => {
+        const c = countBands(findings || []);
+        return `| ${label} | ${bands.map((band) => c[band]).join(' | ')} | **${c.total}** |`;
     };
     return [
-        '| Severidade | ❌ Novos (afetam a política) | 🆕 Novos (não afetam) | 📦 Backlog |',
-        '|---|---|---|---|',
-        ...Object.keys(BAND_LABEL).map((band) => row(BAND_LABEL[band], band, false)),
-        row('**Total**', 'total', true)
+        `| Grupo | ${bands.map((band) => BAND_LABEL[band]).join(' | ')} | Total |`,
+        `|---|${bands.map(() => '---|').join('')}---|`,
+        row('❌ Novos (afetam a política)', diff.new_policy),
+        row('🆕 Novos (não afetam)', diff.new_other),
+        row('📦 Backlog', diff.backlog)
     ];
 }
 
@@ -314,8 +315,8 @@ function renderComparedMarkdown(diff, options = {}) {
     const lines = ['### 🛡️ Veracode IaC / Secrets (Repo Baseline)', ''];
 
     lines.push(hasPolicy
-        ? `**Política IaC:** ${policyName} — bloqueia apenas findings novos reprovados por ela.`
-        : '**Política IaC:** nenhuma — findings novos não bloqueiam.', '');
+        ? `**Política IaC:** ${policyName}`
+        : '**Política IaC:** nenhuma', '');
     lines.push(...groupsTable(diff), '');
 
     const headings = {

@@ -517,9 +517,8 @@ test('PR com baseline IaC comparado mostra os três grupos e detalha só os novo
             iac_baseline_status: 'compared', fail_build: 'true'
         } });
         assert.match(body, /Veracode IaC \/ Secrets \(Repo Baseline\)/);
-        assert.match(body, /\| 🟠 High \| 1 \| 0 \| 0 \|/);
-        assert.match(body, /\| 🟡 Medium \| 0 \| 0 \| 1 \|/);
-        assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \| \*\*0\*\* \| \*\*2\*\* \|/);
+        assert.match(body, /\| ❌ Novos \(afetam a política\) \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+        assert.match(body, /\| 📦 Backlog \| 0 \| 0 \| 1 \| 1 \| 0 \| \*\*2\*\* \|/);
         assert.match(body, /AVD-NEW/);
         assert.doesNotMatch(body, /AVD-OLD-1/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }

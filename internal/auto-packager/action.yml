@@ -246,11 +246,7 @@ runs:
       shell: bash
       env:
         SCAN_FILE: ${{ steps.final_output.outputs.scan_file }}
-        ARTIFACT_COUNT: ${{ steps.prepare.outputs.artifact_count }}
-        SCAN_COUNT: ${{ steps.prepare.outputs.scan_count }}
-        SKIPPED_COUNT: ${{ steps.prepare.outputs.skipped_count }}
         UPLOAD_DIR: ${{ steps.final_output.outputs.upload_dir }}
-        GITHUB_SHA: ${{ github.sha }}
       run: |
         set -euo pipefail
         echo "::group::Gerar Summary do Auto Packager"
@@ -268,14 +264,6 @@ runs:
             jq -r '.artifacts[] |
               "| `\(.name)` | \(.size) | \(.language // "—") | \(.counts.code) | \(.counts.test) | \(.counts.noise) | \(.decision) | \(.reason) |"' \
               "${MANIFEST}"
-            echo ""
-            echo "Pipeline Scan: **${SCAN_COUNT:-0}** artefato(s). Upload & Scan recebe **${ARTIFACT_COUNT:-0}** artefato(s) íntegros."
-            echo ""
-            echo "Origem: tree do commit \`${GITHUB_SHA:-}\` (\`git archive\` em \`\$RUNNER_TEMP\`, não o workspace do job)."
-            if [ -n "${SKIPPED_COUNT:-}" ] && [ "${SKIPPED_COUNT}" != "0" ]; then
-              echo ""
-              echo "> ${SKIPPED_COUNT} artefato(s) ficaram de fora do Pipeline Scan (ruído, redundância ou limite de slots). Os zips originais seguem no diretório de upload."
-            fi
           elif [ -n "${SCAN_FILE:-}" ] && [ -f "${SCAN_FILE}" ]; then
             FILE_SIZE=$(du -h "${SCAN_FILE}" | cut -f1)
             FILE_NAME=$(basename "${SCAN_FILE}")

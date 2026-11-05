@@ -9,8 +9,7 @@ const {
     parseIacResults,
     buildCommentBody,
     resolvePrNumber,
-    isActiveStatus,
-    resolveBanner
+    isActiveStatus
 } = require('./build-comment');
 const { MARKER } = require('./messages');
 
@@ -58,39 +57,6 @@ test('PR comment includes custom secret and configuration findings in IaC totals
 test('resolvePrNumber extrai número do evento pull_request', () => {
     assert.equal(resolvePrNumber({ pull_request: { number: 99 } }), 99);
     assert.equal(resolvePrNumber({ push: {} }), null);
-});
-
-test('technical failure banner does not claim the caller disabled fail_build', () => {
-    const banner = resolveBanner({
-        fail_build: 'false',
-        validate_outcome: 'failure'
-    });
-    assert.match(banner, /esteira preservada/i);
-    assert.doesNotMatch(banner, /fail_build=false/);
-});
-
-test('a nonblocking policy warning is not presented as all checks passed', () => {
-    const banner = resolveBanner({ fail_build: 'false', pipeline_outcome: 'warning' });
-    assert.match(banner, /esteira preservada/i);
-});
-
-test('IaC policy failure cannot produce a green summary even if scan outcome is success', () => {
-    const banner = resolveBanner({
-        fail_build: 'false',
-        iac_outcome: 'success',
-        iac_policy_status: 'failed'
-    });
-    assert.match(banner, /esteira preservada/i);
-    assert.doesNotMatch(banner, /Todos os checks ativos passaram/i);
-});
-
-test('resolveBanner destaca CVE bloqueado no SCA quando fail_build trava', () => {
-    const banner = resolveBanner({
-        fail_build: 'true',
-        sca_status: 'failure',
-        sca_cve_blocked_count: '2'
-    });
-    assert.match(banner, /Build travado por CVE bloqueado no SCA/);
 });
 
 test('buildCommentBody lista Findings bloqueados por CVE acima de Findings do SCA', () => {
@@ -146,7 +112,7 @@ test('buildCommentBody lista Findings bloqueados por CVE acima de Findings do SC
         assert.ok(blockedIdx >= 0);
         assert.ok(scaIdx > blockedIdx);
         assert.match(body, /CVE-2021-44228/);
-        assert.match(body, /Build travado por CVE bloqueado no SCA/);
+        assert.doesNotMatch(body, /Build travado/);
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -278,9 +244,8 @@ test('resumo do PR mantém política IaC reprovada vermelha se o scan terminou t
         }
     });
 
-    assert.match(body, /esteira preservada/i);
     assert.match(body, /Política IaC — Team IaC \| ❌ Failed/);
-    assert.doesNotMatch(body, /Todos os checks ativos passaram/i);
+    assert.doesNotMatch(body, /esteira preservada|Todos os checks ativos passaram|Build travado/i);
 });
 
 test('buildCommentBody inclui marker e seções ativas', () => {

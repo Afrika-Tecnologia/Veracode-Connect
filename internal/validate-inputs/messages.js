@@ -37,6 +37,7 @@ const errors = {
     PIPELINE_SCAN_MAX_ARTIFACTS_INVALID: "pipeline_scan_max_artifacts deve ser um inteiro entre 1 e 6.",
     PIPELINE_SCAN_RETRY_INVALID: "pipeline_scan_retry deve ser 'true' ou 'false'.",
     FAIL_ON_CVE_INVALID: "fail_on_cve contém CVE inválido: '{cve}'. Use o formato CVE-YYYY-NNNN+ (ex.: CVE-2021-44228), separados por vírgula, espaço ou quebra de linha.",
+    FAIL_ON_SEVERITY_INVALID: "fail_on_severity contém severidade inválida: '{severity}'. Use Very High, High, Medium, Low, Very Low ou Informational, separados por vírgula (ex.: Very High, High).",
     SANDBOX_INVALID: "veracode_sandbox deve ser 'true', 'false' ou omitido (auto por branch).",
     SANDBOX_NAME_REQUIRED: 'veracode_sandbox=true requer veracode_sandbox_name.',
     BYPASS_INVALID: "bypass deve ser 'true' ou 'false'.",

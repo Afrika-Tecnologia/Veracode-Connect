@@ -50,31 +50,31 @@ function decisionEnv(context) {
 }
 
 const scenarios = [
-    { name: 'IaC rejected, Pipeline disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por policy/ },
-    { name: 'SCA failed with policy blocking enabled', sca: 'failure', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por falha do SCA/ },
-    { name: 'SCA blocked by fail_on_cve with policy_fail and fail_build', sca: 'failure', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por CVE bloqueado no SCA/ },
-    { name: 'SCA CVE match without policy_fail does not block', sca: 'warning', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'all three scans rejected', sca: 'failure', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por falha do SCA/ },
-    { name: 'IaC rejected despite input validation failure', validation: 'failure', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped', banner: /Build travado por policy/ },
-    { name: 'SCA warning with policy blocking disabled', sca: 'warning', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'SCA cannot execute with blocking enabled', unavailableSca: true, iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'SCA failure with fail_build disabled', sca: 'failure', failBuild: 'false', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'IaC rejected, Pipeline passed', iac: 'failed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'success', banner: /Build travado por policy/ },
-    { name: 'Pipeline policy/baseline rejected', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'Repo Baseline rejected', mode: 'repo', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'Repo initial scan has no registered baseline', mode: 'repo', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
-    { name: 'Portal initial scan has no registered baseline', mode: 'portal_afrika', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
-    { name: 'initial Repo scan has technical error and policy findings', mode: 'repo', hasBaseline: 'false', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'warning', banner: /esteira preservada/ },
-    { name: 'Portal Baseline rejected', mode: 'portal_afrika', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'Repo Baseline findings survive provider failure', mode: 'repo', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'Portal Baseline findings survive provider failure', mode: 'portal_afrika', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'confirmed Pipeline violation and another scan error', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure', banner: /Build travado por policy/ },
-    { name: 'Pipeline technical error without policy violations', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'warning', banner: /esteira preservada/ },
-    { name: 'IaC rejection with blocking disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'Pipeline findings with blocking disabled', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'false', blocked: 'false', pipelineStatus: 'failure', banner: /esteira preservada/ },
-    { name: 'IaC policy evaluation unavailable', iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped', banner: /esteira preservada/ },
-    { name: 'all policies passed', iac: 'passed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'success', banner: /Todos os checks ativos passaram/ },
-    { name: 'bypass preserves the job despite policy rejection', bypass: 'true', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'failure', banner: /esteira preservada/ }
+    { name: 'IaC rejected, Pipeline disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'SCA failed with policy blocking enabled', sca: 'failure', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'SCA blocked by fail_on_cve with policy_fail and fail_build', sca: 'failure', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'SCA CVE match without policy_fail does not block', sca: 'warning', cveBlocked: '2', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'all three scans rejected', sca: 'failure', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'IaC rejected despite input validation failure', validation: 'failure', iac: 'failed', pipeline: false, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'SCA warning with policy blocking disabled', sca: 'warning', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'SCA cannot execute with blocking enabled', unavailableSca: true, iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'SCA failure with fail_build disabled', sca: 'failure', failBuild: 'false', iac: 'not_used', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'IaC rejected, Pipeline passed', iac: 'failed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'true', pipelineStatus: 'success' },
+    { name: 'Pipeline policy/baseline rejected', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'Repo Baseline rejected', mode: 'repo', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'Repo initial scan has no registered baseline', mode: 'repo', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success' },
+    { name: 'Portal initial scan has no registered baseline', mode: 'portal_afrika', hasBaseline: 'false', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'success' },
+    { name: 'initial Repo scan has technical error and policy findings', mode: 'repo', hasBaseline: 'false', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'warning' },
+    { name: 'Portal Baseline rejected', mode: 'portal_afrika', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'Repo Baseline findings survive provider failure', mode: 'repo', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'Portal Baseline findings survive provider failure', mode: 'portal_afrika', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'confirmed Pipeline violation and another scan error', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'true', blocked: 'true', pipelineStatus: 'failure' },
+    { name: 'Pipeline technical error without policy violations', errors: '1', planned: '2', iac: 'not_used', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'warning' },
+    { name: 'IaC rejection with blocking disabled', iac: 'failed', pipeline: false, violations: '0', policyFail: 'false', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'Pipeline findings with blocking disabled', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'false', blocked: 'false', pipelineStatus: 'failure' },
+    { name: 'IaC policy evaluation unavailable', iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'all policies passed', iac: 'passed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'success' },
+    { name: 'bypass preserves the job despite policy rejection', bypass: 'true', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'failure' }
 ];
 
 for (const scenario of scenarios) {
@@ -147,7 +147,7 @@ for (const scenario of scenarios) {
             assert.equal(fs.existsSync(summary), true, 'Every result must reach Resumo Final');
             const text = fs.readFileSync(summary, 'utf8');
             assert.match(text, /Resumo Final/);
-            assert.match(text, scenario.banner);
+            assert.doesNotMatch(text, /Build travado|esteira preservada|Todos os checks ativos/);
             if (scaStatus === 'failure') assert.match(text, /\| Veracode SCA \| ❌ Failed \|/);
             else if (scaStatus === 'warning') assert.match(text, /\| Veracode SCA \| ⚠️ Warning \|/);
             else assert.match(text, /\| Veracode SCA \| ✅ Success \|/);

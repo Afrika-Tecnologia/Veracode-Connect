@@ -309,10 +309,6 @@ function renderComparedMarkdown(diff, options = {}) {
     } else {
         lines.push('> ℹ️ Sem política IaC (`iac_policy: none`): nenhum finding novo bloqueia.', '');
     }
-    const since = [diff.baseline?.commit ? `commit \`${String(diff.baseline.commit).slice(0, 7)}\`` : '',
-        diff.baseline?.generated_at ? String(diff.baseline.generated_at).slice(0, 10) : ''].filter(Boolean).join(', ');
-    lines.push(`> Baseline IaC${since ? ` (${since})` : ''}. Corrigidos desde o baseline: ${diff.counts.fixed}.`, '');
-
     lines.push('| Grupo | 🔴 Very High | 🟠 High | 🟡 Medium | 🔵 Low | ⚪ Very Low | Total |');
     lines.push('|---|---|---|---|---|---|---|');
     lines.push(groupRow('❌ Novos que afetam a política', diff.new_policy));

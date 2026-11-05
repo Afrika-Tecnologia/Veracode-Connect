@@ -58,7 +58,7 @@ Nas execuções seguintes, o scan IaC roda como antes e cada finding é comparad
 | Novos que não afetam a política | Não |
 | Backlog: presentes no baseline e no scan atual | Não |
 
-Os findings corrigidos não aparecem; o card informa só quantos foram. O summary e o comentário do PR mostram os três grupos por severidade num único card IaC. O detalhamento completo fica em `iac-results/iac-baseline-diff.json`, no artefato do IaC.
+Os findings corrigidos não aparecem no card; a contagem fica no log do job e no diff. O summary e o comentário do PR mostram os três grupos por severidade num único card IaC. O detalhamento completo fica em `iac-results/iac-baseline-diff.json`, no artefato do IaC.
 
 A identidade de cada finding não depende do número da linha: vulnerabilidades usam identificador, pacote e manifesto (sem a versão); secrets usam regra e arquivo; configurações usam regra, arquivo e recurso. Deslocar linhas, editar o recurso ou subir a versão de uma biblioteca sem corrigir a vulnerabilidade mantém o finding no backlog. O baseline guarda só identificadores e campos de exibição; o trecho e o valor dos secrets nunca são gravados.
 

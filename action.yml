@@ -295,6 +295,7 @@ runs:
         upload_scan_artifacts: ${{ inputs.upload_scan_artifacts }}
         pipeline_scan_max_artifacts: ${{ inputs.pipeline_scan_max_artifacts }}
         pipeline_scan_retry: ${{ inputs.pipeline_scan_retry }}
+        fail_on_severity: ${{ inputs.fail_on_severity }}
         baseline_org: ${{ inputs.baseline_org }}
         baseline_repo_name: ${{ inputs.baseline_repo_name }}
         baseline_repo_branch: ${{ inputs.baseline_repo_branch }}
@@ -410,7 +411,7 @@ runs:
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
         scan_files: ${{ steps.prepare_scan_file.outputs.scan_files }}
         policy_fail: ${{ inputs.policy_fail }}
-        fail_on_severity: ${{ inputs.fail_on_severity }}
+        fail_on_severity: ${{ steps.validate.outputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         create_issues: ${{ inputs.create_issues }}
@@ -439,7 +440,7 @@ runs:
         scan_file: ${{ steps.prepare_scan_file.outputs.scan_file }}
         scan_files: ${{ steps.prepare_scan_file.outputs.scan_files }}
         policy_fail: ${{ inputs.policy_fail }}
-        fail_on_severity: ${{ inputs.fail_on_severity }}
+        fail_on_severity: ${{ steps.validate.outputs.fail_on_severity }}
         veracode_policy_name: ${{ inputs.veracode_policy_name }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
         create_issues: ${{ inputs.create_issues }}

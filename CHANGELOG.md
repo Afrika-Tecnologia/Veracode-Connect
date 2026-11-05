@@ -6,6 +6,10 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `fail_on_severity` com mais de uma severidade (ex.: `Very High, High`) quebrava o Pipeline Scan com baseline: a action oficial monta o comando sem aspas e o `pipeline-scan.jar` abortava com `unrecognized arguments`, deixando o SAST sem resultado. O valor agora é validado no `validate-inputs` (Very High, High, Medium, Low, Very Low, Informational) e repassado entre aspas; severidade desconhecida falha na validação.
+
 ## [1.8.2] - 2026-11-04
 
 ### Added

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { message, fail } = require('./messages');
+const { normalizeFailOnSeverity } = require('./fail-on-severity');
 const {
     resolveAccessToken,
     assertBaselineRepoExists,
@@ -39,6 +40,7 @@ const {
     PIPELINE_SCAN_MAX_ARTIFACTS,
     PIPELINE_SCAN_RETRY,
     FAIL_ON_CVE,
+    FAIL_ON_SEVERITY,
     ENABLE_TOOLS_CACHE,
     TOOLS_CACHE_REFRESH,
     TOOLS_MIRROR_URL,
@@ -170,6 +172,13 @@ if (failOnCveRaw) {
             break;
         }
     }
+}
+
+const failOnSeverity = normalizeFailOnSeverity(FAIL_ON_SEVERITY);
+if (failOnSeverity.error !== undefined) {
+    erros.push(message('error', 'FAIL_ON_SEVERITY_INVALID', { severity: failOnSeverity.error }));
+} else {
+    setOutput('fail_on_severity', failOnSeverity.value);
 }
 
 // ── Cache de ferramentas e dependências ────────────────────────────────────

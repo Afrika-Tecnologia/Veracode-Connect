@@ -112,6 +112,10 @@ inputs:
     description: 'Lista de CVEs exatos para bloqueio pós-SCA (separados por vírgula, espaço ou quebra de linha).'
     required: false
     default: ''
+  fail_on_severity:
+    description: 'Severidades do Pipeline Scan com baseline (validadas e normalizadas entre aspas).'
+    required: false
+    default: ''
   enable_tools_cache:
     description: 'Cache de ferramentas Veracode (true/false).'
     required: false
@@ -155,6 +159,9 @@ outputs:
   baseline_repo_name:
     description: 'Nome do repositório de store de baseline (modo repo).'
     value: ${{ steps.validate.outputs.baseline_repo_name }}
+  fail_on_severity:
+    description: 'fail_on_severity normalizado e entre aspas para o Pipeline Scan oficial.'
+    value: ${{ steps.validate.outputs.fail_on_severity }}
 
 runs:
   using: 'composite'
@@ -196,6 +203,7 @@ runs:
         PIPELINE_SCAN_MAX_ARTIFACTS: ${{ inputs.pipeline_scan_max_artifacts }}
         PIPELINE_SCAN_RETRY: ${{ inputs.pipeline_scan_retry }}
         FAIL_ON_CVE: ${{ inputs.fail_on_cve }}
+        FAIL_ON_SEVERITY: ${{ inputs.fail_on_severity }}
         ENABLE_TOOLS_CACHE: ${{ inputs.enable_tools_cache }}
         TOOLS_CACHE_REFRESH: ${{ inputs.tools_cache_refresh }}
         TOOLS_MIRROR_URL: ${{ inputs.tools_mirror_url }}

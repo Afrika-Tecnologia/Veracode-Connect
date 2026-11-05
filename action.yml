@@ -614,6 +614,7 @@ runs:
         sca_cve_blocked_count: ${{ steps.veracode_sca.outputs.cve_blocked_count || '0' }}
         fail_on_cve: ${{ inputs.fail_on_cve }}
         sca_baseline_status: ${{ steps.veracode_sca.outputs.sca_baseline_status || 'not_used' }}
+        veracode_policy_name: ${{ inputs.veracode_policy_name }}
         iac_outcome: ${{ steps.veracode_iac.outputs.iac_status || (steps.veracode_iac.outcome == 'failure' && 'warning') || 'skipped' }}
         iac_policy_status: ${{ steps.veracode_iac.outputs.iac_policy_status || 'not_used' }}
         iac_policy_name: ${{ inputs.iac_policy }}

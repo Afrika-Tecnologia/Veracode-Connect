@@ -83,7 +83,7 @@ test('countFromText lê o formato clássico do scaResults.txt', () => {
     assert.equal(counts.vulnerable_libraries, 5);
 });
 
-test('buildSummary prefere JSON mesmo com create_issues (sem txt)', () => {
+test('buildSummary lê o JSON e mostra só a linha de vulnerabilidades', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-sum-'));
     const jsonPath = path.join(dir, 'scaResults.json');
     fs.writeFileSync(jsonPath, JSON.stringify({
@@ -101,13 +101,11 @@ test('buildSummary prefere JSON mesmo com create_issues (sem txt)', () => {
     }));
     process.env.CREATE_ISSUES = 'true';
     const md = buildSummary({ jsonPath, txtPath: path.join(dir, 'missing.txt'), createIssues: true });
-    assert.match(md, /#### Findings do SCA/);
-    assert.match(md, /Very High \| 0/);
-    assert.match(md, /High \| 1/);
-    assert.match(md, /Total Vulnerabilidades\*\* \| \*\*1\*\*/);
-    assert.match(md, /Issues GitHub/);
-    assert.match(md, /CVE-2021-23337/);
-    assert.match(md, /Findings do SCA \(1\)/);
+    assert.match(md, /\| Grupo \| 🔴 Very High \| 🟠 High \| 🟡 Medium \| 🔵 Low \| ⚪ Very Low \| Total \|/);
+    assert.match(md, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.doesNotMatch(md, /Afetam a política|Bibliotecas|Issues GitHub/);
+    assert.match(md, /\| 1 \| 🟠 High \| CVE-2021-23337 \| Command Injection \| lodash@4\.17\.0 \|/);
+    assert.match(md, /<summary>Vulnerabilidades \(1\)<\/summary>/);
 });
 
 test('buildSummary coloca Findings bloqueados por CVE acima de Findings do SCA', () => {
@@ -156,10 +154,10 @@ test('buildSummary coloca Findings bloqueados por CVE acima de Findings do SCA',
         }
     });
     const blockedIdx = md.indexOf('#### Findings bloqueados por CVE (1)');
-    const scaIdx = md.indexOf('#### Findings do SCA');
+    const scaIdx = md.indexOf('| Grupo |');
     assert.ok(blockedIdx >= 0);
     assert.ok(scaIdx > blockedIdx);
     assert.match(md, /CVE-2021-44228/);
     assert.match(md, /CVEs pedidos sem match: CVE-2021-45046/);
-    assert.match(md, /Findings do SCA \(2\)/);
+    assert.match(md, /<summary>Vulnerabilidades \(2\)<\/summary>/);
 });

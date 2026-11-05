@@ -361,6 +361,7 @@ module.exports = {
     extractFindings,
     buildBaseline,
     buildDiff,
+    detailsBlock,
     renderComparedBody,
     renderComparedMarkdown,
     evaluate,

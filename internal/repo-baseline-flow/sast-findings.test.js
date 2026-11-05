@@ -178,8 +178,8 @@ for (const provider of ['repo-baseline-flow', 'portal-afrika-baseline-flow', 'pr
                     split: true
                 });
                 assert.match(md, /não foi possível determinar as vulnerabilidades bloqueantes/);
-                assert.doesNotMatch(md, /Detalhamento de Vulnerabilidades Bloqueantes/);
-                assert.match(md, /Detalhamento de Todas Vulnerabilidades \(2\)/);
+                assert.match(md, /\| 🔎 Vulnerabilidades \| 1 \| 1 \| 0 \| 0 \| 0 \| \*\*2\*\* \|/);
+                assert.match(md, /<summary>Vulnerabilidades \(2\)<\/summary>/);
             } finally {
                 fs.rmSync(dir, { recursive: true, force: true });
             }
@@ -210,4 +210,23 @@ test('classifyFindings conta o filtrado como multiconjunto', () => {
     const groups = classifyFindings([newFlaw, twin], [], [newFlaw]);
     assert.equal(groups.newPolicy.length, 1);
     assert.deepEqual(groups.newOther.map((f) => f.title), ['sql 2']);
+});
+
+test('sem baseline: linha de vulnerabilidades e, com política ativa, a das que afetam a política', () => {
+    const dir = writeTemp({
+        'results.json': { findings: [knownFlaw, newFlaw] },
+        'filtered_results.json': { findings: [knownFlaw] }
+    });
+    try {
+        const args = { resultsPath: path.join(dir, 'results.json'), filteredPath: path.join(dir, 'filtered_results.json'), split: false };
+        const plain = buildSummaryMarkdown(args);
+        assert.match(plain, /\| Grupo \| 🔴 Very High \| 🟠 High \| 🟡 Medium \| 🔵 Low \| ⚪ Very Low \| Total \|/);
+        assert.match(plain, /\| 🔎 Vulnerabilidades \| 1 \| 1 \| 0 \| 0 \| 0 \| \*\*2\*\* \|/);
+        assert.doesNotMatch(plain, /Afetam a política|####/);
+        const withPolicy = buildSummaryMarkdown({ ...args, policyActive: true });
+        assert.match(withPolicy, /\| ❌ Afetam a política \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+        assert.match(withPolicy, /<summary>Vulnerabilidades \(2\)<\/summary>/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });

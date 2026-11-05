@@ -33,6 +33,7 @@ const fs = require('fs');
 const path = require('path');
 const { normalizeSeverity } = require('../veracode-iac/summary-findings');
 const { message, fail } = require('./messages');
+const { ROW, severityTable, countBands: countSeverityBands } = require('../summary-table/severity-table');
 
 const SCHEMA_VERSION = 1;
 const FINGERPRINT_VERSION = 1;
@@ -212,18 +213,7 @@ function compareFindings(baselineFindings, currentFindings) {
     return result;
 }
 
-function emptyCounts() {
-    return { critical: 0, high: 0, medium: 0, low: 0, very_low: 0, total: 0 };
-}
-
-function countBands(findings) {
-    const counts = emptyCounts();
-    for (const finding of findings) {
-        counts[finding.severity in counts ? finding.severity : 'very_low'] += 1;
-        counts.total += 1;
-    }
-    return counts;
-}
+const countBands = countSeverityBands;
 
 function buildDiff(baselineDoc, results, policyName = '') {
     const comparison = compareFindings(baselineDoc.findings, extractFindings(results));
@@ -272,18 +262,11 @@ function safeName(value) {
 
 /** Um grupo por linha e as severidades nas colunas. */
 function groupsTable(diff) {
-    const bands = Object.keys(BAND_LABEL);
-    const row = (label, findings) => {
-        const c = countBands(findings || []);
-        return `| ${label} | ${bands.map((band) => c[band]).join(' | ')} | **${c.total}** |`;
-    };
-    return [
-        `| Grupo | ${bands.map((band) => BAND_LABEL[band]).join(' | ')} | Total |`,
-        `|---|${bands.map(() => '---|').join('')}---|`,
-        row('❌ Novos (afetam a política)', diff.new_policy),
-        row('🆕 Novos (não afetam)', diff.new_other),
-        row('📦 Backlog', diff.backlog)
-    ];
+    return severityTable([
+        { label: ROW.newPolicy, counts: countBands(diff.new_policy) },
+        { label: ROW.newOther, counts: countBands(diff.new_other) },
+        { label: ROW.backlog, counts: countBands(diff.backlog) }
+    ]);
 }
 
 function detailsBlock(heading, findings, limit) {
@@ -457,6 +440,7 @@ module.exports = {
     BAND_LABEL,
     cell,
     groupsTable,
+    detailsBlock,
     buildDiff,
     renderComparedMarkdown,
     evaluate,

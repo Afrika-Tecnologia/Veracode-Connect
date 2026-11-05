@@ -8,14 +8,15 @@ const {
     countBySeverity,
     loadFindings
 } = require('./sast-findings');
-const { extractMatches, countFromMatches, policyLabel, baselineNote } = require('../veracode-iac/summary-findings');
-const { renderComparedMarkdown } = require('../iac-baseline/iac-baseline');
+const { extractMatches, countFromMatches, buildSummary: buildIacSummary } = require('../veracode-iac/summary-findings');
 const {
     buildSummary: buildScaSummary,
     loadBlockedArtifact
 } = require('../veracode-sca/summary-findings');
 const { commentState } = require('../build-gate/job-summary');
 const { accessLink } = require('../build-gate/access-link');
+
+const COMMENT_DETAILS_LIMIT = 30;
 
 function readJsonFile(filePath) {
     try {
@@ -141,104 +142,45 @@ function pipelineSection(workspace, inputs) {
         return `${heading}\n\n> ⚠️ Arquivo results.json não encontrado.\n`;
     }
 
-    const split = hasBaseline(inputs);
+    const baselinePath = path.join(workspace, 'baseline.json');
     const tables = buildSummaryMarkdown({
         resultsPath,
-        baselinePath: path.join(workspace, 'baseline.json'),
+        baselinePath,
         filteredPath: path.join(workspace, 'filtered_results.json'),
-        split
+        // Os três grupos só existem quando o scan usou um baseline.
+        split: hasBaseline(inputs) && fs.existsSync(baselinePath),
+        policyActive: Boolean(String(inputs.veracode_policy_name || '').trim())
     });
     return `${heading}\n\n${tables}`;
 }
 
 function scaSection(workspace, inputs = {}) {
-    const jsonPath = path.join(workspace, 'scaResults.json');
-    const txtPath = path.join(workspace, 'scaResults.txt');
     const blockedPath = process.env.CVE_BLOCKED_PATH
         || (process.env.RUNNER_TEMP
             ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
             : '');
-    const blocked = loadBlockedArtifact(blockedPath);
-    const baselineStatus = inputs.sca_baseline_status || 'not_used';
-
-    if (fs.existsSync(jsonPath) || blocked || baselineStatus !== 'not_used') {
-        return buildScaSummary({
-            jsonPath,
-            txtPath,
-            createIssues: false,
-            blocked,
-            baselineStatus,
-            diffPath: path.join(workspace, 'sca-results', 'sca-baseline-diff.json'),
-            // O comentário tem limite de tamanho: detalha só os novos, com teto de linhas.
-            detailsLimit: 30,
-            groups: ['new_policy', 'new_other']
-        });
-    }
-
-    const counts = parseScaLog(workspace);
-    const lines = ['### 🔍 Veracode SCA (Software Composition Analysis)', ''];
-    if (!counts) {
-        lines.push('> ⚠️ Nenhum artefato de resultado SCA encontrado.');
-        lines.push('');
-        return `${lines.join('\n')}\n`;
-    }
-    lines.push('#### Findings do SCA');
-    lines.push('');
-    lines.push('| Severidade | Quantidade |');
-    lines.push('|---|---|');
-    lines.push(`| 🔴 Very High | ${counts.veryHigh} |`);
-    lines.push(`| 🟠 High | ${counts.high} |`);
-    lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low | ${counts.low} |`);
-    lines.push(`| ⚪ Very Low | ${counts.veryLow} |`);
-    lines.push(`| **Total Vulnerabilidades** | **${counts.total}** |`);
-    lines.push(`| Bibliotecas vulneráveis | ${counts.vulnLibs} |`);
-    if (counts.libTotal > 0) {
-        lines.push(`| Total de bibliotecas analisadas | ${counts.libTotal} |`);
-        lines.push(`| Bibliotecas diretas | ${counts.directLibs} |`);
-        lines.push(`| Bibliotecas transitivas | ${counts.transitiveLibs} |`);
-    }
-    lines.push('');
-    return `${lines.join('\n')}\n`;
+    return buildScaSummary({
+        jsonPath: path.join(workspace, 'scaResults.json'),
+        txtPath: path.join(workspace, 'scaResults.txt'),
+        blocked: loadBlockedArtifact(blockedPath),
+        baselineStatus: inputs.sca_baseline_status || 'not_used',
+        diffPath: path.join(workspace, 'sca-results', 'sca-baseline-diff.json'),
+        detailsLimit: COMMENT_DETAILS_LIMIT,
+        groups: ['new_policy', 'new_other']
+    });
 }
 
 function iacSection(workspace, inputs) {
-    const baselineStatus = inputs.iac_baseline_status || 'not_used';
-    if (baselineStatus === 'compared') {
-        const diff = readJsonFile(path.join(workspace, 'iac-results', 'iac-baseline-diff.json'));
-        if (diff) {
-            // O comentário tem limite de tamanho: detalha só os novos, com teto de linhas.
-            return renderComparedMarkdown(diff, { detailsLimit: 30, groups: ['new_policy', 'new_other'] });
-        }
-    }
-    const counts = parseIacResults(workspace);
-    const baselineActive = baselineStatus !== 'not_used';
-    const lines = [baselineActive ? '### 🛡️ Veracode IaC / Secrets (Repo Baseline)' : '### 🛡️ Veracode IaC / Secrets', ''];
-    const note = baselineActive ? baselineNote({ baselineStatus, canSeed: '' }) : '';
-    if (note) {
-        lines.push(note);
-        lines.push('');
-    }
-    if (inputs.iac_policy_status && inputs.iac_policy_status !== 'not_used' && inputs.iac_policy_status !== 'skipped') {
-        const policyName = String(inputs.iac_policy_name || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
-        lines.push(`**Política IaC${policyName ? ` (${policyName})` : ''}:** ${policyLabel(inputs.iac_policy_status)}`);
-        lines.push('');
-    }
-    if (!counts) {
-        lines.push('> ⚠️ Nenhum arquivo de resultado encontrado.');
-        lines.push('');
-        return `${lines.join('\n')}\n`;
-    }
-    lines.push('| Severidade | Quantidade |');
-    lines.push('|---|---|');
-    lines.push(`| 🔴 Very High | ${counts.veryHigh} |`);
-    lines.push(`| 🟠 High | ${counts.high} |`);
-    lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low | ${counts.low} |`);
-    lines.push(`| ⚪ Very Low | ${counts.veryLow} |`);
-    lines.push(`| **Total Findings** | **${counts.total}** |`);
-    lines.push('');
-    return `${lines.join('\n')}\n`;
+    // Mesmo card do summary; no comentário, com baseline comparado, detalha só os novos.
+    return buildIacSummary({
+        jsonPath: path.join(workspace, 'iac-results', 'results.json'),
+        policyStatus: inputs.iac_policy_status || 'not_used',
+        policyName: inputs.iac_policy_name || '',
+        baselineStatus: inputs.iac_baseline_status || 'not_used',
+        diffPath: path.join(workspace, 'iac-results', 'iac-baseline-diff.json'),
+        detailsLimit: COMMENT_DETAILS_LIMIT,
+        groups: ['new_policy', 'new_other']
+    });
 }
 
 function uploadSection(inputs) {

@@ -161,16 +161,15 @@ test('summary SCA: comparado usa a tabela de grupos e mantém os CVEs bloqueados
     assert.doesNotMatch(md, /Bibliotecas transitivas/);
 });
 
-test('summary SCA: sem baseline gravado mostra a nota e o card de sempre', (t) => {
+test('summary SCA sem baseline comparado: mesma tabela, só a linha de vulnerabilidades', (t) => {
     const dir = tmp(t);
     const jsonPath = path.join(dir, 'scaResults.json');
     fs.writeFileSync(jsonPath, JSON.stringify(scan()));
     const seeded = buildSummary({ jsonPath, txtPath: path.join(dir, 'x.txt'), baselineStatus: 'seeded' });
     assert.match(seeded, /### 🔍 Veracode SCA \(Repo Baseline\)/);
-    assert.match(seeded, /baseline gravado após este scan/);
-    assert.match(seeded, /#### Findings do SCA/);
-    const blockedSeed = buildSummary({ jsonPath, txtPath: path.join(dir, 'x.txt'), baselineStatus: 'deferred', canSeed: 'false' });
-    assert.match(blockedSeed, /só é gravado na default_branch/);
+    assert.match(seeded, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 1 \| 0 \| 0 \| \*\*2\*\* \|/);
+    assert.doesNotMatch(seeded, /baseline gravado|Findings do SCA|Afetam a política/);
     const off = buildSummary({ jsonPath, txtPath: path.join(dir, 'x.txt') });
     assert.match(off, /### 🔍 Veracode SCA \(Software Composition Analysis\)/);
+    assert.match(off, /\| 🔎 Vulnerabilidades \|/);
 });

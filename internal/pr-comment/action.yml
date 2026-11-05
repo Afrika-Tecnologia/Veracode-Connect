@@ -42,6 +42,10 @@ inputs:
     description: 'Estado do baseline IaC (not_used | deferred | seeded | compared | error).'
     required: false
     default: 'not_used'
+  veracode_policy_name:
+    description: 'Política da plataforma usada no Pipeline Scan (vazio = nenhuma).'
+    required: false
+    default: ''
   sca_baseline_status:
     description: 'Estado do baseline SCA (not_used | deferred | seeded | compared | error).'
     required: false
@@ -119,6 +123,7 @@ runs:
         IAC_POLICY_NAME: ${{ inputs.iac_policy_name }}
         IAC_BASELINE_STATUS: ${{ inputs.iac_baseline_status }}
         SCA_BASELINE_STATUS: ${{ inputs.sca_baseline_status }}
+        VERACODE_POLICY_NAME: ${{ inputs.veracode_policy_name }}
         PIPELINE_OUTCOME: ${{ inputs.pipeline_outcome }}
         BASELINE_OUTCOME: ${{ inputs.baseline_outcome }}
         REPO_BASELINE_OUTCOME: ${{ inputs.repo_baseline_outcome }}

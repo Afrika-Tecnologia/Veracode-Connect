@@ -12,10 +12,11 @@
  *
  * Bash: node "$GITHUB_ACTION_PATH/sast-findings.js" summary-md \
  *         --results results.json [--baseline baseline.json] \
- *         [--filtered filtered_results.json] [--split true]
+ *         [--filtered filtered_results.json] [--split true] [--policy-active true]
  */
 
 const fs = require('fs');
+const { ROW, severityTable } = require('../summary-table/severity-table');
 
 const SEV_LABEL = {
     5: '🔴 Very High',
@@ -151,35 +152,26 @@ function severityLabel(finding) {
     return SEV_LABEL[severityNumber(finding)] || 'ℹ️ Info';
 }
 
-function countTable(heading, counts) {
+/** Contagem no formato da tabela única (critical..very_low). */
+function bandCounts(findings) {
+    const c = countBySeverity(findings);
+    return { critical: c.veryHigh, high: c.high, medium: c.medium, low: c.low, very_low: c.veryLow, total: c.total };
+}
+
+/** @param {{label: string, findings: object[]}[]} rows */
+function table(rows) {
     return [
-        `#### ${heading}`,
-        '',
-        '| Severidade | Quantidade |',
-        '|---|---|',
-        `| 🔴 Very High | ${counts.veryHigh} |`,
-        `| 🟠 High | ${counts.high} |`,
-        `| 🟡 Medium | ${counts.medium} |`,
-        `| 🔵 Low | ${counts.low} |`,
-        `| ⚪ Very Low | ${counts.veryLow} |`,
-        `| **Total** | **${counts.total}** |`,
+        ...severityTable(rows.map(({ label, findings }) => ({ label, counts: bandCounts(findings) }))),
         ''
     ].join('\n');
 }
 
 function groupsTable(groups) {
-    const row = (label, findings) => {
-        const c = countBySeverity(findings);
-        return `| ${label} | ${c.veryHigh} | ${c.high} | ${c.medium} | ${c.low} | ${c.veryLow} | **${c.total}** |`;
-    };
-    return [
-        '| Grupo | 🔴 Very High | 🟠 High | 🟡 Medium | 🔵 Low | ⚪ Very Low | Total |',
-        '|---|---|---|---|---|---|---|',
-        row('❌ Novos (afetam a política)', groups.newPolicy),
-        row('🆕 Novos (não afetam)', groups.newOther),
-        row('📦 Backlog', groups.backlog),
-        ''
-    ].join('\n');
+    return table([
+        { label: ROW.newPolicy, findings: groups.newPolicy },
+        { label: ROW.newOther, findings: groups.newOther },
+        { label: ROW.backlog, findings: groups.backlog }
+    ]);
 }
 
 function detailsTable(heading, findings) {
@@ -204,27 +196,31 @@ function detailsTable(heading, findings) {
     ].join('\n');
 }
 
-function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split }) {
+/**
+ * Card SAST no padrão único (o cabeçalho fica com quem chama).
+ * - split (baseline em uso): novos que afetam a política, novos que não afetam e backlog;
+ * - sem baseline: vulnerabilidades e, com política ativa (veracode_policy_name), as que
+ *   o Pipeline Scan selecionou em filtered_results.json.
+ */
+function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split, policyActive = false }) {
     const scanFindings = loadFindings(resultsPath);
     if (!resultsPath || !fs.existsSync(resultsPath)) {
         return '> ⚠️ Arquivo results.json não encontrado.\n';
     }
 
+    const filteredData = readJson(filteredPath);
     if (!split) {
-        const counts = countBySeverity(scanFindings);
-        return [
-            countTable('SAST - Vulnerabilidades', counts),
-            detailsTable('Detalhamento de Vulnerabilidades', scanFindings)
-        ].filter(Boolean).join('\n');
+        const rows = [{ label: ROW.all, findings: scanFindings }];
+        if (policyActive && filteredData) rows.push({ label: ROW.policy, findings: extractFindings(filteredData) });
+        return [table(rows), detailsTable('Vulnerabilidades', scanFindings)].filter(Boolean).join('\n');
     }
 
     const baselineFindings = loadFindings(baselinePath);
-    const filteredData = readJson(filteredPath);
     if (!filteredData) {
         return [
             '> ⚠️ Resultado filtrado da política indisponível; não foi possível determinar as vulnerabilidades bloqueantes.\n',
-            countTable('SAST - Todas Vulnerabilidades', countBySeverity(scanFindings)),
-            detailsTable('Detalhamento de Todas Vulnerabilidades', scanFindings)
+            table([{ label: ROW.all, findings: scanFindings }]),
+            detailsTable('Vulnerabilidades', scanFindings)
         ].filter(Boolean).join('\n');
     }
     const groups = classifyFindings(scanFindings, baselineFindings, extractFindings(filteredData));
@@ -256,13 +252,14 @@ if (require.main === module) {
         const args = parseArgs(process.argv.slice(2));
         const cmd = args._[0];
         if (cmd !== 'summary-md') {
-            throw new Error('Uso: node sast-findings.js summary-md --results FILE [--baseline FILE] [--filtered FILE] [--split true]');
+            throw new Error('Uso: node sast-findings.js summary-md --results FILE [--baseline FILE] [--filtered FILE] [--split true] [--policy-active true]');
         }
         const markdown = buildSummaryMarkdown({
             resultsPath: args.results,
             baselinePath: args.baseline,
             filteredPath: args.filtered,
-            split: args.split === 'true'
+            split: args.split === 'true',
+            policyActive: args['policy-active'] === 'true'
         });
         process.stdout.write(markdown.endsWith('\n') ? markdown : `${markdown}\n`);
     } catch (err) {

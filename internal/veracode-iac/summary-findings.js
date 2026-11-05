@@ -73,16 +73,6 @@ function extractMatches(data) {
     );
 }
 
-function bandLabel(band) {
-    switch (band) {
-        case 'critical': return { icon: '🔴', label: 'Very High', order: 1 };
-        case 'high': return { icon: '🟠', label: 'High', order: 2 };
-        case 'medium': return { icon: '🟡', label: 'Medium', order: 3 };
-        case 'low': return { icon: '🔵', label: 'Low', order: 4 };
-        default: return { icon: '⚪', label: 'Very Low', order: 5 };
-    }
-}
-
 function countFromMatches(matches) {
     const counts = emptyCounts();
     const rows = [];
@@ -124,104 +114,60 @@ function countFromMatches(matches) {
     return { counts, rows };
 }
 
-function tableCell(value) {
-    return String(value).replace(/\s+/g, ' ').replace(/\|/g, '\\|');
-}
-
-function policyLabel(policyStatus) {
-    if (policyStatus === 'passed') return '✅ Passou';
-    if (policyStatus === 'failed') return '❌ Não passou';
-    if (policyStatus === 'deferred') return '⏸️ Não bloqueia (sem baseline IaC)';
-    return '⚠️ Não avaliada';
+function bandLabel(band) {
+    switch (band) {
+        case 'critical': return { icon: '🔴', label: 'Very High', order: 1 };
+        case 'high': return { icon: '🟠', label: 'High', order: 2 };
+        case 'medium': return { icon: '🟡', label: 'Medium', order: 3 };
+        case 'low': return { icon: '🔵', label: 'Low', order: 4 };
+        default: return { icon: '⚪', label: 'Very Low', order: 5 };
+    }
 }
 
 const BASELINE_HEADING = '### 🛡️ Veracode IaC / Secrets (Repo Baseline)';
 
-/** Nota exibida quando o baseline IaC está ativo, mas não foi comparado nesta execução. */
-function baselineNote({ baselineStatus, canSeed }) {
-    if (baselineStatus === 'seeded') {
-        return '> 🆕 Sem baseline IaC: baseline gravado após este scan. A política IaC passa a bloquear findings novos a partir da próxima execução.';
-    }
-    if (baselineStatus === 'deferred') {
-        if (canSeed === 'true') {
-            return '> ⚠️ Sem baseline IaC: o baseline não foi gravado (scan sem resultado válido ou falha na gravação). A política IaC não bloqueia nesta execução.';
-        }
-        if (canSeed === 'false') {
-            return '> ⚠️ Sem baseline IaC: o baseline só é gravado na default_branch ou em PR destinado a ela. A política IaC não bloqueia nesta execução.';
-        }
-        return '> ⚠️ Sem baseline IaC: a política IaC não bloqueia nesta execução.';
-    }
-    if (baselineStatus === 'error') {
-        return '> ⚠️ Baseline IaC indisponível nesta execução (leitura falhou, baseline ilegível ou scan inválido). A política IaC não bloqueia.';
-    }
-    return '';
+function policyActive(policyStatus, policyName) {
+    const name = String(policyName || '').trim();
+    return Boolean(name) && name !== 'none' && !['', 'not_used', 'skipped'].includes(String(policyStatus || ''));
 }
 
-function policyLine(policyStatus, policyName) {
-    if (!policyStatus || policyStatus === 'not_used' || policyStatus === 'skipped') return '';
-    const safeName = String(policyName || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
-    return `**Política IaC${safeName ? ` (${safeName})` : ''}:** ${policyLabel(policyStatus)}`;
+/** Findings normalizados ({severity, category, id, title, location, policy}) do results.json. */
+function normalizedFindings(data, iacBaseline) {
+    if (iacBaseline.isIacResults(data)) return iacBaseline.extractFindings(data);
+    return countFromMatches(extractMatches(data)).rows.map((row) => ({
+        severity: row.band, category: '', id: row.cve, title: row.desc, location: row.lib, policy: ''
+    }));
 }
 
-function headerLines(policyStatus, policyName, baseline = {}) {
-    const active = Boolean(baseline.baselineStatus) && baseline.baselineStatus !== 'not_used';
-    const lines = [active ? BASELINE_HEADING : '### 🛡️ Veracode IaC / Secrets', ''];
-    const note = active ? baselineNote(baseline) : '';
-    if (note) lines.push(note, '');
-    const policy = policyLine(policyStatus, policyName);
-    if (policy) lines.push(policy, '');
-    return lines;
-}
-
-function renderMarkdown(counts, rows, policyStatus, policyName, baseline = {}) {
-    const lines = headerLines(policyStatus, policyName, baseline);
-    lines.push('| Severidade | Quantidade |');
-    lines.push('|---|---|');
-    lines.push(`| 🔴 Very High | ${counts.critical} |`);
-    lines.push(`| 🟠 High | ${counts.high} |`);
-    lines.push(`| 🟡 Medium | ${counts.medium} |`);
-    lines.push(`| 🔵 Low | ${counts.low} |`);
-    lines.push(`| ⚪ Very Low | ${counts.very_low} |`);
-    lines.push(`| **Total Findings** | **${counts.total}** |`);
-    lines.push('');
-
-    if (rows.length > 0) {
-        lines.push(`<details><summary>Detalhamento de IaC / Secrets (${rows.length})</summary>`);
-        lines.push('');
-        lines.push('| # | Severidade | CVE / ID | Descrição | Biblioteca / Arquivo | Fix |');
-        lines.push('|---|---|---|---|---|---|');
-        rows.forEach((row, index) => {
-            const { icon, label } = bandLabel(row.band);
-            lines.push(`| ${index + 1} | ${icon} ${label} | ${tableCell(row.cve)} | ${tableCell(row.desc)} | ${tableCell(row.lib)} | ${tableCell(row.fix)} |`);
-        });
-        lines.push('');
-        lines.push('</details>');
-        lines.push('');
-    }
-    return `${lines.join('\n')}\n`;
-}
-
-function buildSummary({ jsonPath, policyStatus = 'not_used', policyName = '', baselineStatus = 'not_used', diffPath = '', canSeed = '' }) {
+/**
+ * Card IaC no padrão único: com baseline comparado, os três grupos; sem baseline,
+ * a linha de vulnerabilidades e, com política ativa, a das que afetam a política.
+ * @param {{detailsLimit?: number, details?: boolean}} options
+ */
+function buildSummary({ jsonPath, policyStatus = 'not_used', policyName = '', baselineStatus = 'not_used', diffPath = '', details = true, detailsLimit, groups }) {
+    // Carregado sob demanda: iac-baseline depende deste módulo.
+    const iacBaseline = require('../iac-baseline/iac-baseline');
+    const { ROW, severityTable, countBands } = require('../summary-table/severity-table');
     if (baselineStatus === 'compared') {
         const diff = readJson(diffPath);
-        if (diff) {
-            // Carregado sob demanda: iac-baseline depende deste módulo.
-            return require('../iac-baseline/iac-baseline').renderComparedMarkdown(diff);
-        }
+        if (diff) return iacBaseline.renderComparedMarkdown(diff, { detailsLimit, groups });
     }
-    const baseline = { baselineStatus, canSeed };
-    const filePath = jsonPath || 'iac-results/results.json';
-    const data = readJson(filePath);
+    const active = Boolean(baselineStatus) && baselineStatus !== 'not_used';
+    const lines = [active ? BASELINE_HEADING : '### 🛡️ Veracode IaC / Secrets', ''];
+    const withPolicy = policyActive(policyStatus, policyName);
+    if (withPolicy) {
+        lines.push(`**Política IaC:** ${String(policyName).replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&')}`, '');
+    }
+    const data = readJson(jsonPath || 'iac-results/results.json');
     if (!data) {
-        return [
-            ...headerLines(policyStatus, policyName, baseline),
-            '> ⚠️ Nenhum arquivo de resultado encontrado.',
-            ''
-        ].join('\n') + '\n';
+        return [...lines, '> ⚠️ Nenhum arquivo de resultado encontrado.', ''].join('\n') + '\n';
     }
-    const matches = extractMatches(data);
-    const parsed = countFromMatches(matches);
-    return renderMarkdown(parsed.counts, parsed.rows, policyStatus, policyName, baseline);
+    const findings = normalizedFindings(data, iacBaseline);
+    const rows = [{ label: ROW.all, counts: countBands(findings) }];
+    if (withPolicy) rows.push({ label: ROW.policy, counts: countBands(findings.filter((f) => f.policy === 'failed')) });
+    lines.push(...severityTable(rows), '');
+    if (details) lines.push(...iacBaseline.detailsBlock('Vulnerabilidades', findings, detailsLimit ?? iacBaseline.DETAILS_LIMIT));
+    return `${lines.join('\n')}\n`;
 }
 
 if (require.main === module) {
@@ -235,8 +181,7 @@ if (require.main === module) {
             policyStatus: process.env.IAC_POLICY_STATUS || 'not_used',
             policyName: process.env.IAC_POLICY_NAME || '',
             baselineStatus: process.env.IAC_BASELINE_STATUS || 'not_used',
-            diffPath: process.env.IAC_BASELINE_DIFF || '',
-            canSeed: process.env.IAC_BASELINE_CAN_SEED || ''
+            diffPath: process.env.IAC_BASELINE_DIFF || ''
         });
         process.stdout.write(md);
         process.stderr.write(`${message('success', 'SUMMARY_WRITTEN')}\n`);
@@ -251,7 +196,5 @@ module.exports = {
     extractMatches,
     countFromMatches,
     buildSummary,
-    policyLabel,
-    baselineNote,
     emptyCounts
 };

@@ -65,21 +65,21 @@ test('buildSummary lê vulnerabilities.matches com severity UPPERCASE', () => {
         }
     }));
     const md = buildSummary({ jsonPath });
-    assert.match(md, /Very High \| 1/);
-    assert.match(md, /High \| 1/);
-    assert.match(md, /Total Findings\*\* \| \*\*2\*\*/);
+    assert.match(md, /\| Grupo \| 🔴 Very High \| 🟠 High \| 🟡 Medium \| 🔵 Low \| ⚪ Very Low \| Total \|/);
+    assert.match(md, /\| 🔎 Vulnerabilidades \| 1 \| 1 \| 0 \| 0 \| 0 \| \*\*2\*\* \|/);
+    assert.doesNotMatch(md, /Afetam a política/);
     assert.match(md, /CVE-2024-45590/);
     assert.match(md, /body-parser@1\.18\.3/);
 });
 
-test('buildSummary informa quando a política IaC reprova', () => {
+test('buildSummary mostra só o nome da política, sem veredito', () => {
     const md = buildSummary({
         jsonPath: path.join(os.tmpdir(), 'vc-iac-results-ausente.json'),
         policyStatus: 'failed',
         policyName: 'Time IaC'
     });
-    assert.match(md, /Política IaC \(Time IaC\):/);
-    assert.match(md, /Não passou/);
+    assert.match(md, /\*\*Política IaC:\*\* Time IaC/);
+    assert.doesNotMatch(md, /Não passou/);
     assert.match(md, /Nenhum arquivo de resultado encontrado/);
 });
 
@@ -89,9 +89,8 @@ test('buildSummary não apresenta política como aprovada se a avaliação falha
         policyStatus: 'error',
         policyName: 'Time IaC'
     });
-    assert.match(md, /Política IaC \(Time IaC\):/);
-    assert.match(md, /Não avaliada/);
-    assert.doesNotMatch(md, /Passou/);
+    assert.match(md, /\*\*Política IaC:\*\* Time IaC/);
+    assert.doesNotMatch(md, /Passou|Não avaliada/);
 });
 
 test('summary includes dependency, custom secret and configuration findings without exposing matched values', () => {
@@ -107,10 +106,8 @@ test('summary includes dependency, custom secret and configuration findings with
             configs: [{ Severity: 'LOW', ID: 'CONFIG-001', Title: 'Configuration issue', Target: 'infra/main.tf', StartLine: 8 }]
         }));
         const md = buildSummary({ jsonPath, policyStatus: 'failed', policyName: 'Team policy' });
-        assert.match(md, /High \| 2/);
-        assert.match(md, /Medium \| 1/);
-        assert.match(md, /Low \| 1/);
-        assert.match(md, /Total Findings\*\* \| \*\*4\*\*/);
+        assert.match(md, /\| 🔎 Vulnerabilidades \| 0 \| 2 \| 1 \| 1 \| 0 \| \*\*4\*\* \|/);
+        assert.match(md, /\| ❌ Afetam a política \| 0 \| 0 \| 0 \| 0 \| 0 \| \*\*0\*\* \|/);
         assert.match(md, /custom-sensitive-property/);
         assert.match(md, /src\/config\.js:12/);
         assert.match(md, /CONFIG-001/);
@@ -126,8 +123,7 @@ test('summary counts custom findings when there are no dependency findings', () 
         const jsonPath = path.join(dir, 'results.json');
         fs.writeFileSync(jsonPath, JSON.stringify({ secrets: [{ Severity: 'CRITICAL', RuleID: 'custom-secret', Title: 'Secret finding', Target: 'config.yml' }], configs: [] }));
         const md = buildSummary({ jsonPath });
-        assert.match(md, /Very High \| 1/);
-        assert.match(md, /Total Findings\*\* \| \*\*1\*\*/);
+        assert.match(md, /\| 🔎 Vulnerabilidades \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -144,6 +140,24 @@ test('custom finding metadata cannot create extra markdown table rows or columns
         assert.ok(md.includes('Finding \\| title continued'));
         assert.ok(md.includes('src/config\\|extra row.js:2'));
         assert.doesNotMatch(md, /\nrow\.js/);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('com política ativa conta os findings reprovados pela política, sem nota de baseline', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-policy-row-'));
+    try {
+        const jsonPath = path.join(dir, 'results.json');
+        fs.writeFileSync(jsonPath, JSON.stringify({ configs: [
+            { Severity: 'HIGH', ID: 'A', Title: 'a', Target: 'a.tf', customerPolicyResult: { Status: 'failed' } },
+            { Severity: 'LOW', ID: 'B', Title: 'b', Target: 'b.tf', customerPolicyResult: { Status: 'passed' } }
+        ] }));
+        const md = buildSummary({ jsonPath, policyStatus: 'deferred', policyName: 'N2', baselineStatus: 'seeded' });
+        assert.match(md, /### 🛡️ Veracode IaC \/ Secrets \(Repo Baseline\)/);
+        assert.match(md, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 1 \| 0 \| \*\*2\*\* \|/);
+        assert.match(md, /\| ❌ Afetam a política \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+        assert.doesNotMatch(md, /Sem baseline IaC|baseline gravado/);
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }

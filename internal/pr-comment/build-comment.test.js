@@ -30,7 +30,7 @@ test('saved SCA/IaC fragments do not expand the consolidated PR beyond its compa
             inputs: { sca_status: 'success', iac_outcome: 'success' } });
         assert.ok(body.length < 65536, 'PR should keep SCA/IaC sections compact');
         assert.doesNotMatch(body, /VERBOSE SCA|VERBOSE IAC/);
-        assert.match(body, /High \| 1/);
+        assert.match(body, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -45,10 +45,10 @@ test('PR comment includes custom secret and configuration findings in IaC totals
         }));
         const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/example/repo/actions/runs/1',
             inputs: { iac_outcome: 'failure', iac_policy_status: 'failed', iac_policy_name: 'Team policy', fail_build: 'true' } });
-        assert.match(body, /High \| 1/);
-        assert.match(body, /Medium \| 1/);
-        assert.match(body, /Total Findings\*\* \| \*\*2\*\*/);
-        assert.match(body, /Não passou/);
+        assert.match(body, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 1 \| 0 \| 0 \| \*\*2\*\* \|/);
+        assert.match(body, /\| ❌ Afetam a política \|/);
+        assert.match(body, /\*\*Política IaC:\*\* Team policy/);
+        assert.doesNotMatch(body, /Não passou/);
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -108,7 +108,7 @@ test('buildCommentBody lista Findings bloqueados por CVE acima de Findings do SC
         });
         process.env.RUNNER_TEMP = previous;
         const blockedIdx = body.indexOf('#### Findings bloqueados por CVE (1)');
-        const scaIdx = body.indexOf('#### Findings do SCA');
+        const scaIdx = body.indexOf('| 🔎 Vulnerabilidades |');
         assert.ok(blockedIdx >= 0);
         assert.ok(scaIdx > blockedIdx);
         assert.match(body, /CVE-2021-44228/);
@@ -201,14 +201,10 @@ test('comentário do PR conta severidades UPPERCASE do results.json de IaC', () 
         inputs: { iac_outcome: 'success' }
     });
 
-    assert.match(body, /Very High \| 1 \|/);
-    assert.match(body, /High \| 1 \|/);
-    assert.match(body, /Medium \| 1 \|/);
-    assert.match(body, /Low \| 1 \|/);
-    assert.match(body, /Total Findings\*\* \| \*\*4\*\*/);
+    assert.match(body, /\| 🔎 Vulnerabilidades \| 1 \| 1 \| 1 \| 1 \| 0 \| \*\*4\*\* \|/);
 });
 
-test('comentário do PR identifica a política IaC reprovada pelo nome', () => {
+test('comentário do PR identifica a política IaC pelo nome, sem veredito no card', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-policy-comment-'));
     fs.mkdirSync(path.join(dir, 'iac-results'));
     fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({ findings: [] }));
@@ -223,8 +219,8 @@ test('comentário do PR identifica a política IaC reprovada pelo nome', () => {
         }
     });
 
-    assert.match(body, /Política IaC \(Team IaC\):/);
-    assert.match(body, /Não passou/);
+    assert.match(body, /\*\*Política IaC:\*\* Team IaC/);
+    assert.doesNotMatch(body, /Não passou/);
     assert.match(body, /Veracode IaC\/Secrets \| ❌ Failed/);
 });
 
@@ -271,7 +267,7 @@ test('buildCommentBody inclui marker e seções ativas', () => {
 
     assert.match(body, new RegExp(MARKER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(body, /### 🔬 Veracode Pipeline Scan/);
-    assert.match(body, /\| 🟠 High \| 1 \|/);
+    assert.match(body, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
     assert.match(body, /## 🛡️ Veracode Connect — Resumo Final/);
     assert.match(body, /\[Mais detalhes no Step Summary\]/);
     assert.doesNotMatch(body, /### 🔍 Veracode SCA/);
@@ -286,6 +282,7 @@ test('buildCommentBody com baseline mostra os três grupos do SAST', () => {
     fs.writeFileSync(path.join(dir, 'filtered_results.json'), JSON.stringify({
         findings: [{ severity: 4 }]
     }));
+    fs.writeFileSync(path.join(dir, 'baseline.json'), JSON.stringify({ findings: [] }));
 
     const body = buildCommentBody({
         workspace: dir,
@@ -394,7 +391,7 @@ test('PR shows only the configured Veracode access link immediately below the fi
     assert.doesNotMatch(body, /example\.veracode\.com\/scan\/1|old-upload|Relatório completo no Veracode|\| Plataforma \|/);
     assert.equal((body.match(/Link de acesso para Veracode:/g) || []).length, 1);
     assert.match(body, /Mais detalhes no Step Summary/);
-    assert.match(body, /\| 🔴 Very High \| 2 \|/);
+    assert.match(body, /\| 🔎 Vulnerabilidades \| 2 \| 3 \| 1 \| 4 \| 0 \| \*\*10\*\* \|/);
     assert.doesNotMatch(body, /Status interno/);
     assert.doesNotMatch(body, /Issues GitHub: desabilitado/);
 });
@@ -455,7 +452,7 @@ test('buildCommentBody não lista artefatos do manifesto de scans', () => {
 
     assert.doesNotMatch(body, /Artefatos analisados/);
     assert.doesNotMatch(body, /veracode-auto-pack-app-java\.zip/);
-    assert.match(body, /\| 🟠 High \| 1 \|/);
+    assert.match(body, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
 });
 
 test('PR com baseline IaC comparado mostra os três grupos e detalha só os novos', () => {
@@ -483,14 +480,20 @@ test('PR com baseline IaC comparado mostra os três grupos e detalha só os novo
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('PR sem baseline IaC usado mostra a política como adiada', () => {
+test('PR sem baseline IaC usado mostra o card no padrão único e a política adiada no resumo', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-pr-iac-deferred-'));
     try {
+        fs.mkdirSync(path.join(dir, 'iac-results'));
+        fs.writeFileSync(path.join(dir, 'iac-results', 'results.json'), JSON.stringify({ configs: [
+            { Severity: 'HIGH', ID: 'A', Title: 'a', Target: 'a.tf', customerPolicyResult: { Status: 'failed' } }
+        ] }));
         const body = buildCommentBody({ workspace: dir, workflowRunUrl: 'https://github.com/o/r/actions/runs/1', inputs: {
             iac_outcome: 'success', iac_policy_status: 'deferred', iac_policy_name: 'Pol', iac_baseline_status: 'seeded'
         } });
-        assert.match(body, /baseline gravado após este scan/);
-        assert.match(body, /Política IaC \(Pol\):\*\* ⏸️ Não bloqueia \(sem baseline IaC\)/);
+        assert.doesNotMatch(body, /baseline gravado após este scan|Não bloqueia/);
+        assert.match(body, /\*\*Política IaC:\*\* Pol/);
+        assert.match(body, /\| 🔎 Vulnerabilidades \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+        assert.match(body, /\| ❌ Afetam a política \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
         assert.match(body, /\| Política IaC — Pol \| ⏸️ Sem baseline IaC \(não bloqueia\) \|/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

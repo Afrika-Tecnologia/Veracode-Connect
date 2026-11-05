@@ -31,7 +31,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.2
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.0
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -44,7 +44,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.8` também apontam para a versão `v1.8.2`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.9` também apontam para a versão `v1.9.0`.
 
 ### Baseline IaC/Secrets
 
@@ -98,6 +98,8 @@ O **Resumo Final** é gerado também quando a validação de inputs falha e reú
 
 Logo abaixo de **Veracode Connect — Resumo Final**, o summary e o comentário do PR exibem **Link de acesso para Veracode: [Acesse Aqui](https://analysiscenter.veracode.com/)**. Configure `veracode_url` para usar outro endereço de acesso, inclusive de outra região ou SSO. O padrão é `https://analysiscenter.veracode.com/`; URLs vazias ou inválidas usam esse padrão. Os links automáticos de relatório SCA e de plataforma do Upload & Scan deixam de ser exibidos.
 
+Os cards de Pipeline Scan, SCA e IaC usam o mesmo formato: uma tabela com uma linha por grupo e as severidades (Very High a Very Low) nas colunas, seguida do detalhamento recolhido. Com baseline comparado, as linhas são **novos que afetam a política**, **novos que não afetam** e **backlog**. Sem baseline, a tabela mostra **Vulnerabilidades** e, quando há política ativa (`veracode_policy_name` no Pipeline Scan, `iac_policy` no IaC), **Afetam a política**; no SCA, apenas **Vulnerabilidades**. No comentário do PR, IaC e SCA detalham até 30 findings por grupo e, com baseline comparado, só os novos.
+
 Nos fluxos SAST com baseline, o card mostra os mesmos três grupos do baseline IaC, por severidade: **novos que afetam a política** (somente os findings de `filtered_results.json`, selecionados pelo Pipeline Scan após aplicar a política e o baseline; só eles bloqueiam), **novos que não afetam** (fora do `baseline.json`, comparados por `flaw_match`, e fora do filtrado) e **backlog** (já presentes no baseline). Resultado filtrado vazio significa zero bloqueantes; se o arquivo estiver ausente ou não puder ser lido, o resumo informa que os bloqueantes estão indisponíveis e lista todos os findings.
 
 Quando o Connect é chamado mais de uma vez no mesmo job, o último **Resumo Final** e o comentário do PR reúnem os resultados dessas chamadas. Um Pipeline executado antes de uma chamada somente de SCA/IaC continua visível como **Pipeline Scan (Repo Baseline)**, **Pipeline Scan (Portal Afrika Baseline)** ou **Pipeline Scan**, junto com seu detalhamento. Scans desativados na chamada seguinte preservam o resultado anterior; uma nova execução do mesmo scan substitui o resultado mostrado. A consolidação é separada por job, execução, tentativa e workspace.
@@ -106,7 +108,7 @@ Quando um scan não consegue executar ou produzir resultados, o **Resumo Final**
 
 No SCA, `policy_fail` é repassado ao parâmetro oficial `breakBuildOnPolicyFindings`. Sem resultado reconhecível com bibliotecas analisadas, o status é `warning`; arquivos ausentes, inválidos, contendo apenas erros ou sem bibliotecas não bloqueiam. Resultados SCA anteriores são removidos antes de cada scan. Com resultado de análise, a falha da action oficial continua bloqueante quando os dois inputs estão habilitados. A action oficial não distingue a causa de um retorno não zero; nessa situação o summary indica **falha do SCA**, sem afirmar que ela comprova uma violação de política.
 
-O input `fail_on_cve` é uma regra da própria Connect (não existe na action oficial SCA). A action oficial roda com `sca_fix_enabled: true`, que gera `scaResults.json` mesmo com `create_issues: false`; sem o JSON, a Connect usa as linhas de CVE de `scaResults.txt`. Após o SCA, a Connect compara cada vulnerabilidade com a lista informada (match exato de CVE, separados por vírgula, espaço ou quebra de linha; ex.: `CVE-2021-44228,CVE-2021-45046`). Com match e `policy_fail: 'true'`, o status SCA vira `failure` e, com `fail_build: 'true'`, a esteira bloqueia ao final. Sem `policy_fail`, o match aparece como warning e no relatório, sem travar. O summary e o comentário do PR mostram **Findings bloqueados por CVE** acima de **Findings do SCA**; os findings bloqueados também permanecem na lista geral.
+O input `fail_on_cve` é uma regra da própria Connect (não existe na action oficial SCA). A action oficial roda com `sca_fix_enabled: true`, que gera `scaResults.json` mesmo com `create_issues: false`; sem o JSON, a Connect usa as linhas de CVE de `scaResults.txt`. Após o SCA, a Connect compara cada vulnerabilidade com a lista informada (match exato de CVE, separados por vírgula, espaço ou quebra de linha; ex.: `CVE-2021-44228,CVE-2021-45046`). Com match e `policy_fail: 'true'`, o status SCA vira `failure` e, com `fail_build: 'true'`, a esteira bloqueia ao final. Sem `policy_fail`, o match aparece como warning e no relatório, sem travar. O summary e o comentário do PR mostram **Findings bloqueados por CVE** acima da tabela de vulnerabilidades do SCA; os findings bloqueados também permanecem na tabela.
 
 A action oficial SCA Agent-based não aceita uma política por nome. Para usar a mesma política selecionada por `veracode_policy_name` no Pipeline, atribua essa política ao **workspace SCA associado ao token**, na opção Policy Assignment da plataforma Veracode. A política precisa conter regras aplicáveis ao SCA Agent-based. A Connect não altera essa atribuição e não consegue garantir que as duas políticas sejam iguais apenas pelo input. Veja [atribuição de políticas ao workspace](https://docs.veracode.com/r/Manage_security_policies) e [inputs da action oficial SCA](https://github.com/veracode/veracode-sca/blob/aeeb6aaa608a49195cab32c44b75db4f6a07a2df/action.yml).
 
@@ -150,7 +152,7 @@ O mirror precisa aceitar leitura anônima. O sha256 pinado da CLI continua sendo
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.8.2
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.0
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}

@@ -146,8 +146,7 @@ test('a previously rejected Pipeline remains red in the last summary even when t
             writeFragment(env, 'sca', 'SCA passed\n');
             const md = finalSummary({ ...env, SCA_STATUS: 'success' }, 'last.md');
             assert.match(md, /Pipeline Scan \(Portal Afrika Baseline\) \| ❌ Failed/);
-            assert.match(md, /Build travado/);
-            assert.doesNotMatch(md, /Todos os checks ativos passaram/);
+            assert.doesNotMatch(md, /Build travado|Todos os checks ativos passaram/);
         } finally { fs.rmSync(dir, { recursive: true, force: true }); }
     });
 
@@ -195,8 +194,7 @@ test('a previous nonblocking policy rejection stays visible without claiming the
             run(initialize, { ...env, ENABLE_SCA: 'true' });
             const md = finalSummary({ ...env, SCA_STATUS: 'success' }, 'last.md');
             assert.match(md, /Pipeline Scan \(Repo Baseline\) \| ❌ Failed/);
-            assert.match(md, /esteira preservada/);
-            assert.doesNotMatch(md, /Build travado|Todos os checks ativos passaram/);
+            assert.doesNotMatch(md, /Build travado|esteira preservada|Todos os checks ativos passaram/);
         } finally { fs.rmSync(dir, { recursive: true, force: true }); }
     });
 

@@ -174,37 +174,12 @@ runs:
           echo "| ${name} | $(status_icon "${status}") |"
         }
 
-        has_failure="false"
-        has_warning="false"
-        for s in "${VALIDATE_OUTCOME}" "${SCA_STATUS}" "${IAC_OUTCOME}" "${IAC_POLICY_STATUS}" "${BASELINE_OUTCOME}" "${REPO_BASELINE_OUTCOME}" "${PIPELINE_OUTCOME}" "${UPLOAD_OUTCOME}"; do
-          if [[ "${s}" == "failure" || "${s}" == "failed" || "${s}" == "scan_failed"* ]]; then
-            has_failure="true"
-          elif [ "${s}" = "warning" ]; then
-            has_warning="true"
-          fi
-        done
-
         {
           echo "---"
           echo ""
           echo "## 🛡️ Veracode Connect — Resumo Final"
           echo ""
           node "$GITHUB_ACTION_PATH/access-link.js"
-          echo ""
-
-          if [ "${has_failure}" = "true" ] && [ "${FAIL_BUILD}" = "true" ]; then
-            if [ "${SCA_STATUS}" = "failure" ] && [ "${SCA_CVE_BLOCKED_COUNT:-0}" != "0" ] && [ -n "${SCA_CVE_BLOCKED_COUNT}" ]; then
-              echo "> ❌ **Build travado por CVE bloqueado no SCA**"
-            elif [ "${SCA_STATUS}" = "failure" ]; then
-              echo "> ❌ **Build travado por falha do SCA**"
-            else
-              echo "> ❌ **Build travado por policy**"
-            fi
-          elif [ "${has_failure}" = "true" ] || [ "${has_warning}" = "true" ]; then
-            echo "> ⚠️ **Falhas ou achados registrados; esteira preservada**"
-          else
-            echo "> ✅ **Todos os checks ativos passaram com sucesso**"
-          fi
           echo ""
 
           echo "| Scan | Status |"

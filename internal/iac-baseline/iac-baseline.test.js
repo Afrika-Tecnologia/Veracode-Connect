@@ -155,7 +155,7 @@ test('compareFindings prefere o casamento exato antes do casamento só por finge
     assert.equal(result.fixedCount, 0);
 });
 
-test('o card mostra os três grupos na mesma tabela e o veredito da política', () => {
+test('o card mostra a política e os três grupos por severidade, sem veredito', () => {
     const diff = buildDiff(
         buildBaseline(results({ configs: [config('AVD-1', 'a.tf', 'LOW', { resource: 'r' })] })),
         results({
@@ -165,10 +165,12 @@ test('o card mostra os três grupos na mesma tabela e o veredito da política', 
         'Container IaC Policy - N2'
     );
     const md = renderComparedMarkdown(diff);
-    assert.match(md, /Política IaC \(Container IaC Policy - N2\) — findings novos:\*\* ❌ Não passou/);
-    assert.match(md, /\| ❌ Novos que afetam a política \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
-    assert.match(md, /\| 🆕 Novos que não afetam a política \| 0 \| 0 \| 0 \| 0 \| 0 \| \*\*0\*\* \|/);
-    assert.match(md, /\| 📦 Backlog \(já no baseline\) \| 0 \| 0 \| 0 \| 1 \| 0 \| \*\*1\*\* \|/);
+    assert.match(md, /\*\*Política IaC:\*\* Container IaC Policy - N2 — bloqueia apenas findings novos reprovados por ela\./);
+    assert.doesNotMatch(md, /Passou|Não passou/);
+    assert.match(md, /\| Severidade \| ❌ Novos \(afetam a política\) \| 🆕 Novos \(não afetam\) \| 📦 Backlog \|/);
+    assert.match(md, /\| 🔴 Very High \| 1 \| 0 \| 0 \|/);
+    assert.match(md, /\| 🔵 Low \| 0 \| 0 \| 1 \|/);
+    assert.match(md, /\| \*\*Total\*\* \| \*\*1\*\* \| \*\*0\*\* \| \*\*1\*\* \|/);
     assert.match(md, /<summary>Backlog \(1\)<\/summary>/);
     assert.doesNotMatch(md, /<summary>Novos que não afetam a política/);
 });
@@ -176,7 +178,7 @@ test('o card mostra os três grupos na mesma tabela e o veredito da política', 
 test('sem política nenhum finding novo afeta a política', () => {
     const diff = buildDiff(buildBaseline(results()), results({ matches: [vuln('GHSA-aaaa-0001', 'x', '1', 'HIGH')] }), 'none');
     assert.equal(diff.counts.new_policy, 0);
-    assert.match(renderComparedMarkdown(diff), /Sem política IaC/);
+    assert.match(renderComparedMarkdown(diff), /\*\*Política IaC:\*\* nenhuma — findings novos não bloqueiam\./);
 });
 
 test('o detalhamento respeita o limite de linhas', () => {

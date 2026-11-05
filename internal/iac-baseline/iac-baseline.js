@@ -270,9 +270,19 @@ function safeName(value) {
     return String(value || '').replace(/[\r\n]/g, ' ').replace(/[`|]/g, '\\$&');
 }
 
-function groupRow(label, findings) {
-    const c = countBands(findings);
-    return `| ${label} | ${c.critical} | ${c.high} | ${c.medium} | ${c.low} | ${c.very_low} | **${c.total}** |`;
+/** Severidades nas linhas e os três grupos nas colunas, como nos demais cards. */
+function groupsTable(diff) {
+    const counts = [diff.new_policy, diff.new_other, diff.backlog].map((list) => countBands(list || []));
+    const row = (label, band, bold) => {
+        const values = counts.map((c) => (bold ? `**${c[band]}**` : c[band]));
+        return `| ${label} | ${values.join(' | ')} |`;
+    };
+    return [
+        '| Severidade | ❌ Novos (afetam a política) | 🆕 Novos (não afetam) | 📦 Backlog |',
+        '|---|---|---|---|',
+        ...Object.keys(BAND_LABEL).map((band) => row(BAND_LABEL[band], band, false)),
+        row('**Total**', 'total', true)
+    ];
 }
 
 function detailsBlock(heading, findings, limit) {
@@ -303,18 +313,10 @@ function renderComparedMarkdown(diff, options = {}) {
     const hasPolicy = Boolean(policyName) && policyName !== 'none';
     const lines = ['### 🛡️ Veracode IaC / Secrets (Repo Baseline)', ''];
 
-    if (hasPolicy) {
-        const verdict = diff.counts.new_policy > 0 ? '❌ Não passou' : '✅ Passou';
-        lines.push(`**Política IaC (${policyName}) — findings novos:** ${verdict}`, '');
-    } else {
-        lines.push('> ℹ️ Sem política IaC (`iac_policy: none`): nenhum finding novo bloqueia.', '');
-    }
-    lines.push('| Grupo | 🔴 Very High | 🟠 High | 🟡 Medium | 🔵 Low | ⚪ Very Low | Total |');
-    lines.push('|---|---|---|---|---|---|---|');
-    lines.push(groupRow('❌ Novos que afetam a política', diff.new_policy));
-    lines.push(groupRow('🆕 Novos que não afetam a política', diff.new_other));
-    lines.push(groupRow('📦 Backlog (já no baseline)', diff.backlog));
-    lines.push('');
+    lines.push(hasPolicy
+        ? `**Política IaC:** ${policyName} — bloqueia apenas findings novos reprovados por ela.`
+        : '**Política IaC:** nenhuma — findings novos não bloqueiam.', '');
+    lines.push(...groupsTable(diff), '');
 
     const headings = {
         new_policy: 'Novos que afetam a política',

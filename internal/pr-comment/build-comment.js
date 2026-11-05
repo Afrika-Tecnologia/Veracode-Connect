@@ -91,10 +91,6 @@ function isActiveStatus(status) {
     return Boolean(status) && status !== 'skipped';
 }
 
-function isFailureStatus(status) {
-    return status === 'failure' || status === 'failed' || (typeof status === 'string' && status.startsWith('scan_failed'));
-}
-
 function statusIcon(status) {
     if (status === 'success' || status === 'passed') {
         return '✅ Success';
@@ -109,51 +105,6 @@ function statusIcon(status) {
         return '⏭️ Skipped';
     }
     return `❓ ${status}`;
-}
-
-function collectModuleStatuses(inputs) {
-    const failures = [];
-    const warnings = [];
-
-    const check = (name, status) => {
-        if (!isActiveStatus(status)) {
-            return;
-        }
-        if (isFailureStatus(status)) {
-            failures.push(name);
-        } else if (status === 'warning') {
-            warnings.push(name);
-        }
-    };
-
-    check('Validação', inputs.validate_outcome);
-    check('SCA', inputs.sca_status);
-    check('IaC/Secrets', inputs.iac_outcome);
-    check('Política IaC', inputs.iac_policy_status === 'failed' ? 'failure'
-        : inputs.iac_policy_status === 'error' ? 'warning' : '');
-    check('Portal Afrika Baseline', inputs.baseline_outcome);
-    check('Repo Baseline', inputs.repo_baseline_outcome);
-    check('Pipeline Scan', inputs.pipeline_outcome);
-    check('Upload & Scan', inputs.upload_outcome);
-
-    return { failures, warnings };
-}
-
-function resolveBanner(inputs) {
-    const { failures, warnings } = collectModuleStatuses(inputs);
-    if (failures.length > 0) {
-        if (inputs.fail_build === 'true') {
-            if (Number(inputs.sca_cve_blocked_count) > 0 && isFailureStatus(inputs.sca_status)) {
-                return '> ❌ **Build travado por CVE bloqueado no SCA**';
-            }
-            return '> ❌ **Build travado** - Falhas detectadas';
-        }
-        return '> ⚠️ **Falhas ou achados registrados; esteira preservada**';
-    }
-    if (warnings.length > 0) {
-        return '> ⚠️ **Falhas ou achados registrados; esteira preservada**';
-    }
-    return '> ✅ **Todos os checks ativos passaram com sucesso**';
 }
 
 function severityCountTable(counts) {
@@ -317,8 +268,6 @@ function resumoFinalSection(inputs, workflowRunUrl) {
         '## 🛡️ Veracode Connect — Resumo Final',
         '',
         accessLink(inputs.veracode_url),
-        '',
-        resolveBanner(inputs),
         ''
     ];
     if (rows.length > 0) {
@@ -398,8 +347,5 @@ module.exports = {
     buildCommentBody,
     resolvePrNumber,
     isActiveStatus,
-    isFailureStatus,
-    collectModuleStatuses,
-    severityCountTable,
-    resolveBanner
+    severityCountTable
 };

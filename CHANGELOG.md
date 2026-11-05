@@ -11,6 +11,10 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Baseline IaC/Secrets (`enable_iac_baseline`, default `'false'`, somente `baseline_mode: 'repo'`). A primeira execução elegível grava `<org>/<repo>/iac-baseline.json` no repositório de baseline, uma única vez. Nas seguintes, cada finding é classificado em novo que afeta a política, novo que não afeta ou backlog; só os novos reprovados pela política de `iac_policy` bloqueiam. O card IaC do summary e do PR mostra os três grupos por severidade. Outputs `iac_baseline_status`, `has_iac_baseline` e `iac_new_policy_count`.
 - `internal/baseline-store`: autenticação GitHub App/PAT e leitura/gravação no repositório de baseline compartilhadas por Repo Baseline, IaC e, futuramente, SCA. A leitura passa a aceitar arquivos acima de 1 MB.
 
+### Changed
+
+- Card SAST com baseline (Repo e Portal Afrika, summary e comentário do PR) no mesmo formato do baseline IaC: uma tabela por severidade com novos que afetam a política (`filtered_results.json`), novos que não afetam e backlog, mais o detalhamento de cada grupo. Substitui as tabelas "Vulnerabilidades Bloqueantes de Esteira" e "Todas Vulnerabilidades"; o critério de bloqueio não muda.
+
 ## [1.8.2] - 2026-11-04
 
 ### Added

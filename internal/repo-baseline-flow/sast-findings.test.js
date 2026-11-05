@@ -9,7 +9,7 @@ const {
     countBySeverity,
     findingKey,
     splitNovas,
-    resolveNovas,
+    classifyFindings,
     buildSummaryMarkdown
 } = require('./sast-findings');
 
@@ -85,18 +85,28 @@ test('splitNovas remove o que já está no baseline', () => {
     assert.equal(novas[0].title, 'sql');
 });
 
-test('resolveNovas respeita a política aprovada mesmo quando há findings fora do baseline', () => {
-    const novas = resolveNovas([knownFlaw, newFlaw], [knownFlaw], []);
-    assert.deepEqual(novas, []);
+test('classifyFindings: novo fora do filtrado não afeta a política; o resto do baseline é backlog', () => {
+    const groups = classifyFindings([knownFlaw, newFlaw], [knownFlaw], []);
+    assert.deepEqual(groups.newPolicy, []);
+    assert.deepEqual(groups.newOther.map((f) => f.title), ['sql']);
+    assert.deepEqual(groups.backlog.map((f) => f.title), ['eval']);
 });
 
-test('resolveNovas usa a seleção da política sem findings no baseline', () => {
-    const novas = resolveNovas([knownFlaw, newFlaw], [], [newFlaw]);
-    assert.equal(novas.length, 1);
-    assert.equal(novas[0].title, 'sql');
+test('classifyFindings: o filtrado da política manda, mesmo para finding que estaria no baseline', () => {
+    const groups = classifyFindings([knownFlaw, newFlaw], [knownFlaw], [newFlaw, knownFlaw]);
+    assert.equal(groups.newPolicy.length, 2);
+    assert.deepEqual(groups.newOther, []);
+    assert.deepEqual(groups.backlog, []);
 });
 
-test('summary-md mantém findings fora da política apenas na tabela completa', () => {
+test('classifyFindings: baseline vazio deixa todo finding fora do filtrado como novo', () => {
+    const groups = classifyFindings([knownFlaw, newFlaw], [], [newFlaw]);
+    assert.deepEqual(groups.newPolicy.map((f) => f.title), ['sql']);
+    assert.deepEqual(groups.newOther.map((f) => f.title), ['eval']);
+    assert.deepEqual(groups.backlog, []);
+});
+
+test('summary-md mostra os três grupos numa tabela e detalha cada um', () => {
     const dir = writeTemp({
         'results.json': { findings: [knownFlaw, newFlaw] },
         'baseline.json': { findings: [knownFlaw] },
@@ -108,25 +118,21 @@ test('summary-md mantém findings fora da política apenas na tabela completa', 
         filteredPath: path.join(dir, 'filtered_results.json'),
         split: true
     });
-    assert.match(md, /#### SAST - Vulnerabilidades Bloqueantes de Esteira/);
-    assert.match(md, /#### SAST - Todas Vulnerabilidades/);
-    assert.match(md, /\| 🟠 High \| 1 \|/);
-    assert.match(md, /\| 🔴 Very High \| 1 \|/);
-    assert.match(md, /\*\*0\*\*/);
-    assert.match(md, /\*\*2\*\*/);
-    assert.doesNotMatch(md, /Detalhamento de Vulnerabilidades Bloqueantes de Esteira/);
-    assert.match(md, /Detalhamento de Todas Vulnerabilidades \(2\)/);
-    assert.doesNotMatch(md, /#### SAST - Vulnerabilidades\n/);
-    const blockingIdx = md.indexOf('#### SAST - Vulnerabilidades Bloqueantes de Esteira');
-    const allIdx = md.indexOf('#### SAST - Todas Vulnerabilidades');
-    const allDetailsIdx = md.indexOf('Detalhamento de Todas Vulnerabilidades');
-    assert.ok(blockingIdx < allIdx && allIdx < allDetailsIdx);
+    assert.match(md, /\| Grupo \| 🔴 Very High \| 🟠 High \| 🟡 Medium \| 🔵 Low \| ⚪ Very Low \| Total \|/);
+    assert.match(md, /\| ❌ Novos \(afetam a política\) \| 0 \| 0 \| 0 \| 0 \| 0 \| \*\*0\*\* \|/);
+    assert.match(md, /\| 🆕 Novos \(não afetam\) \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.match(md, /\| 📦 Backlog \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.doesNotMatch(md, /<summary>Novos que afetam a política/);
+    assert.match(md, /<summary>Novos que não afetam a política \(1\)<\/summary>/);
+    assert.match(md, /<summary>Backlog \(1\)<\/summary>/);
+    assert.doesNotMatch(md, /####|Bloqueantes de Esteira|Todas Vulnerabilidades/);
+    assert.ok(md.indexOf('Novos que não afetam a política (1)') < md.indexOf('Backlog (1)'));
 });
 
 for (const provider of ['repo-baseline-flow', 'portal-afrika-baseline-flow', 'pr-comment']) {
     const renderer = require(`../${provider}/sast-findings`);
     for (const filtered of [[], [newFlaw], [{ ...newFlaw, severity: 3 }]]) {
-        test(`${provider}: bloqueantes seguem o resultado da política (${filtered.length}, severidade ${filtered[0]?.severity ?? 'nenhuma'})`, () => {
+        test(`${provider}: novos que afetam a política seguem o resultado filtrado (${filtered.length}, severidade ${filtered[0]?.severity ?? 'nenhuma'})`, () => {
             const medium = { ...newFlaw, severity: 3, title: 'Medium outside policy', flaw_match: { flaw_hash: 'medium' } };
             const dir = writeTemp({
                 'results.json': { findings: [knownFlaw, filtered[0] || newFlaw, medium] },
@@ -140,13 +146,16 @@ for (const provider of ['repo-baseline-flow', 'portal-afrika-baseline-flow', 'pr
                     filteredPath: path.join(dir, 'filtered_results.json'),
                     split: true
                 });
-                const [blocking, all] = md.split('#### SAST - Todas Vulnerabilidades');
-                assert.match(blocking, new RegExp(`\\| \\*\\*Total\\*\\* \\| \\*\\*${filtered.length}\\*\\* \\|`));
-                assert.doesNotMatch(blocking, /Medium outside policy/);
-                assert.match(all, /Medium outside policy/);
-                assert.match(all, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
+                const policyRow = md.match(/^\| ❌ Novos \(afetam a política\) \|.*$/m)[0];
+                const otherRow = md.match(/^\| 🆕 Novos \(não afetam\) \|.*$/m)[0];
+                assert.match(policyRow, new RegExp(`\\*\\*${filtered.length}\\*\\* \\|$`));
+                assert.match(otherRow, new RegExp(`\\*\\*${filtered.length ? 1 : 2}\\*\\* \\|$`));
+                assert.match(md, /\| 📦 Backlog \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+                const policyDetails = md.split('<summary>Novos que não afetam')[0];
+                assert.doesNotMatch(policyDetails, /Medium outside policy/);
+                assert.match(md, /Medium outside policy/);
                 if (filtered.length) {
-                    assert.match(blocking, filtered[0].severity === 3 ? /Medium \| 1 \|/ : /High \| 1 \|/);
+                    assert.match(policyRow, filtered[0].severity === 3 ? /^\| [^|]+ \| 0 \| 0 \| 1 \|/ : /^\| [^|]+ \| 0 \| 1 \| 0 \|/);
                 }
             } finally {
                 fs.rmSync(dir, { recursive: true, force: true });
@@ -178,7 +187,7 @@ for (const provider of ['repo-baseline-flow', 'portal-afrika-baseline-flow', 'pr
     }
 }
 
-test('CLI summary-md escreve as duas tabelas', () => {
+test('CLI summary-md escreve a tabela de grupos', () => {
     const dir = writeTemp({
         'results.json': { findings: [newFlaw] },
         'baseline.json': { findings: [] },
@@ -193,6 +202,12 @@ test('CLI summary-md escreve as duas tabelas', () => {
         '--split', 'true'
     ], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /SAST - Vulnerabilidades Bloqueantes de Esteira/);
-    assert.match(result.stdout, /\*\*1\*\*/);
+    assert.match(result.stdout, /\| ❌ Novos \(afetam a política\) \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+});
+
+test('classifyFindings conta o filtrado como multiconjunto', () => {
+    const twin = { ...newFlaw, title: 'sql 2' };
+    const groups = classifyFindings([newFlaw, twin], [], [newFlaw]);
+    assert.equal(groups.newPolicy.length, 1);
+    assert.deepEqual(groups.newOther.map((f) => f.title), ['sql 2']);
 });

@@ -313,7 +313,7 @@ test('buildCommentBody inclui marker e seções ativas', () => {
     assert.doesNotMatch(body, /Artefatos analisados/);
 });
 
-test('buildCommentBody com baseline destaca tabela de novas', () => {
+test('buildCommentBody com baseline mostra os três grupos do SAST', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-base-'));
     fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({
         findings: [{ severity: 4 }, { severity: 4 }, { severity: 3 }]
@@ -338,12 +338,9 @@ test('buildCommentBody com baseline destaca tabela de novas', () => {
     });
 
     assert.match(body, /### 🔬 Veracode Pipeline Scan \(Repo Baseline\)/);
-    assert.match(body, /#### SAST - Vulnerabilidades Bloqueantes de Esteira/);
-    assert.match(body, /#### SAST - Todas Vulnerabilidades/);
-    assert.match(body, /\| 🟠 High \| 1 \|/);
-    assert.match(body, /\| 🟠 High \| 2 \|/);
-    assert.match(body, /\| \*\*Total\*\* \| \*\*1\*\* \|/);
-    assert.match(body, /\| \*\*Total\*\* \| \*\*3\*\* \|/);
+    assert.match(body, /\| ❌ Novos \(afetam a política\) \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.match(body, /\| 🆕 Novos \(não afetam\) \| 0 \| 1 \| 1 \| 0 \| 0 \| \*\*2\*\* \|/);
+    assert.match(body, /\| 📦 Backlog \| 0 \| 0 \| 0 \| 0 \| 0 \| \*\*0\*\* \|/);
 });
 
 test('buildCommentBody com baseline.json respeita filtered_results vazio', () => {
@@ -386,13 +383,10 @@ test('buildCommentBody com baseline.json respeita filtered_results vazio', () =>
     });
 
     assert.match(body, /### 🔬 Veracode Pipeline Scan \(Portal Afrika Baseline\)/);
-    assert.match(body, /#### SAST - Vulnerabilidades Bloqueantes de Esteira/);
-    const [blocking] = body.split('#### SAST - Todas Vulnerabilidades');
-    assert.match(blocking, /\| \*\*Total\*\* \| \*\*0\*\* \|/);
-    assert.doesNotMatch(blocking, /Detalhamento de Vulnerabilidades Bloqueantes/);
-    assert.match(body, /\| 🟠 High \| 1 \|/);
-    assert.match(body, /\| 🔴 Very High \| 1 \|/);
-    assert.match(body, /\| \*\*Total\*\* \| \*\*2\*\* \|/);
+    assert.match(body, /\| ❌ Novos \(afetam a política\) \| 0 \| 0 \| 0 \| 0 \| 0 \| \*\*0\*\* \|/);
+    assert.match(body, /\| 🆕 Novos \(não afetam\) \| 0 \| 1 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.match(body, /\| 📦 Backlog \| 1 \| 0 \| 0 \| 0 \| 0 \| \*\*1\*\* \|/);
+    assert.doesNotMatch(body, /<summary>Novos que afetam a política/);
 });
 
 test('isActiveStatus ignora skipped', () => {

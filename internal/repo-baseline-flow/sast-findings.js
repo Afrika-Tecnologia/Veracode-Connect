@@ -3,9 +3,12 @@
 /**
  * Contagens e markdown SAST a partir do JSON do Pipeline Scan.
  *
- * `filtered_results.json` da action oficial contém os findings que
- * violam os critérios de pass/fail, após o filtro do baseline.
- * Uma lista vazia confirma que não há findings bloqueantes.
+ * Com baseline, os findings são separados em três grupos, como no IaC:
+ * - novos que afetam a política: `filtered_results.json` da action oficial
+ *   (findings que violam os critérios de pass/fail após o filtro do baseline;
+ *   lista vazia = nenhum bloqueante);
+ * - novos que não afetam: fora do baseline (por `flaw_match`) e fora do filtrado;
+ * - backlog: os demais, já presentes no baseline.
  *
  * Bash: node "$GITHUB_ACTION_PATH/sast-findings.js" summary-md \
  *         --results results.json [--baseline baseline.json] \
@@ -115,8 +118,24 @@ function splitNovas(scanFindings, baselineFindings) {
     return scanFindings.filter((finding) => !known.has(findingKey(finding)));
 }
 
-function resolveNovas(_scanFindings, _baselineFindings, filteredFindings) {
-    return filteredFindings.slice();
+/** Separa o scan em novos que afetam a política, novos que não afetam e backlog. */
+function classifyFindings(scanFindings, baselineFindings, filteredFindings) {
+    const pending = new Map();
+    for (const finding of filteredFindings) {
+        const key = findingKey(finding);
+        pending.set(key, (pending.get(key) || 0) + 1);
+    }
+    const newKeys = new Set(splitNovas(scanFindings, baselineFindings).map(findingKey));
+    const groups = { newPolicy: filteredFindings.slice(), newOther: [], backlog: [] };
+    for (const finding of scanFindings) {
+        const key = findingKey(finding);
+        if (pending.get(key) > 0) {
+            pending.set(key, pending.get(key) - 1);
+            continue;
+        }
+        (newKeys.has(key) ? groups.newOther : groups.backlog).push(finding);
+    }
+    return groups;
 }
 
 function loadFindings(filePath) {
@@ -144,6 +163,21 @@ function countTable(heading, counts) {
         `| 🔵 Low | ${counts.low} |`,
         `| ⚪ Very Low | ${counts.veryLow} |`,
         `| **Total** | **${counts.total}** |`,
+        ''
+    ].join('\n');
+}
+
+function groupsTable(groups) {
+    const row = (label, findings) => {
+        const c = countBySeverity(findings);
+        return `| ${label} | ${c.veryHigh} | ${c.high} | ${c.medium} | ${c.low} | ${c.veryLow} | **${c.total}** |`;
+    };
+    return [
+        '| Grupo | 🔴 Very High | 🟠 High | 🟡 Medium | 🔵 Low | ⚪ Very Low | Total |',
+        '|---|---|---|---|---|---|---|',
+        row('❌ Novos (afetam a política)', groups.newPolicy),
+        row('🆕 Novos (não afetam)', groups.newOther),
+        row('📦 Backlog', groups.backlog),
         ''
     ].join('\n');
 }
@@ -193,14 +227,13 @@ function buildSummaryMarkdown({ resultsPath, baselinePath, filteredPath, split }
             detailsTable('Detalhamento de Todas Vulnerabilidades', scanFindings)
         ].filter(Boolean).join('\n');
     }
-    const filteredFindings = extractFindings(filteredData);
-    const novas = resolveNovas(scanFindings, baselineFindings, filteredFindings);
+    const groups = classifyFindings(scanFindings, baselineFindings, extractFindings(filteredData));
 
     return [
-        countTable('SAST - Vulnerabilidades Bloqueantes de Esteira', countBySeverity(novas)),
-        detailsTable('Detalhamento de Vulnerabilidades Bloqueantes de Esteira', novas),
-        countTable('SAST - Todas Vulnerabilidades', countBySeverity(scanFindings)),
-        detailsTable('Detalhamento de Todas Vulnerabilidades', scanFindings)
+        groupsTable(groups),
+        detailsTable('Novos que afetam a política', groups.newPolicy),
+        detailsTable('Novos que não afetam a política', groups.newOther),
+        detailsTable('Backlog', groups.backlog)
     ].filter(Boolean).join('\n');
 }
 
@@ -245,7 +278,7 @@ module.exports = {
     countBySeverity,
     findingKey,
     splitNovas,
-    resolveNovas,
+    classifyFindings,
     loadFindings,
     buildSummaryMarkdown
 };

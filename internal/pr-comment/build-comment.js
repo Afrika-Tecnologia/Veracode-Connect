@@ -159,13 +159,19 @@ function scaSection(workspace, inputs = {}) {
             ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
             : '');
     const blocked = loadBlockedArtifact(blockedPath);
+    const baselineStatus = inputs.sca_baseline_status || 'not_used';
 
-    if (fs.existsSync(jsonPath) || blocked) {
+    if (fs.existsSync(jsonPath) || blocked || baselineStatus !== 'not_used') {
         return buildScaSummary({
             jsonPath,
             txtPath,
             createIssues: false,
-            blocked
+            blocked,
+            baselineStatus,
+            diffPath: path.join(workspace, 'sca-results', 'sca-baseline-diff.json'),
+            // O comentário tem limite de tamanho: detalha só os novos, com teto de linhas.
+            detailsLimit: 30,
+            groups: ['new_policy', 'new_other']
         });
     }
 

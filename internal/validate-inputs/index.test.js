@@ -361,3 +361,27 @@ test('enable_iac_baseline sem política IaC apenas avisa', () => {
     assert.match(stdout, /::warning::enable_iac_baseline=true com iac_policy='none'/);
     assert.doesNotMatch(stdout, /enable_iac_baseline=true requer/);
 });
+
+test('enable_sca_baseline exige baseline_mode=repo e SCA ativo', () => {
+    const result = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', ENABLE_PIPELINE: 'false', ENABLE_SCA: 'false', ENABLE_SCA_BASELINE: 'true' }
+    });
+    const stdout = result.stdout.toString();
+    assert.notEqual(result.status, 0);
+    assert.match(stdout, /enable_sca_baseline=true requer baseline_mode='repo'/);
+    assert.match(stdout, /enable_sca_baseline=true requer enable_sca='true'/);
+});
+
+test('enable_sca_baseline aceita só true/false e sca_fail_on_severity só severidades SCA', () => {
+    const bad = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', ENABLE_SCA_BASELINE: 'sim', SCA_FAIL_ON_SEVERITY: 'High, Critical' }
+    });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stdout.toString(), /enable_sca_baseline deve ser 'true' ou 'false'/);
+    assert.match(bad.stdout.toString(), /sca_fail_on_severity contém severidade inválida: 'Critical'/);
+
+    const ok = cp.spawnSync(process.execPath, [scriptPath], {
+        env: { VID: '123', VKEY: 'abc123bb', BASELINE_MODE: 'none', SCA_FAIL_ON_SEVERITY: 'very high,  High' }
+    });
+    assert.match(ok.stdout.toString(), /validação=ok/, ok.stdout.toString());
+});

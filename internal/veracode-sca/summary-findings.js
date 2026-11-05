@@ -256,10 +256,40 @@ function renderScaFindingsSection(counts, vulns, { createIssues }) {
     return lines;
 }
 
-function renderMarkdown(counts, vulns, { createIssues, blocked } = {}) {
+const HEADING = '### 🔍 Veracode SCA (Software Composition Analysis)';
+const BASELINE_HEADING = '### 🔍 Veracode SCA (Repo Baseline)';
+
+/** Nota exibida quando o baseline SCA está ativo, mas não foi comparado nesta execução. */
+function baselineNote({ baselineStatus, canSeed }) {
+    if (baselineStatus === 'seeded') {
+        return '> 🆕 Sem baseline SCA: baseline gravado após este scan. A política SCA passa a bloquear vulnerabilidades novas a partir da próxima execução.';
+    }
+    if (baselineStatus === 'deferred') {
+        if (canSeed === 'true') {
+            return '> ⚠️ Sem baseline SCA: o baseline não foi gravado (scan sem scaResults.json válido ou falha na gravação). A política SCA não bloqueia nesta execução.';
+        }
+        if (canSeed === 'false') {
+            return '> ⚠️ Sem baseline SCA: o baseline só é gravado na default_branch ou em PR destinado a ela. A política SCA não bloqueia nesta execução.';
+        }
+        return '> ⚠️ Sem baseline SCA: a política SCA não bloqueia nesta execução.';
+    }
+    if (baselineStatus === 'error') {
+        return '> ⚠️ Baseline SCA indisponível nesta execução (leitura falhou, baseline ilegível ou scan sem JSON). A política SCA não bloqueia.';
+    }
+    return '';
+}
+
+function headerLines(baseline = {}) {
+    const active = Boolean(baseline.baselineStatus) && baseline.baselineStatus !== 'not_used';
+    const lines = [active ? BASELINE_HEADING : HEADING, ''];
+    const note = active ? baselineNote(baseline) : '';
+    if (note) lines.push(note, '');
+    return lines;
+}
+
+function renderMarkdown(counts, vulns, { createIssues, blocked, baseline } = {}) {
     const lines = [];
-    lines.push('### 🔍 Veracode SCA (Software Composition Analysis)');
-    lines.push('');
+    lines.push(...headerLines(baseline));
     lines.push(...renderBlockedCveSection(blocked));
     lines.push(...renderScaFindingsSection(counts, vulns, { createIssues }));
     return `${lines.join('\n')}\n`;
@@ -283,13 +313,31 @@ function loadBlockedArtifact(blockedPath) {
     return data;
 }
 
-function buildSummary({ jsonPath, txtPath, createIssues, blockedPath, blocked }) {
+/**
+ * Card SCA. Com baseline comparado, mostra a tabela de três grupos do sca-baseline.
+ * @param {{baselineStatus?: string, diffPath?: string, diff?: object, canSeed?: string, detailsLimit?: number, groups?: string[]}} options
+ */
+function buildSummary({ jsonPath, txtPath, createIssues, blockedPath, blocked, baselineStatus = 'not_used', diffPath = '', diff, canSeed = '', detailsLimit, groups }) {
     const paths = resolveInputs(jsonPath, txtPath);
     const blockedData = blocked || loadBlockedArtifact(blockedPath);
+    if (baselineStatus === 'compared') {
+        const diffData = diff || readJson(diffPath);
+        if (diffData) {
+            // Carregado sob demanda: sca-baseline depende deste módulo.
+            const { renderComparedBody } = require('../sca-baseline/sca-baseline');
+            return `${[
+                BASELINE_HEADING,
+                '',
+                ...renderBlockedCveSection(blockedData),
+                ...renderComparedBody(diffData, { detailsLimit, groups })
+            ].join('\n')}\n`;
+        }
+    }
+    const baseline = { baselineStatus, canSeed };
     const jsonData = readJson(paths.json);
     if (jsonData?.records) {
         const parsed = countFromJson(jsonData);
-        return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
+        return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData, baseline });
     }
 
     let text = '';
@@ -300,20 +348,19 @@ function buildSummary({ jsonPath, txtPath, createIssues, blockedPath, blocked })
                 const parsedJson = readJson(candidate);
                 if (parsedJson?.records) {
                     const parsed = countFromJson(parsedJson);
-                    return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
+                    return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData, baseline });
                 }
                 continue;
             }
             if (/Risk\s+Vulnerabilities/i.test(text) || /^\s*(CVE-\S+|NO-CVE)\s+/m.test(text)) {
                 const parsed = countFromText(text);
-                return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData });
+                return renderMarkdown(parsed.counts, parsed.vulns, { createIssues, blocked: blockedData, baseline });
             }
         }
     }
 
     const lines = [
-        '### 🔍 Veracode SCA (Software Composition Analysis)',
-        '',
+        ...headerLines(baseline),
         ...renderBlockedCveSection(blockedData),
         '> ⚠️ Nenhum artefato de resultado SCA encontrado.',
         ''
@@ -334,7 +381,10 @@ if (require.main === module) {
             blockedPath: process.env.CVE_BLOCKED_PATH
                 || (process.env.RUNNER_TEMP
                     ? path.join(process.env.RUNNER_TEMP, 'veracode-connect-summary', 'sca-cve-blocked.json')
-                    : '')
+                    : ''),
+            baselineStatus: process.env.SCA_BASELINE_STATUS || 'not_used',
+            diffPath: process.env.SCA_BASELINE_DIFF || '',
+            canSeed: process.env.SCA_BASELINE_CAN_SEED || ''
         });
         process.stdout.write(md);
         process.stderr.write(`${message('success', 'SUMMARY_WRITTEN')}\n`);
@@ -345,6 +395,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+    HEADING,
+    BASELINE_HEADING,
+    baselineNote,
     cvssBand,
     countFromJson,
     countFromText,

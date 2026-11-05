@@ -12,3 +12,6 @@ collector/
 .pre-pr/
 .test-feature/
 .debug-issue/
+
+# Credenciais locais
+.env

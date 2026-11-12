@@ -1,9 +1,13 @@
 name: Create GitHub Release
 
+# O release com as notas completas é criado pelo mantenedor logo após as tags.
+# Este workflow é o fallback: se o release da tag ainda não existir, cria com a seção do CHANGELOG.md.
 on:
   push:
     tags:
       - 'v*.*.*'
+
+permissions: {}
 
 jobs:
   release:
@@ -15,9 +19,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Veracode Connect ${{ github.ref_name }}
-          generate_release_notes: true
+      - name: Criar release a partir do CHANGELOG (se ainda não existir)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG já existe; nada a fazer."
+            exit 0
+          fi
+          VERSION="${TAG#v}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            /^## \[/ { if (found) exit }
+            found
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::Seção [$VERSION] não encontrada no CHANGELOG.md"
+            exit 1
+          fi
+          gh release create "$TAG" --verify-tag --title "Veracode Connect $TAG" --notes-file release-notes.md

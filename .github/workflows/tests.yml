@@ -28,7 +28,10 @@ jobs:
           LOCK="$(node -p "require('./package-lock.json').version")"
           TOP="$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')"
           echo "package.json=$PKG package-lock.json=$LOCK CHANGELOG=$TOP"
-          [ "$PKG" = "$LOCK" ] && [ "$PKG" = "$TOP" ] || { echo "::error::Versões divergentes"; exit 1; }
+          if [ "$PKG" != "$LOCK" ] || [ "$PKG" != "$TOP" ]; then
+            echo "::error::Versões divergentes"
+            exit 1
+          fi
 
       - name: npm test
         run: npm test

@@ -1,10 +1,27 @@
 # Changelog
 
-Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
+Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 
-O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semantico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
+O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adota [Versionamento Semântico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- Workflow `Testes`: roda `npm test` em push e PR para a `main` e confere que `package.json`, `package-lock.json` e o topo do CHANGELOG têm a mesma versão.
+- `package-lock.json` passa a ser versionado.
+
+### Changed
+
+- O README passa a apresentar a action e as funcionalidades principais (Baseline para SAST, Baseline para SCA, Bloqueio por CVE no SCA e Baseline para IaC/Secrets). A referência técnica (configuração, baselines, bloqueio, cache, diagnóstico, inputs e outputs) vai para `docs/`, sem mudança de conteúdo. O output `cve_blocked_count` passa a ser documentado.
+- Os exemplos de workflow fixam `actions/checkout` por SHA.
+- O workflow de release cria o release com a seção da versão no `CHANGELOG.md` quando ele ainda não existe, em vez das notas geradas automaticamente pelo GitHub, e deixa de usar `softprops/action-gh-release`.
+- O lint de workflows fixa a versão do actionlint (`1.7.12`) e o script de instalação por SHA, e passa a reprovar o check quando encontra erro (antes, `|| true` ignorava qualquer erro).
+- `CHANGELOG.md` padronizado: ordem fixa das seções, acentuação, bullets de um nível e avisos como itens das seções, sem mudança de conteúdo.
+
+### Removed
+
+- Scripts de release de `.github/scripts/`; o tagueamento passa a ser feito pelas ferramentas de desenvolvimento do mantenedor.
 
 ## [1.9.0] - 2026-11-05
 
@@ -57,13 +74,13 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [1.7.5] - 2026-10-14
 
-### Changed
-
-- Os fluxos Repo Baseline e Portal Afrika permitem gravar o baseline após um scan válido em PR destinado à `default_branch` do repositório analisado, além das execuções nessa branch. A comparação usa a branch de destino do PR e independe do nome da branch padrão. Em PRs, a gravação ocorre antes do merge; scans válidos sem vulnerabilidades também podem registrar um baseline vazio. PRs destinados a outras branches e eventos sem `default_branch` não autorizam o seed; erros de scan continuam impedindo a gravação.
-
 ### Added
 
 - Testes para elegibilidade do baseline em PRs destinados a `main`, `master` e branches padrão customizadas, bloqueio de destinos diferentes e gravação/leitura de baseline vazio.
+
+### Changed
+
+- Os fluxos Repo Baseline e Portal Afrika permitem gravar o baseline após um scan válido em PR destinado à `default_branch` do repositório analisado, além das execuções nessa branch. A comparação usa a branch de destino do PR e independe do nome da branch padrão. Em PRs, a gravação ocorre antes do merge; scans válidos sem vulnerabilidades também podem registrar um baseline vazio. PRs destinados a outras branches e eventos sem `default_branch` não autorizam o seed; erros de scan continuam impedindo a gravação.
 
 ## [1.7.4] - 2026-10-06
 
@@ -152,34 +169,33 @@ O formato e baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Com `comment_pr: 'true'`, a action percorre todas as páginas de comentários, atualiza o comentário consolidado e limpa os comentários extras de SCA e Container/IaC/Secrets publicados pelo bot.
 - `.gitignore` passa a ignorar os diretórios locais `.security-check/`, `.pre-pr/`, `.test-feature/`, `.debug-issue/` e `collector/`.
 
-### Fixed
-
-- O comentário de IaC/Secrets deixa de mostrar todas as severidades zeradas quando `results.json` traz `CRITICAL`, `HIGH`, `MEDIUM` e `LOW` em maiúsculas.
-- O comentário consolidado não é duplicado quando seu marcador aparece depois da primeira página de comentários do PR; comentários humanos que citem o marcador são preservados.
-
 ### Removed
 
 - Relatórios locais antigos de `.pre-pr/`, `.security-check/` e `.test-feature/` deixam de ser versionados.
 - Comentários extras de SCA e Container/IaC/Secrets do `github-actions[bot]`, inclusive de execuções anteriores, são removidos ao final do job quando `comment_pr` está ativo. As actions oficiais ainda podem publicá-los temporariamente e gerar notificações.
 
+### Fixed
+
+- O comentário de IaC/Secrets deixa de mostrar todas as severidades zeradas quando `results.json` traz `CRITICAL`, `HIGH`, `MEDIUM` e `LOW` em maiúsculas.
+- O comentário consolidado não é duplicado quando seu marcador aparece depois da primeira página de comentários do PR; comentários humanos que citem o marcador são preservados.
+
 ## [1.6.0] - 2026-09-23
 
 ### Added
 
-- Input `enable_error_logs` (default `'true'`): quando ha falha tecnica, publica um artefato `veracode-connect-error-*` com `diagnostic.json` por invocacao. O diagnostico identifica run, job, componente, etapa e codigo do incidente, sem copiar credenciais, respostas da API, findings ou logs brutos. Nao exige token novo no workflow chamador; use `'false'` para desativar.
-- Captura de falhas tecnicas nos steps da action e das sub-actions, incluindo Auto Packager, Pipeline Scan (erro, rate limit e artefato nao analisavel), SCA (inclusive nenhuma biblioteca analisada), IaC, baseline, Upload & Scan, publicacao de resultados e comentario de PR. Tentativas de scan recuperadas pelo retry e findings de policy isolados nao geram incidente.
+- Input `enable_error_logs` (default `'true'`): quando há falha técnica, publica um artefato `veracode-connect-error-*` com `diagnostic.json` por invocação. O diagnóstico identifica run, job, componente, etapa e código do incidente, sem copiar credenciais, respostas da API, findings ou logs brutos. Não exige token novo no workflow chamador; use `'false'` para desativar.
+- Captura de falhas técnicas nos steps da action e das sub-actions, incluindo Auto Packager, Pipeline Scan (erro, rate limit e artefato não analisável), SCA (inclusive nenhuma biblioteca analisada), IaC, baseline, Upload & Scan, publicação de resultados e comentário de PR. Tentativas de scan recuperadas pelo retry e findings de policy isolados não geram incidente.
 
 ### Changed
 
-- README reescrito como referencia de configuracao, comportamento, diagnostico e outputs, sem exemplos de workflow nem detalhes de release.
-- Falhas tecnicas passam a gerar aviso e deixam a action principal com sucesso, mesmo com `fail_build: 'true'`. O Step Summary e o comentario de PR refletem esse resultado; o artefato de diagnostico continua sendo publicado quando habilitado.
-- O bloqueio da esteira fica restrito a violacoes de policy com `policy_fail: 'true'` e `fail_build: 'true'`, desde que o fluxo de Pipeline Scan termine com sucesso, todos os slots planejados tenham resultado valido e o `results.json` desta execucao esteja presente e valido. Resultados parciais, ausentes ou antigos nao acionam o bloqueio.
+- README reescrito como referência de configuração, comportamento, diagnóstico e outputs, sem exemplos de workflow nem detalhes de release.
+- Falhas técnicas passam a gerar aviso e deixam a action principal com sucesso, mesmo com `fail_build: 'true'`. O Step Summary e o comentário de PR refletem esse resultado; o artefato de diagnóstico continua sendo publicado quando habilitado.
+- O bloqueio da esteira fica restrito a violações de policy com `policy_fail: 'true'` e `fail_build: 'true'`, desde que o fluxo de Pipeline Scan termine com sucesso, todos os slots planejados tenham resultado válido e o `results.json` desta execução esteja presente e válido. Resultados parciais, ausentes ou antigos não acionam o bloqueio.
+- O artefato temporário fica no repositório chamador. A coleta do log completo do workflow e o armazenamento em um repositório privado externo dependem de um coletor separado. As sub-actions referenciadas por `@v1` só receberão estas mudanças depois da atualização da tag `v1`.
 
 ### Removed
 
-- Workflows antigos da pasta `examples/`; os exemplos serao recriados separadamente.
-
-O artefato temporario fica no repositorio chamador. A coleta do log completo do workflow e o armazenamento em um repositorio privado externo dependem de um coletor separado. As sub-actions referenciadas por `@v1` so receberao estas mudancas depois da atualizacao da tag `v1`.
+- Workflows antigos da pasta `examples/`; os exemplos serão recriados separadamente.
 
 ## [1.5.1] - 2026-09-23
 
@@ -194,10 +210,13 @@ O artefato temporario fica no repositorio chamador. A coleta do log completo do 
 ### Changed
 
 - Upload & Scan deixa de baixar o Java API wrapper do Maven Central em runtime. O jar `vosp-api-wrappers-java` fica vendorizado em `internal/veracode-upload-scan/vendor/` (bump manual; ver README da pasta). Shims `curl`/`wget` alimentam a `uploadandscan-action` com metadata/jar locais — evita 429/`undefined.jar`. Requer runner Linux (`ubuntu-latest` / self-hosted Linux).
-
-A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a valer depois que a tag `v1` apontar para este commit.
+- A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a valer depois que a tag `v1` apontar para este commit.
 
 ## [1.4.5] - 2026-09-22
+
+### Changed
+
+- As sub-actions `internal/pipeline-scan-set`, `internal/veracode-sca` e `internal/veracode-iac` só passam a valer depois que a tag `v1` apontar para este commit.
 
 ### Fixed
 
@@ -205,61 +224,44 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v
 - Summary SCA: com `create_issues: true` (ou saída só em `scaResults.json`) as contagens por severidade deixam de sair zeradas — passam a ler o JSON (CVSS → faixa) em vez de grepar o texto ausente.
 - Summary IaC/Secrets: severidades `CRITICAL`/`HIGH`/… (uppercase no JSON da Veracode) passam a ser contadas; antes a comparação Title Case deixava todas as linhas em 0.
 
-As sub-actions `internal/pipeline-scan-set`, `internal/veracode-sca` e `internal/veracode-iac` só passam a valer depois que a tag `v1` apontar para este commit.
-
 ## [1.4.4] - 2026-09-17
+
+### Changed
+
+- A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1` só passa a valer depois que a tag `v1` apontar para este commit.
 
 ### Fixed
 
 - Repo Baseline trata HTTP 422 `Reference cannot be updated` como corrida no store compartilhado e refaz o commit em cima do HEAD novo, no mesmo espírito do `Update is not a fast forward`.
-
-A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1` só passa a valer depois que a tag `v1` apontar para este commit.
 
 ## [1.4.3] - 2026-09-15
 
 ### Changed
 
 - Upload & Scan passa `policy` para a `veracode/uploadandscan-action` quando `veracode_policy_name` está preenchido. Vazio continua com a policy do perfil/org. Sem input novo.
-
-A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a enviar a policy depois que a tag `v1` apontar para este commit.
+- A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1` só passa a enviar a policy depois que a tag `v1` apontar para este commit.
 
 ## [1.4.2] - 2026-09-15
+
+### Changed
+
+- Upload & Scan: `failbuild` da action oficial fica **fixo em `true`**. Falha de upload/prescan passa a marcar o step (e o Status do summary) como `failure`. O input `fail_build` do Connect continua só na trava final (`build-gate`).
+- Step Summary e comentário de PR deixam de listar **Artefatos analisados** (nome do zip, findings, `scan_id`).
+- As sub-actions internas (`veracode-upload-scan`, `auto-packager`, `pipeline-only`, baseline flows, `pr-comment`) só passam a valer depois que a tag `v1` apontar para este commit.
 
 ### Fixed
 
 - Upload & Scan em **sandbox**: a `veracode/uploadandscan-action` manda o diretório ao Java wrapper sem concatenar o nome do zip (`FileNotFoundException: Is a directory`). Com 1 arquivo, passa o zip; com 2+, empacota os zips num ZIP STORE em `$RUNNER_TEMP` e envia como arquivo. Sem sandbox, o diretório com barra final segue igual.
 - Auto Packager: `git archive` extrai para `$RUNNER_TEMP/veracode-connect-auto-pack/<nome-do-repo>` para a CLI nomear `veracode-auto-pack-<repo>-python.zip` em vez de `veracode-auto-pack-veracode-connect-auto-pack-python.zip`.
 
-### Changed
-
-- Upload & Scan: `failbuild` da action oficial fica **fixo em `true`**. Falha de upload/prescan passa a marcar o step (e o Status do summary) como `failure`. O input `fail_build` do Connect continua só na trava final (`build-gate`).
-- Step Summary e comentário de PR deixam de listar **Artefatos analisados** (nome do zip, findings, `scan_id`).
-
-As sub-actions internas (`veracode-upload-scan`, `auto-packager`, `pipeline-only`, baseline flows, `pr-comment`) só passam a valer depois que a tag `v1` apontar para este commit.
-
 ## [1.4.1] - 2026-09-15
 
 ### Changed
 
 - **Mudança de comportamento.** O Auto Packager deixa de empacotar o workspace do job (onde o Build pode ter gerado `build/`, `target/`, `agent.zip`, venv). Materializa o tree do `github.sha` com `git archive` em `$RUNNER_TEMP` e só então roda `veracode package --source`. Steps posteriores (zip, S3, Docker) não veem esse tree. Quem precisa de binários compilados no mesmo job usa `scan_file`. Submodules não entram no archive.
-
-A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1` só passa a usar o tree limpo depois que a tag `v1` apontar para este commit.
+- A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1` só passa a usar o tree limpo depois que a tag `v1` apontar para este commit.
 
 ## [1.4.0] - 2026-09-15
-
-### Changed
-
-- **Mudança de comportamento.** Com 2+ artefatos do Auto Packager, o Veracode Connect deixa de descompactar e remisturar os zips num bundle plano único. Cada artefato original permanece íntegro. O Pipeline Scan roda **um scan em série por artefato** (até 6 slots, pacing de 12s entre starts). O Upload & Scan recebe o diretório `.veracode-connect/upload/` com cópia **byte-idêntica** de todos os zips (um build, N módulos). `results.json` continua unificado para baseline, Portal Afrika, `veracode-flaws-to-issues`, Step Summary e comentário de PR.
-- A classificação de artefatos é por **conteúdo** (central directory do ZIP), não pelo sufixo de linguagem no nome. Código forte alinhado às linguagens do Pipeline Scan; HTML/SQL/Perl sozinhos não justificam um slot (seguem no Upload & Scan). `node_modules`/`vendor`/`.venv` saem da contagem de fonte; binários (`.dll`/`.jar`/`.class`) continuam contando em qualquer diretório.
-- Policy e erro de scan são classificados pelos arquivos (`filtered-K.json` vs `results-K.json`/`scan_status`), nunca pelo `outcome` do step. `scan_outcome=success` só quando `scan_error_count == 0`.
-- Seed de baseline **não é gravado** se algum slot falhou (`scan_error_count != 0`), para não envenenar comparações seguintes com uma união incompleta.
-- Repo Baseline deixa de ser write-once: na `default_branch`, após um scan bem-sucedido, o store recebe o `results.json` atual (cria ou substitui `{org}/{repo}/baseline.json`), no mesmo espírito do upload do Portal Afrika. Pull requests continuam só lendo o baseline.
-
-**Atenção — baseline exige re-seed.** O baseline gravado a partir do bundle antigo (entradas com prefixo `<nome-do-zip>/…`) não casa com os N zips originais. O primeiro run após 1.4.0 mostra findings antigos como novos. Não é regressão: é consequência de parar de remisturar.
-
-Procedimento de re-seed (Portal Afrika e modo repo): rode na `default_branch`; o próximo envio de `results.json` regrava o baseline. Não é preciso apagar arquivo no store.
-
-A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` só resolve depois que a tag `v1` apontar para este commit (igual às outras internas). Validar na tag **antes** de anunciar: repositório multi-linguagem com 3+ artefatos (N scans, `results.json` unificado), sandbox real conferindo N módulos no mesmo build (confirma o default `upload_scan_artifacts: all`; se o wrapper reenviar o diretório a cada iteração, o mesmo release sai com default `primary`) e um run com baseline legado para confirmar a quebra esperada e o re-seed.
 
 ### Added
 
@@ -268,6 +270,17 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 - Manifestos `.veracode-connect/artifacts.json` (decisão por artefato) e `.veracode-connect/scans/manifest.json` (outcome por slot). Step Summary e comentário de PR listam os artefatos analisados.
 - Upload & Scan aceita diretório plano com barra final (obrigatório: o upstream concatena `filepath + file` sem separador).
 
+### Changed
+
+- **Mudança de comportamento.** Com 2+ artefatos do Auto Packager, o Veracode Connect deixa de descompactar e remisturar os zips num bundle plano único. Cada artefato original permanece íntegro. O Pipeline Scan roda **um scan em série por artefato** (até 6 slots, pacing de 12s entre starts). O Upload & Scan recebe o diretório `.veracode-connect/upload/` com cópia **byte-idêntica** de todos os zips (um build, N módulos). `results.json` continua unificado para baseline, Portal Afrika, `veracode-flaws-to-issues`, Step Summary e comentário de PR.
+- A classificação de artefatos é por **conteúdo** (central directory do ZIP), não pelo sufixo de linguagem no nome. Código forte alinhado às linguagens do Pipeline Scan; HTML/SQL/Perl sozinhos não justificam um slot (seguem no Upload & Scan). `node_modules`/`vendor`/`.venv` saem da contagem de fonte; binários (`.dll`/`.jar`/`.class`) continuam contando em qualquer diretório.
+- Policy e erro de scan são classificados pelos arquivos (`filtered-K.json` vs `results-K.json`/`scan_status`), nunca pelo `outcome` do step. `scan_outcome=success` só quando `scan_error_count == 0`.
+- Seed de baseline **não é gravado** se algum slot falhou (`scan_error_count != 0`), para não envenenar comparações seguintes com uma união incompleta.
+- Repo Baseline deixa de ser write-once: na `default_branch`, após um scan bem-sucedido, o store recebe o `results.json` atual (cria ou substitui `{org}/{repo}/baseline.json`), no mesmo espírito do upload do Portal Afrika. Pull requests continuam só lendo o baseline.
+- Atenção — baseline exige re-seed. O baseline gravado a partir do bundle antigo (entradas com prefixo `<nome-do-zip>/…`) não casa com os N zips originais. O primeiro run após 1.4.0 mostra findings antigos como novos. Não é regressão: é consequência de parar de remisturar.
+- Procedimento de re-seed (Portal Afrika e modo repo): rode na `default_branch`; o próximo envio de `results.json` regrava o baseline. Não é preciso apagar arquivo no store.
+- A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` só resolve depois que a tag `v1` apontar para este commit (igual às outras internas). Validar na tag **antes** de anunciar: repositório multi-linguagem com 3+ artefatos (N scans, `results.json` unificado), sandbox real conferindo N módulos no mesmo build (confirma o default `upload_scan_artifacts: all`; se o wrapper reenviar o diretório a cada iteração, o mesmo release sai com default `primary`) e um run com baseline legado para confirmar a quebra esperada e o re-seed.
+
 ### Removed
 
 - Remistura de artefatos (`flattenArtifacts` / `zipDirectory` / bundle único `.veracode-connect/veracode-packager-bundle.zip`).
@@ -275,14 +288,14 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ## [1.3.14] - 2026-09-14
 
+### Removed
+
+- Fallback silencioso do Auto Packager para `TheDoctor0/zip-release` e para o glob `*.zip` no workspace.
+
 ### Fixed
 
 - Auto Packager deixa de selecionar um `.zip` qualquer do workspace quando a Veracode CLI gera artefatos (`veracode-auto-pack-*.zip`, JAR, WAR, APK, etc.). O empacotamento grava só em `.veracode-connect/packaged/`; se esse diretório ficar vazio, o step falha em vez de copiar/renomear outro ZIP para `app.zip` ou acionar o fallback `zip-release`.
 - Com vários artefatos da CLI, cada `.zip` é descompactado numa pasta e o conteúdo é reunido num único ZIP plano (JAR/WAR/EAR/APK entram como módulos). Pipeline Scan e Upload & Scan recebem esse arquivo — **sem ZIP aninhado**, que a Veracode não analisa.
-
-### Removed
-
-- Fallback silencioso do Auto Packager para `TheDoctor0/zip-release` e para o glob `*.zip` no workspace.
 
 ## [1.3.13] - 2026-09-14
 
@@ -350,21 +363,17 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ## [1.3.6] - 2026-08-19
 
+### Added
+
+- Sub-action `internal/ensure-runtime`: garante `node` (24.x, binário oficial nodejs.org), `jq` (binário direto do GitHub), `curl` e `git` antes de qualquer step. Suporta `apt-get`, `yum`, `apk` e download direto (runners sem package manager). Roda como step 0 no orquestrador, eliminando instalações avulsas de `jq` nas sub-actions.
+- Dependências Veracode atualizadas para Node.js 24: `veracode/veracode-sca` `v2.1.19` → `v2.1.20`; `veracode/uploadandscan-action` `v0.2.2` → `v0.2.3`; `veracode/Veracode-pipeline-scan-action` `v1.0.23`, `veracode/veracode-flaws-to-issues` `v2.2.26` e `veracode/container_iac_secrets_scanning` `v1.0.8` já usavam Node.js 24 nos SHAs pinados.
+- Auto Packager: cria `~/.veracode/veracode.yml` vazio se ausente (elimina warning `failed to read config file` da Veracode CLI em runners limpos).
+
 ### Changed
 
 - Logs e erros do Repo Baseline em tom técnico (`auth=`, `api=`, `baseline gravado: path sha=`). HTTP 422 de ruleset (exige PR) falha na hora, sem retry.
 - Catálogo único de mensagens do Repo Baseline em `internal/repo-baseline-flow/messages.js` (Node `require` + CLI para steps bash).
 - Catálogos de mensagens (`messages.js`) em todas as sub-actions: validate-inputs, auto-packager, veracode-sca, veracode-iac, veracode-upload-scan, portal-afrika-baseline-flow, pipeline-only e build-gate. Erros, warnings e logs de sucesso centralizados por chave — mesmo padrão de `repo-baseline-flow/messages.js`.
-
-### Added
-
-- Sub-action `internal/ensure-runtime`: garante `node` (24.x, binário oficial nodejs.org), `jq` (binário direto do GitHub), `curl` e `git` antes de qualquer step. Suporta `apt-get`, `yum`, `apk` e download direto (runners sem package manager). Roda como step 0 no orquestrador, eliminando instalações avulsas de `jq` nas sub-actions.
-
-- Dependências Veracode atualizadas para Node.js 24:
-  - `veracode/veracode-sca` `v2.1.19` → `v2.1.20`
-  - `veracode/uploadandscan-action` `v0.2.2` → `v0.2.3`
-  - `veracode/Veracode-pipeline-scan-action` `v1.0.23`, `veracode/veracode-flaws-to-issues` `v2.2.26` e `veracode/container_iac_secrets_scanning` `v1.0.8` já usavam Node.js 24 nos SHAs pinados.
-- Auto Packager: cria `~/.veracode/veracode.yml` vazio se ausente (elimina warning `failed to read config file` da Veracode CLI em runners limpos).
 
 ### Fixed
 
@@ -405,13 +414,19 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ### Added
 
-- Novo provedor de baseline via repositório GitHub (`baseline_mode: 'repo'`), mutuamente exclusivo com Portal Afrika:
-  - Sub-action `internal/repo-baseline-flow` (check → Pipeline Scan ± baseline → seed write-once).
-  - Layout `{org-do-app}/{repo-do-app}/baseline.json` no repositório fixo `Veracode-Connect-Baseline-Repo` (a org em `baseline_org` deve conter esse repo).
-  - Auth por GitHub App (`baseline_github_app_*`) com fallback PAT (`baseline_github_token`).
-  - Validação antecipada: se o repo de baseline não existir ou o token não tiver acesso, o pipeline falha antes dos scans.
+- Novo provedor de baseline via repositório GitHub (`baseline_mode: 'repo'`), mutuamente exclusivo com Portal Afrika: sub-action `internal/repo-baseline-flow` (check → Pipeline Scan ± baseline → seed write-once); layout `{org-do-app}/{repo-do-app}/baseline.json` no repositório fixo `Veracode-Connect-Baseline-Repo` (a org em `baseline_org` deve conter esse repo); auth por GitHub App (`baseline_github_app_*`) com fallback PAT (`baseline_github_token`); validação antecipada: se o repo de baseline não existir ou o token não tiver acesso, o pipeline falha antes dos scans.
 - Input `baseline_mode` (`none` | `portal_afrika` | `repo`, default `none`) e output `baseline_mode`.
 - Exemplos `autopackager-with-repo-baseline*.yml` e `artifact-with-repo-baseline*.yml` (espelhando as combinações SCA/IaC/Upload do baseline Portal Afrika).
+
+### Changed
+
+- Renomeação Bantuu → **Portal Afrika**: inputs `portal_afrika_api_key` / `portal_afrika_base_url`, `baseline_mode: portal_afrika`, sub-action `internal/portal-afrika-baseline-flow` (URL default permanece `https://www.bantuu.io` temporariamente).
+- Build-gate / job summary: exibe apenas módulos que rodaram (omite entradas `skipped`).
+- Default de `baseline_mode` é `none` (Pipeline Scan sem provedor de baseline, a menos que você ative explicitamente).
+- Dependências Veracode atualizadas para as últimas releases, todas pinadas por commit SHA: `veracode/Veracode-pipeline-scan-action` `v1.0.20` → `v1.0.23`; `veracode/veracode-sca` `v2.1.18` → `v2.1.19`; `veracode/container_iac_secrets_scanning` `v1.0.7` → `v1.0.8`; `veracode/uploadandscan-action` `v0.2.1` → `v0.2.2`; `veracode/veracode-flaws-to-issues` `v2.2.25` → `v2.2.26`.
+- Veracode CLI (Auto Packager) `2.46.0` → `2.51.2`.
+- Workflows e exemplos: actions externas (`checkout`, `upload-artifact`, `download-artifact`, `action-gh-release`) pinadas por commit SHA.
+- README: seção dedicada ao Repo Baseline (`baseline_mode: 'repo'`) com permissões do GitHub App (Contents: Read and write), PAT (fine-grained/classic) e `GITHUB_TOKEN` do workflow.
 
 ### Removed
 
@@ -419,25 +434,12 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 - Removido o input `baseline_repo_name` (nome do repo de baseline é fixo: `Veracode-Connect-Baseline-Repo`).
 - Removido completamente o módulo de Business Unit (`internal/veracode-business-unit`), incluindo inputs (`enable_business_unit`, `enable_set_business_unit`, `veracode_business_unit`), outputs (`business_unit_name`, `business_unit_guid`, `set_business_unit_status`), validações, build-gate e o exemplo `autopackager-with-baseline-sca-iac-upload-bu.yml`.
 
-### Changed
-
-- Renomeação Bantuu → **Portal Afrika**: inputs `portal_afrika_api_key` / `portal_afrika_base_url`, `baseline_mode: portal_afrika`, sub-action `internal/portal-afrika-baseline-flow` (URL default permanece `https://www.bantuu.io` temporariamente).
-- Build-gate / job summary: exibe apenas módulos que rodaram (omite entradas `skipped`).
-- Default de `baseline_mode` é `none` (Pipeline Scan sem provedor de baseline, a menos que você ative explicitamente).
-- Dependências Veracode atualizadas para as últimas releases, todas pinadas por commit SHA:
-  - `veracode/Veracode-pipeline-scan-action` `v1.0.20` → `v1.0.23`
-  - `veracode/veracode-sca` `v2.1.18` → `v2.1.19`
-  - `veracode/container_iac_secrets_scanning` `v1.0.7` → `v1.0.8`
-  - `veracode/uploadandscan-action` `v0.2.1` → `v0.2.2`
-  - `veracode/veracode-flaws-to-issues` `v2.2.25` → `v2.2.26`
-- Veracode CLI (Auto Packager) `2.46.0` → `2.51.2`
-- Workflows e exemplos: actions externas (`checkout`, `upload-artifact`, `download-artifact`, `action-gh-release`) pinadas por commit SHA.
-
-### Documentation
-
-- README: seção dedicada ao Repo Baseline (`baseline_mode: 'repo'`) com permissões do GitHub App (Contents: Read and write), PAT (fine-grained/classic) e `GITHUB_TOKEN` do workflow.
-
 ## [1.2.0] - 2026-05-22
+
+### Added
+
+- Nova sub-action `internal/resolve-platform-type` para detectar GitHub.com vs GHES.
+- Validação antecipada quando `create_issues: 'true'`: Issues habilitadas no repositório (`has_issues`) e permissão `issues: write` no workflow (falha antes dos scans, com mensagens orientativas).
 
 ### Changed
 
@@ -448,39 +450,37 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 - Novo input `create_issues` (default `'false'`): SCA usa `create-issues` da action oficial; Pipeline Scan usa `veracode/veracode-flaws-to-issues` com `filtered_results.json` (a action de Pipeline Scan não possui `create-issues` nativo).
 - Detecção de `platformType` (`CLOUD`/`ENTERPRISE`) centralizada em `internal/resolve-platform-type` e reutilizada em SCA, Pipeline Scan e Upload & Scan.
 
-### Added
-
-- Nova sub-action `internal/resolve-platform-type` para detectar GitHub.com vs GHES.
-- Validação antecipada quando `create_issues: 'true'`: Issues habilitadas no repositório (`has_issues`) e permissão `issues: write` no workflow (falha antes dos scans, com mensagens orientativas).
-
 ## [1.1.25] - 2026-03-24
+
+### Changed
+
+- Novo input opcional `artifact_suffix` adicionado às sub-actions `portal-afrika-baseline-flow`, `pipeline-only`, `veracode-sca` e `veracode-iac`. Quando vazio (uso standalone), o comportamento é idêntico ao anterior (nomes originais preservados).
 
 ### Fixed
 
 - Corrigido erro `409 Conflict` ao fazer upload de artefatos em workflows com múltiplos jobs paralelos ou execuções sequenciais da action no mesmo workflow run (cenário monolito). Os nomes dos artefatos internos (`pipescan-results`, `sca-results`, `iac-results`) agora recebem um sufixo único gerado por execução (`{run_id}-{run_attempt}-{RANDOM}`), eliminando colisões de nome no GitHub Actions.
 - Removidas mensagens de `::warning::` redundantes nos logs de resposta do Portal Afrika que duplicavam informações já exibidas nos steps de erro.
 
-### Changed
-
-- Novo input opcional `artifact_suffix` adicionado às sub-actions `portal-afrika-baseline-flow`, `pipeline-only`, `veracode-sca` e `veracode-iac`. Quando vazio (uso standalone), o comportamento é idêntico ao anterior (nomes originais preservados).
-
 ## [1.1.11] - 2026-02-25
 
 ### Changed
+
 - Referências internas no `action.yml` alteradas de caminhos hardcoded com repo (`Afrika-Tecnologia/Veracode-Connect/internal/...@v1`) para caminhos relativos estritos (`./internal/...`). Isso garante que a versão exata sendo chamada por referência local seja usada, preservando a lógica exata de cada branch ou tag e reduzindo potenciais atrasos de sincronização de versão da branch `main`.
-- Correções maciças de segurança: blindagem de `curl` via URL Enconding e `--data-binary`, Validação estrita de checksums e tamanho de script `ci.sh` do SCA, e proteção contra vazamento de `BU_GUID` e de Infra nos logs do Business Unit REST SDK.
-- Melhorias profundas de robustez: refatoração da _Trava de Build_ (`build-gate`) que agora não trava o pipeline ao encontrar apenas "warnings"; Timeout (via `req.setTimeout` e cli config) de conexões demoradas garantindo fail-fast na esteira. E auto-packager otimizado ignorando pastas `.next/`, `node_modules/`, obj/ bin/ por default garantindo pacotes mais minimalistas no upload. 
+- Correções maciças de segurança: blindagem de `curl` via URL Encoding e `--data-binary`, Validação estrita de checksums e tamanho de script `ci.sh` do SCA, e proteção contra vazamento de `BU_GUID` e de Infra nos logs do Business Unit REST SDK.
+- Melhorias profundas de robustez: refatoração da _Trava de Build_ (`build-gate`) que agora não trava o pipeline ao encontrar apenas "warnings"; Timeout (via `req.setTimeout` e cli config) de conexões demoradas garantindo fail-fast na esteira. E auto-packager otimizado ignorando pastas `.next/`, `node_modules/`, obj/ bin/ por default garantindo pacotes mais minimalistas no upload. .
 - Padronização em Pt-BR em quase todos os outputs de consoles e logs, e simplificação dos códigos de erro retornados (`pipeline_status` / `iac_status`).
 
 ## [1.1.10] - 2026-02-23
 
 ### Added
+
 - Extração do step final de validação para um novo internal action (`internal/build-gate`) para manter a padronização e modularidade.
 - Cache de runner persistente (`actions/cache`) da ferramenta Veracode CLI no step iterativo do `auto-packager`.
 - Adoção da action `TheDoctor0/zip-release` como substituto escalável para falhas intermitentes do zip em bash.
 - Injeção de flags robustas de network nos curls do `veracode-sca` (`--connect-timeout 30 --max-time 120`, `--retry`).
 
 ### Changed
+
 - Atualização da versão pinada da Veracode CLI no `auto-packager` de `3.4.0` para `2.46.0`.
 - Remoção do `continue-on-error: true` de diversos actions substituídos por encadeamentos literais `if: (success() || failure())` na orquestração.
 - Abstração completa e segura do longo script shell legível em `validate-inputs`, convertendo e encapsulando suas decisões operacionais em Node.js assíncrono padrão (`index.js`).
@@ -493,22 +493,22 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 - Novo input `fail_build` (default `'true'`): trava de build final que verifica se algum step falhou.
 - Novo input `enable_business_unit` (lowercase, substitui `enable_Business_unit`; alias legado mantido).
 - Novos outputs: `sca_status`, `iac_status`, `upload_scan_status`.
-- Step final obrigatorio "Trava de Build" com resumo visual de todos os resultados.
+- Step final obrigatório "Trava de Build" com resumo visual de todos os resultados.
 - Workflow CI de linting (`actionlint`) para validar sintaxe dos YAMLs e verificar exemplos vazios.
 
 ### Changed
 
-- **Logica baseline/pipescan**: `enable_baseline=true` roda o baseline flow independentemente de `enable_pipelinescan`; `enable_pipelinescan=true` + `enable_baseline=false` roda pipeline only.
-- Auto-packager so e executado quando pipeline, upload ou baseline estao ativos (antes rodava sempre).
-- `scan_file` so e obrigatorio quando pipeline/upload/baseline estao ativos (permite usar apenas SCA + IaC).
-- Todas as dependencias externas pinadas por SHA de commit (supply-chain security).
-- Refs internas de sub-actions alteradas de `@v1.1` para `@v1` (consistencia com major version tag).
-- Veracode CLI (Auto Packager) pinada na versao `3.4.0`.
+- **Lógica baseline/pipescan**: `enable_baseline=true` roda o baseline flow independentemente de `enable_pipelinescan`; `enable_pipelinescan=true` + `enable_baseline=false` roda pipeline only.
+- Auto-packager só é executado quando pipeline, upload ou baseline estão ativos (antes rodava sempre).
+- `scan_file` só é obrigatório quando pipeline/upload/baseline estão ativos (permite usar apenas SCA + IaC).
+- Todas as dependências externas pinadas por SHA de commit (supply-chain security).
+- Refs internas de sub-actions alteradas de `@v1.1` para `@v1` (consistência com major version tag).
+- Veracode CLI (Auto Packager) pinada na versão `3.4.0`.
 - `::group::` adicionado em todas as sub-actions para logs organizados.
 - `curl` para Portal Afrika agora usa `--connect-timeout 30 --max-time 120`.
-- `set-business-unit.js`: HMAC auth regenerado dentro do loop de retry; paginacao de BUs reduzida de 200 para 20 paginas; validacao de virgula removida (duplicada, feita no validate-inputs).
+- `set-business-unit.js`: HMAC auth regenerado dentro do loop de retry; paginação de BUs reduzida de 200 para 20 páginas; validação de vírgula removida (duplicada, feita no validate-inputs).
 - `continue-on-error` adicionado no Upload & Scan e Baseline Flow (resultados verificados na trava de build final).
-- Condicoes `always()` substituidas por verificacoes de outcome (evita steps desnecessarios).
+- Condições `always()` substituídas por verificações de outcome (evita steps desnecessários).
 - Warning exibido quando auto-packager ativo mas `scan_file` fornecido.
 
 ### Fixed
@@ -516,18 +516,17 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 - 26 exemplos vazios (0 bytes) preenchidos com workflows completos e funcionais.
 - Auto Packager: adicionado flag `--trust` no `veracode package` para evitar prompt interativo ("Do you trust the authors?") que causava falha `EOF` no CI.
 
-
 ## [1.1.6] - 2026-02-19
 
 ### Added
 
-- Adicionado input ` ` no pipeline scan para permitir o uso de uma politica do veracode para quebra de pipeline.
+- Novo input `veracode_policy_name` no Pipeline Scan, para usar uma política da Veracode como critério de quebra da esteira.
 
 ## [1.1.5] - 2026-02-19
 
 ### Added
 
-- Adicionado input `veracode_appname` no Upload & Scan par permitir o uso de um nome de aplicação diferente do nome do repositório.
+- Adicionado input `veracode_appname` no Upload & Scan para permitir o uso de um nome de aplicação diferente do nome do repositório.
 
 ## [1.1.2] - 2026-02-10
 
@@ -535,7 +534,6 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 - Atualizada a action `veracode-uploadandscan-action` para `@v1` (era `0.2.4`) para corrigir erro de build do Docker (`openjdk:latest` not found).
 - Renomeado input `deleteincompletescan` para `deleteincomplete` (v1).
-
 
 ## [1.1.1] - 2026-02-10
 
@@ -547,13 +545,13 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ### Fixed
 
-- Corrigido a propagação do input `portal_afrika_base_url` que estava sendo sobrescrito pelo valor default na sub-action.
+- Corrigida a propagação do input `portal_afrika_base_url` que estava sendo sobrescrito pelo valor default na sub-action.
 
 ## [1.0.27] - 2026-02-10
 
 ### Changed
 
-- Refatoração completa da estruturada action: `action.yml` agora é uma orquestradora que chama sub-actions em `internal/`.
+- Refatoração completa da estrutura da action: `action.yml` agora é uma orquestradora que chama sub-actions em `internal/`.
 - Padronização de todas as mensagens de log e erro para Português (PT-BR).
 - Melhoria na robustez: validação inicial de inputs obrigatórios condicionais.
 - Melhoria na segurança: uso de variáveis de ambiente para secrets em vez de interpolação no shell.
@@ -565,40 +563,40 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ### Changed
 
-- Remove comentarios nos exemplos e simplifica o modulo de Business Unit para suportar apenas BU unica (remove inputs/outputs legados de lista).
+- Remove comentários nos exemplos e simplifica o modulo de Business Unit para suportar apenas BU única (remove inputs/outputs legados de lista).
 
 ## [1.0.25] - 2026-01-07
 
 ### Changed
 
-- Atualiza `README.md`, `SECURITY.md` e `LICENSE` para o novo nome do projeto e informacoes do mantenedor.
+- Atualiza `README.md`, `SECURITY.md` e `LICENSE` para o novo nome do projeto e informações do mantenedor.
 - Workflow de release: atualiza o nome do release para **Veracode Connect**.
 
 ## [1.0.24] - 2026-01-07
 
 ### Changed
 
-- Renomeia a action para **Veracode Connect** e atualiza a documentacao/exemplos para usar `Afrika-Tecnologia/Veracode-Connect@v1`.
+- Renomeia a action para **Veracode Connect** e atualiza a documentação/exemplos para usar `Afrika-Tecnologia/Veracode-Connect@v1`.
 - Atualiza a string de `version` usada no Upload & Scan.
 
 ## [1.0.23] - 2026-01-07
 
 ### Changed
 
-- Auto Packager: corrige chamada da Veracode CLI adicionando `--source .` (e `--type directory`) no `veracode package`, evitando falha imediata por flag obrigatoria ausente.
+- Auto Packager: corrige chamada da Veracode CLI adicionando `--source .` (e `--type directory`) no `veracode package`, evitando falha imediata por flag obrigatória ausente.
 
 ## [1.0.22] - 2026-01-07
 
 ### Changed
 
-- Input de BU renomeado para `enable_Business_unit` (mantem compatibilidade com `enable_set_business_unit`).
+- Input de BU renomeado para `enable_Business_unit` (mantém compatibilidade com `enable_set_business_unit`).
 
 ## [1.0.20] - 2026-01-07
 
 ### Added
 
-- Link opcional do application profile a uma Business Unit (BU) via REST (HMAC), executado apos o Upload & Scan.
-- Nota: a Veracode suporta apenas 1 BU por aplicacao (se for informado mais de um valor, a action falha).
+- Link opcional do application profile a uma Business Unit (BU) via REST (HMAC), executado após o Upload & Scan.
+- Nota: a Veracode suporta apenas 1 BU por aplicação (se for informado mais de um valor, a action falha).
 
 ## [1.0.19] - 2026-01-07
 
@@ -610,15 +608,15 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 
 ### Added
 
-- README com lista de exemplos por cenario e links clicaveis.
-- Exemplos de workflows cobrindo combinacoes de SCA, IaC, Baseline Portal Afrika, Upload & Scan e uso de `scan_file` (artefato) ou Auto Packager.
+- README com lista de exemplos por cenário e links clicáveis.
+- Exemplos de workflows cobrindo combinações de SCA, IaC, Baseline Portal Afrika, Upload & Scan e uso de `scan_file` (artefato) ou Auto Packager.
 
 ## [1.0.17] - 2026-01-07
 
 ### Changed
 
 - Logs: adiciona grupos no console (`::group::/::endgroup::`) para SCA, Auto Packager e Portal Afrika baseline (check/upload).
-- Auto Packager: fallback do `zip` fica em modo quiet para reduzir poluicao no log.
+- Auto Packager: fallback do `zip` fica em modo quiet para reduzir poluição no log.
 
 ## [1.0.14] - 2026-01-07
 
@@ -637,60 +635,56 @@ A sub-action `Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1` 
 ### Changed
 
 - Upload & Scan passa a usar sempre `repository_full_name` (org/repo) como `appname` (remove o input `veracode_appname`).
-- Upload & Scan nao aguarda conclusao do scan (fixo em `scantimeout=0`) e deixa de configurar `scanpollinginterval`/`maxretrycount`.
+- Upload & Scan não aguarda conclusão do scan (fixo em `scantimeout=0`) e deixa de configurar `scanpollinginterval`/`maxretrycount`.
 - Nome do sandbox do Upload & Scan passa a ser `{branch}-{org-repo}` (sanitizado) quando `veracode_sandbox='true'`.
-
-### Documentation
-
 - README refeito com lista completa de inputs/outputs, regras de obrigatoriedade e detalhes do Upload & Scan.
-- Adicionados exemplos cobrindo mais combinacoes (baseline, upload-scan, pipeline desativado, SCA, IaC, fail_on_severity).
+- Adicionados exemplos cobrindo mais combinações (baseline, upload-scan, pipeline desativado, SCA, IaC, fail_on_severity).
 
 ## [1.0.6] - 2026-01-06
 
 ### Added
 
-- Atualizar o endpoint do Veracode SCA para `https://sca-downloads.veracode.com/ci.sh` (em vez do endpoint legado).
-- Adicionar input `scantimeout` ao Upload & Scan com default `0`, permitindo disparar o scan sem aguardar a conclusao para nao prolongar a pipeline.
-- Alinhar o `veracode_appname` do Upload & Scan com o `repository_full_name` resolvido por `internal/resolve-repo` quando o input nao e informado explicitamente.
+- O endpoint do Veracode SCA passa a ser `https://sca-downloads.veracode.com/ci.sh` (em vez do endpoint legado).
+- Novo input `scantimeout` no Upload & Scan, com default `0`, permitindo disparar o scan sem aguardar a conclusão para não prolongar a pipeline.
+- O `veracode_appname` do Upload & Scan passa a seguir o `repository_full_name` resolvido por `internal/resolve-repo` quando o input não e informado explicitamente.
 
 ## [1.0.5] - 2026-01-06
 
 ### Added
 
 - Adicionado input `enable_baseline` para ativar/desativar o uso do baseline do Portal Afrika.
-- Modularizacao da Action em sub-actions internas (`internal/resolve-repo`, `internal/portal-afrika-baseline-flow`, `internal/pipeline-only`, `internal/auto-packager`).
+- Modularização da Action em sub-actions internas (`internal/resolve-repo`, `internal/portal-afrika-baseline-flow`, `internal/pipeline-only`, `internal/auto-packager`).
 - Suporte ao Veracode Auto Packager via `enable_auto_packager`.
 - Adicionado suporte opcional a SCA (`enable_sca`, `veracode_sca_token`) e IaC (`enable_iac`).
 - Adicionado suporte opcional a Upload & Scan (`enable_upload_scan`, `veracode_sandbox`).
-- Atualizacao do README e exemplos para refletir os novos fluxos.
+- Atualização do README e exemplos para refletir os novos fluxos.
 
 ## [1.0.4] - 2025-12-18
 
 ### Added
 
-- Padronizar a URL base do Portal Afrika para `https://www.bantuu.io`.
-- Atualizar README com secao de creditos para o mantenedor.
+- A URL base do Portal Afrika passa a ser `https://www.bantuu.io`.
+- README com seção de créditos para o mantenedor.
 
 ## [1.0.2] - 2025-12-12
 
-### Documentation
+### Changed
 
-- Melhorias de documentacao no `README.md` (exemplo de uso dos outputs, notas e limitacoes).
-- Ajustes de ortografia e acentuacao nos textos em portugues.
+- Melhorias de documentação no `README.md` (exemplo de uso dos outputs, notas e limitações).
+- Ajustes de ortografia e acentuação nos textos em português.
 
 ## [1.0.1] - 2025-12-12
 
 ### Added
 
-- Adicionar workflow automatico de release (`.github/workflows/release.yml`).
-- Mover o workflow de exemplo para `examples/veracode-portal_afrika-example.yml`.
-- Adicionar arquivos `SECURITY.md` e `CHANGELOG.md`.
+- Workflow automático de release (`.github/workflows/release.yml`).
+- O workflow de exemplo passa para `examples/veracode-portal_afrika-example.yml`.
+- Novos arquivos `SECURITY.md` e `CHANGELOG.md`.
 
 ## [1.0.0] - 2025-12-12
 
 ### Added
 
-- Versao inicial da Action Veracode Connect.
-- Integracao com Veracode Pipeline Scan.
-- Consulta e criacao de baseline no Portal Afrika a partir do `results.json`.
-
+- Versão inicial da Action Veracode Connect.
+- Integração com Veracode Pipeline Scan.
+- Consulta e criação de baseline no Portal Afrika a partir do `results.json`.

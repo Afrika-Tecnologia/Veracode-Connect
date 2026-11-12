@@ -6,7 +6,7 @@ Integre a Veracode ao GitHub Actions com **um único step**. O Veracode Connect 
 
 ### Baseline para SAST
 
-Adote o SAST em projetos antigos sem travar o time pelo passivo. Na primeira execução elegível, o Connect grava o baseline do Pipeline Scan num repositório GitHub da sua organização; depois disso, **só as vulnerabilidades novas que afetam a política bloqueiam**, e o backlog continua visível no relatório. É só ativar com `baseline_mode: 'repo'`.
+Adote o SAST em projetos antigos sem travar o time pelo passivo. Na primeira execução elegível, o Connect grava o baseline do Pipeline Scan num repositório GitHub da sua organização; depois disso, **só as vulnerabilidades novas que afetam a política bloqueiam**, e o backlog continua visível no relatório. Ative com `baseline_mode: 'repo'`, informando a organização do repositório de baseline (`baseline_org`) e um GitHub App ou PAT com acesso a ele.
 
 ### Baseline para SCA
 
@@ -19,6 +19,8 @@ Tem uma CVE crítica no radar, como a Log4Shell? Liste os CVEs em `fail_on_cve`:
 ### Baseline para IaC/Secrets
 
 A Veracode não oferece baseline para Container/IaC/Secrets; o Connect mantém um próprio. Só os findings novos reprovados pela sua política IaC bloqueiam, e a identidade de cada finding não depende do número da linha. Os secrets encontrados nunca têm o trecho nem o valor gravados ou publicados. Ative com `enable_iac_baseline: 'true'`.
+
+Os bloqueios acima valem com `policy_fail: 'true'` (o default é `'false'`, que só reporta) e `fail_build: 'true'` (default). Com `bypass: 'true'`, nada bloqueia.
 
 O link **Acesse Aqui** do Resumo Final é configurável (`veracode_url`), para usar outra região ou o seu SSO da Veracode.
 
@@ -36,21 +38,31 @@ Detalhes de cada funcionalidade na [documentação](docs/README.md).
 ## Uso rápido
 
 ```yaml
-permissions:
-  contents: read
-  pull-requests: write
+name: Veracode
 
-steps:
-  - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  - uses: Afrika-Tecnologia/Veracode-Connect@v1.9.0
-    with:
-      veracode_api_id: ${{ secrets.VERACODE_API_ID }}
-      veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
-      enable_auto_packager: 'true'
-      enable_sca: 'true'
-      veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
-      enable_iac: 'true'
-      comment_pr: 'true'
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  veracode:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: Afrika-Tecnologia/Veracode-Connect@v1.9.0
+        with:
+          veracode_api_id: ${{ secrets.VERACODE_API_ID }}
+          veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
+          enable_auto_packager: 'true'
+          enable_sca: 'true'
+          veracode_sca_token: ${{ secrets.VERACODE_SCA_TOKEN }}
+          enable_iac: 'true'
+          comment_pr: 'true'
+          policy_fail: 'true'
 ```
 
 Use um runner Linux. `@v1` e `@v1.9` acompanham a versão mais recente. Todos os inputs e outputs estão em [docs/inputs.md](docs/inputs.md).

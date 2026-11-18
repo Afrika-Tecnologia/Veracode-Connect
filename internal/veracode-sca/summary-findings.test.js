@@ -161,3 +161,35 @@ test('buildSummary coloca Findings bloqueados por CVE acima de Findings do SCA',
     assert.match(md, /CVEs pedidos sem match: CVE-2021-45046/);
     assert.match(md, /<summary>Vulnerabilidades \(2\)<\/summary>/);
 });
+
+test('CLI summary-md roda como script com scaResults.json (sem ciclo de require)', () => {
+    // Regressão: rodando como script, buildSummary carregava sca-baseline.js, que importava
+    // cvssBand deste módulo antes de module.exports existir ("cvssBand is not a function").
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-cli-'));
+    const jsonPath = path.join(dir, 'scaResults.json');
+    fs.writeFileSync(jsonPath, JSON.stringify({
+        records: [{
+            libraries: [{ name: 'a', versions: [{ version: '1.0.0' }] }],
+            graphs: [{ directs: [{}] }],
+            vulnerabilities: [{
+                cve: '2024-1',
+                title: 'crit',
+                cvss3Score: 9.8,
+                libraries: [{ _links: { ref: '/records/0/libraries/0/versions/0' } }]
+            }]
+        }]
+    }));
+    const env = { ...process.env, SCA_BASELINE_STATUS: 'not_used', SCA_BASELINE_DIFF: '', CVE_BLOCKED_PATH: '' };
+    delete env.RUNNER_TEMP;
+    const res = spawnSync(process.execPath, [
+        path.join(__dirname, 'summary-findings.js'),
+        'summary-md',
+        jsonPath,
+        path.join(dir, 'ausente.txt')
+    ], { encoding: 'utf8', env });
+    assert.equal(res.status, 0, res.stderr);
+    assert.doesNotMatch(res.stderr, /is not a function/);
+    assert.match(res.stdout, /\| Grupo \|/);
+    assert.match(res.stdout, /\| \*\*1\*\* \|/);
+});

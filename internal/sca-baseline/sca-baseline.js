@@ -28,7 +28,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const iac = require('../iac-baseline/iac-baseline');
-const { cvssBand } = require('../veracode-sca/summary-findings');
+const { cvssBand } = require('../summary-table/severity-table');
 const { message, fail } = require('./messages');
 
 const SCHEMA_VERSION = 1;

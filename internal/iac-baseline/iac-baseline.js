@@ -31,9 +31,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { normalizeSeverity } = require('../veracode-iac/summary-findings');
 const { message, fail } = require('./messages');
-const { ROW, severityTable, countBands: countSeverityBands } = require('../summary-table/severity-table');
+const { ROW, severityTable, normalizeSeverity, countBands: countSeverityBands } = require('../summary-table/severity-table');
 
 const SCHEMA_VERSION = 1;
 const FINGERPRINT_VERSION = 1;

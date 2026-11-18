@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { message } = require('./messages');
+const { cvssBand } = require('../summary-table/severity-table');
 
 function readJson(filePath) {
     try {
@@ -19,26 +20,6 @@ function readJson(filePath) {
         /* ignore */
     }
     return null;
-}
-
-function cvssBand(score) {
-    const n = Number(score);
-    if (!Number.isFinite(n)) {
-        return null;
-    }
-    if (n >= 9) {
-        return 'critical';
-    }
-    if (n >= 7) {
-        return 'high';
-    }
-    if (n >= 4) {
-        return 'medium';
-    }
-    if (n >= 0.1) {
-        return 'low';
-    }
-    return 'very_low';
 }
 
 function emptyCounts() {
@@ -298,6 +279,20 @@ function buildSummary({ jsonPath, txtPath, blockedPath, blocked, baselineStatus 
     return `${lines.join('\n')}\n`;
 }
 
+// Exportado antes do bloco de execução: buildSummary carrega sca-baseline.js sob demanda e,
+// rodando como script, qualquer require de volta a este módulo veria exports ainda vazios.
+module.exports = {
+    HEADING,
+    BASELINE_HEADING,
+    cvssBand,
+    countFromJson,
+    countFromText,
+    buildSummary,
+    renderBlockedCveSection,
+    emptyCounts,
+    loadBlockedArtifact
+};
+
 if (require.main === module) {
     try {
         const cmd = process.argv[2] || 'summary-md';
@@ -322,14 +317,3 @@ if (require.main === module) {
     }
 }
 
-module.exports = {
-    HEADING,
-    BASELINE_HEADING,
-    cvssBand,
-    countFromJson,
-    countFromText,
-    buildSummary,
-    renderBlockedCveSection,
-    emptyCounts,
-    loadBlockedArtifact
-};

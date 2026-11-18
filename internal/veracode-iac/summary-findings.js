@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const { message } = require('./messages');
+const { normalizeSeverity } = require('../summary-table/severity-table');
 
 function readJson(filePath) {
     try {
@@ -29,26 +30,6 @@ function emptyCounts() {
         very_low: 0,
         total: 0
     };
-}
-
-function normalizeSeverity(raw) {
-    const value = String(raw || '').trim().toUpperCase();
-    if (value === 'CRITICAL' || value === 'VERY HIGH' || value === 'VERYHIGH') {
-        return 'critical';
-    }
-    if (value === 'HIGH') {
-        return 'high';
-    }
-    if (value === 'MEDIUM' || value === 'MODERATE') {
-        return 'medium';
-    }
-    if (value === 'LOW') {
-        return 'low';
-    }
-    if (value === 'NEGLIGIBLE' || value === 'VERY LOW' || value === 'VERYLOW' || value === 'INFO') {
-        return 'very_low';
-    }
-    return null;
 }
 
 function extractMatches(data) {
@@ -145,7 +126,6 @@ function normalizedFindings(data, iacBaseline) {
  * @param {{detailsLimit?: number, details?: boolean}} options
  */
 function buildSummary({ jsonPath, policyStatus = 'not_used', policyName = '', baselineStatus = 'not_used', diffPath = '', details = true, detailsLimit, groups }) {
-    // Carregado sob demanda: iac-baseline depende deste módulo.
     const iacBaseline = require('../iac-baseline/iac-baseline');
     const { ROW, severityTable, countBands } = require('../summary-table/severity-table');
     if (baselineStatus === 'compared') {

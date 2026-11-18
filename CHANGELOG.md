@@ -6,6 +6,12 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-18
+
+### Fixed
+
+- A geração do summary do SCA e do IaC/Secrets deixa de falhar com `cvssBand is not a function` e `normalizeSeverity is not a function`, respectivamente. Na 1.9.0, o script do summary e o módulo de baseline importavam um do outro e, sempre que não havia baseline comparado (baseline desligado ou ainda não gravado), o módulo de baseline recebia as funções antes de elas serem exportadas.
+
 ## [1.9.0] - 2026-11-05
 
 ### Added

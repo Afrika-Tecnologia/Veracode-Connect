@@ -27,6 +27,53 @@ const ROW = {
     backlog: '📦 Backlog'
 };
 
+// cvssBand e normalizeSeverity ficam aqui, num módulo sem dependências, porque são usadas
+// tanto pelos summary-findings.js quanto pelos *-baseline.js. Importar uma do outro cria
+// ciclo de require: rodando summary-findings.js como script, o baseline carregado sob
+// demanda recebia os exports ainda vazios ("x is not a function").
+
+/** Faixa de severidade (NVD/Veracode) a partir do score CVSS; null quando não há score. */
+function cvssBand(score) {
+    const n = Number(score);
+    if (!Number.isFinite(n)) {
+        return null;
+    }
+    if (n >= 9) {
+        return 'critical';
+    }
+    if (n >= 7) {
+        return 'high';
+    }
+    if (n >= 4) {
+        return 'medium';
+    }
+    if (n >= 0.1) {
+        return 'low';
+    }
+    return 'very_low';
+}
+
+/** Faixa a partir do texto de severidade do IaC/Secrets (qualquer caixa); null quando desconhecido. */
+function normalizeSeverity(raw) {
+    const value = String(raw || '').trim().toUpperCase();
+    if (value === 'CRITICAL' || value === 'VERY HIGH' || value === 'VERYHIGH') {
+        return 'critical';
+    }
+    if (value === 'HIGH') {
+        return 'high';
+    }
+    if (value === 'MEDIUM' || value === 'MODERATE') {
+        return 'medium';
+    }
+    if (value === 'LOW') {
+        return 'low';
+    }
+    if (value === 'NEGLIGIBLE' || value === 'VERY LOW' || value === 'VERYLOW' || value === 'INFO') {
+        return 'very_low';
+    }
+    return null;
+}
+
 function emptyCounts() {
     return { critical: 0, high: 0, medium: 0, low: 0, very_low: 0, total: 0 };
 }
@@ -53,4 +100,4 @@ function severityTable(rows) {
     ];
 }
 
-module.exports = { BANDS, BAND_LABEL, ROW, emptyCounts, countBands, severityTable };
+module.exports = { BANDS, BAND_LABEL, ROW, cvssBand, normalizeSeverity, emptyCounts, countBands, severityTable };

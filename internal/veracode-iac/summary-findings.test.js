@@ -162,3 +162,25 @@ test('com política ativa conta os findings reprovados pela política, sem nota 
         fs.rmSync(dir, { recursive: true, force: true });
     }
 });
+
+test('CLI summary-md roda como script com results.json (sem ciclo de require)', () => {
+    // Regressão: rodando como script, buildSummary carregava iac-baseline.js, que importava
+    // normalizeSeverity deste módulo antes de module.exports existir ("normalizeSeverity is not a function").
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-cli-'));
+    const jsonPath = path.join(dir, 'results.json');
+    fs.writeFileSync(jsonPath, JSON.stringify({
+        vulnerabilities: {
+            matches: [{
+                vulnerability: { severity: 'HIGH', id: 'GHSA-1', description: 'a' },
+                artifact: { name: 'lib', version: '1.0.0' }
+            }]
+        }
+    }));
+    const env = { ...process.env, IAC_POLICY_STATUS: 'not_used', IAC_POLICY_NAME: '', IAC_BASELINE_STATUS: 'not_used', IAC_BASELINE_DIFF: '' };
+    const res = spawnSync(process.execPath, [path.join(__dirname, 'summary-findings.js'), 'summary-md', jsonPath], { encoding: 'utf8', env });
+    assert.equal(res.status, 0, res.stderr);
+    assert.doesNotMatch(res.stderr, /is not a function/);
+    assert.match(res.stdout, /\| Grupo \|/);
+    assert.match(res.stdout, /\| \*\*1\*\* \|/);
+});

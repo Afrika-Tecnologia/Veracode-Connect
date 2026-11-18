@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-Esta Action segue versionamento semantico. Em geral, apenas a ultima versao `v1.x.x` esta ativa e recebe correcoes.
+Esta Action segue versionamento semântico. Em geral, apenas a última versão `v1.x.x` está ativa e recebe correções.
 
-Versoes suportadas:
+Versões suportadas:
 
-- `v1.9.0`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.9.1`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
 
 A versão `v1.9.0` adiciona baselines IaC/Secrets (`enable_iac_baseline`) e SCA (`enable_sca_baseline`) no modo `repo`. Os arquivos `iac-baseline.json` e `sca-baseline.json` são gravados uma única vez no repositório de baseline e nunca sobrescritos; a gravação confirma de novo que o arquivo não existe antes de cada tentativa. O baseline guarda apenas identificadores, hashes e campos de exibição: o trecho (`Code`) e o valor (`Match`) dos secrets nunca são gravados nem publicados. `fail_on_severity` passa a aceitar só severidades conhecidas e é repassado entre aspas ao Pipeline Scan oficial, o que corrige a quebra do comando e impede a injeção de argumentos de shell por esse input. `fail_on_cve` passa a bloquear também com `create_issues: false`: a action oficial do SCA roda com `sca_fix_enabled: true` para gerar `scaResults.json`; sem `pr_number`, a etapa de correção dessa action não é executada e nenhuma credencial adicional é usada.
 
@@ -16,11 +16,11 @@ A versão `v1.8.1` adiciona `bypass`. Com `bypass: 'true'`, a action não bloque
 
 A versão `v1.8.0` adiciona `fail_on_cve`. CVEs informados marcam o SCA como falha e bloqueiam ao final quando `policy_fail` e `fail_build` estão habilitados. `bypass: 'true'` preserva o job também nesse caso.
 
-A versão `v1.7.1` corrige a classificação de reprovações da política IaC: a chamada do avaliador em `v1.7.0` podia retornar `error` e preservar o job mesmo com bloqueio habilitado. Atualize referências fixadas em `v1.7.0` para receber a correção. Essas correções permanecem nas versões seguintes.
+A versão `v1.7.3` mantém as correções da `v1.7.1` e da `v1.7.2`, sinaliza scans indisponíveis como warning sem bloquear por ausência de resultados e preserva o bloqueio final das violações confirmadas. O link de acesso do summary e do comentário do PR é definido por `veracode_url`; apenas URLs HTTP/HTTPS são renderizadas, com fallback para o login padrão.
 
-A versão `v1.7.2` preserva essa correção e consolida os resultados das chamadas do Connect no mesmo job. Os bloqueantes SAST exibidos são os findings selecionados pelo Pipeline Scan após os filtros de política e baseline, sem promover findings fora da política a bloqueantes. Status e detalhes de outros jobs, execuções, tentativas e workspaces não são reutilizados.
+A versão `v1.7.2` preserva a correção da `v1.7.1` e consolida os resultados das chamadas do Connect no mesmo job. Os bloqueantes SAST exibidos são os findings selecionados pelo Pipeline Scan após os filtros de política e baseline, sem promover findings fora da política a bloqueantes. Status e detalhes de outros jobs, execuções, tentativas e workspaces não são reutilizados.
 
-A versão `v1.7.3` mantém essas correções, sinaliza scans indisponíveis como warning sem bloquear por ausência de resultados e preserva o bloqueio final das violações confirmadas. O link de acesso do summary e do comentário do PR é definido por `veracode_url`; apenas URLs HTTP/HTTPS são renderizadas, com fallback para o login padrão.
+A versão `v1.7.1` corrige a classificação de reprovações da política IaC: a chamada do avaliador em `v1.7.0` podia retornar `error` e preservar o job mesmo com bloqueio habilitado. Atualize referências fixadas em `v1.7.0` para receber a correção. A correção permanece nas versões seguintes.
 
 ## Bloqueio por resultados dos scans
 
@@ -34,7 +34,7 @@ No SCA, `policy_fail` controla `breakBuildOnPolicyFindings`. A ausência de resu
 
 Scans sem resultado, erros técnicos de execução/avaliação IaC e falhas de Upload & Scan aparecem como `⚠️ Warning` no Resumo Final e não bloqueiam isoladamente. Violações confirmadas em outros scans continuam bloqueantes. Arquivos de resultado anteriores do Pipeline são removidos antes do scan para evitar bloqueio por findings de outra execução.
 
-## Baseline via repositorio (GitHub App)
+## Baseline via repositório (GitHub App)
 
 Para `baseline_mode: repo`, a org em `baseline_org` **deve** conter o repositório de store (`baseline_repo_name`, default `Afrika-Veracode-Connect-Baseline`). Use GitHub App (`Contents: Read and write`) ou PAT com acesso a esse repo. O mesmo acesso grava `baseline.json`, `iac-baseline.json` e `sca-baseline.json` em `<org>/<repo>/`; restrinja quem pode escrever nesse repositório, porque apagar um desses arquivos faz o próximo scan elegível gravar um baseline novo.
 
@@ -42,16 +42,16 @@ Com `enable_iac_configs: 'true'`, a action também usa esse acesso para baixar o
 
 ## Reportando vulnerabilidades
 
-Se voce encontrar uma vulnerabilidade ou comportamento de seguranca inesperado relacionado a Action **Veracode Connect**:
+Se você encontrar uma vulnerabilidade ou comportamento de segurança inesperado relacionado à Action **Veracode Connect**:
 
-- Nao abra uma issue publica com detalhes sensiveis.
-- Use o fluxo de **GitHub Security Advisories** no repositorio ou entre em contato de forma privada com os mantenedores do projeto.
+- Não abra uma issue pública com detalhes sensíveis.
+- Use o fluxo de **GitHub Security Advisories** no repositório ou entre em contato de forma privada com os mantenedores do projeto.
 
-Inclua, se possivel:
+Inclua, se possível:
 
 - Passo a passo para reproduzir o problema;
-- Logs/trechos de saida relevantes (sem segredos);
-- Versao da Action (`v1`, `v1.0.0`, etc.);
-- Qualquer contexto adicional (tipo de repositorio, linguagem, etc.).
+- Logs/trechos de saída relevantes (sem segredos);
+- Versão da Action (`v1`, `v1.0.0`, etc.);
+- Qualquer contexto adicional (tipo de repositório, linguagem, etc.).
 
-Os mantenedores avaliarao o relato, responderao assim que possivel e, se necessario, publicarao uma correcao e um release com as devidas notas.
+Os mantenedores avaliarão o relato, responderão assim que possível e, se necessário, publicarão uma correção e um release com as devidas notas.

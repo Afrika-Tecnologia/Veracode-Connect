@@ -53,7 +53,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: Afrika-Tecnologia/Veracode-Connect@v1.9.1
+      - uses: Afrika-Tecnologia/Veracode-Connect@v1.9.2
         with:
           veracode_api_id: ${{ secrets.VERACODE_API_ID }}
           veracode_api_key: ${{ secrets.VERACODE_API_KEY }}

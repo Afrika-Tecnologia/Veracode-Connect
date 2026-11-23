@@ -6,7 +6,9 @@ Esta Action segue versionamento semântico. Em geral, apenas a última versão `
 
 Versões suportadas:
 
-- `v1.9.1`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.9.2`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
+
+A versão `v1.9.2` faz `enable_pipelinescan: 'false'` desligar o Pipeline Scan também nos modos `repo` e `portal_afrika`. Com a flag desligada, a action não baixa o Pipeline Scan, não consulta nem grava o `baseline.json` do Pipeline Scan, não chama o Portal Afrika e deixa de exigir `portal_afrika_api_key`. O acesso ao repositório de baseline continua sendo usado pelos baselines SCA e IaC/Secrets e pelas regras IaC centralizadas, com as mesmas credenciais e permissões.
 
 A versão `v1.9.0` adiciona baselines IaC/Secrets (`enable_iac_baseline`) e SCA (`enable_sca_baseline`) no modo `repo`. Os arquivos `iac-baseline.json` e `sca-baseline.json` são gravados uma única vez no repositório de baseline e nunca sobrescritos; a gravação confirma de novo que o arquivo não existe antes de cada tentativa. O baseline guarda apenas identificadores, hashes e campos de exibição: o trecho (`Code`) e o valor (`Match`) dos secrets nunca são gravados nem publicados. `fail_on_severity` passa a aceitar só severidades conhecidas e é repassado entre aspas ao Pipeline Scan oficial, o que corrige a quebra do comando e impede a injeção de argumentos de shell por esse input. `fail_on_cve` passa a bloquear também com `create_issues: false`: a action oficial do SCA roda com `sca_fix_enabled: true` para gerar `scaResults.json`; sem `pr_number`, a etapa de correção dessa action não é executada e nenhuma credencial adicional é usada.
 

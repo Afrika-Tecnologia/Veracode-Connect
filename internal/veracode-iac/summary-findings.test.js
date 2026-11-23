@@ -184,3 +184,27 @@ test('CLI summary-md roda como script com results.json (sem ciclo de require)', 
     assert.match(res.stdout, /\| Grupo \|/);
     assert.match(res.stdout, /\| \*\*1\*\* \|/);
 });
+
+test('detalhes do summary sem baseline listam Very High → Very Low', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-iac-ordem-'));
+    const jsonPath = path.join(dir, 'results.json');
+    const match = (severity, id, name) => ({
+        vulnerability: { severity, id, description: id },
+        artifact: { name, version: '1.0.0', type: 'npm', locations: [{ path: '/package-lock.json' }] }
+    });
+    fs.writeFileSync(jsonPath, JSON.stringify({
+        vulnerabilities: {
+            matches: [
+                match('Negligible', 'GHSA-vlow', 'e'),
+                match('Low', 'GHSA-low', 'a'),
+                match('Critical', 'GHSA-crit', 'b'),
+                match('Medium', 'GHSA-med', 'c'),
+                match('High', 'GHSA-high', 'd')
+            ]
+        }
+    }));
+    const md = buildSummary({ jsonPath });
+    const order = ['GHSA-crit', 'GHSA-high', 'GHSA-med', 'GHSA-low', 'GHSA-vlow'].map((id) => md.indexOf(`| ${id} |`));
+    assert.ok(order.every((pos) => pos > 0), md);
+    assert.deepEqual(order, order.slice().sort((a, b) => a - b), md);
+});

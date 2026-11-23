@@ -193,3 +193,44 @@ test('CLI summary-md roda como script com scaResults.json (sem ciclo de require)
     assert.match(res.stdout, /\| Grupo \|/);
     assert.match(res.stdout, /\| \*\*1\*\* \|/);
 });
+
+test('detalhes do summary sem baseline listam Very High → Very Low', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-sca-ordem-'));
+    const jsonPath = path.join(dir, 'scaResults.json');
+    const scores = { 'CVE-2024-0002': 2, 'CVE-2024-0098': 9.8, 'CVE-2024-0050': 5, 'CVE-2024-0075': 7.5, 'CVE-2024-0091': 9.1 };
+    const ids = Object.keys(scores);
+    fs.writeFileSync(jsonPath, JSON.stringify({
+        records: [{
+            libraries: ids.map((id, i) => ({ name: `lib${i}`, versions: [{ version: '1.0.0' }] })),
+            graphs: [{ directs: [] }],
+            vulnerabilities: ids.map((id, i) => ({
+                cve: id.slice(4),
+                title: id,
+                cvss3Score: scores[id],
+                libraries: [{ _links: { ref: `/records/0/libraries/${i}/versions/0` } }]
+            }))
+        }]
+    }));
+    const md = buildSummary({ jsonPath, txtPath: path.join(dir, 'ausente.txt') });
+    // Mesma faixa: maior score primeiro.
+    const expected = ['CVE-2024-0098', 'CVE-2024-0091', 'CVE-2024-0075', 'CVE-2024-0050', 'CVE-2024-0002'];
+    const order = expected.map((id) => md.indexOf(`| ${id} |`));
+    assert.ok(order.every((pos) => pos > 0), md);
+    assert.deepEqual(order, order.slice().sort((a, b) => a - b), md);
+});
+
+test('findings bloqueados por CVE listam Very High → Very Low', () => {
+    const { renderBlockedCveSection } = require('./summary-findings.js');
+    const lines = renderBlockedCveSection({
+        requested: ['CVE-2024-0001', 'CVE-2024-0002', 'CVE-2024-0003'],
+        matched: ['CVE-2024-0001', 'CVE-2024-0002', 'CVE-2024-0003'],
+        findings: [
+            { band: 'low', score: 3, cve: 'CVE-2024-0001', title: 'baixo', library: 'a@1' },
+            { band: 'critical', score: 9.8, cve: 'CVE-2024-0002', title: 'crítico', library: 'b@1' },
+            { band: 'high', score: 7.5, cve: 'CVE-2024-0003', title: 'alto', library: 'c@1' }
+        ]
+    });
+    const rows = lines.filter((line) => /^\| \d+ \|/.test(line));
+    assert.deepEqual(rows.map((row) => row.split(' | ')[2]), ['CVE-2024-0002', 'CVE-2024-0003', 'CVE-2024-0001']);
+    assert.match(rows[0], /^\| 1 \| 🔴 Very High \|/);
+});

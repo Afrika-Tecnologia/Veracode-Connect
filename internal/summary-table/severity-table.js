@@ -78,6 +78,19 @@ function emptyCounts() {
     return { critical: 0, high: 0, medium: 0, low: 0, very_low: 0, total: 0 };
 }
 
+/**
+ * Cópia ordenada de Very High a Very Low; na mesma faixa, maior `score` primeiro (quando houver).
+ * Estável: findings empatados mantêm a ordem recebida.
+ */
+function sortBySeverity(findings) {
+    const rank = (finding) => {
+        const index = BANDS.indexOf(finding.severity);
+        return index === -1 ? BANDS.length : index;
+    };
+    const score = (finding) => (Number.isFinite(Number(finding.score)) ? Number(finding.score) : -1);
+    return findings.slice().sort((a, b) => rank(a) - rank(b) || score(b) - score(a));
+}
+
 /** Conta findings já normalizados com `severity` em uma das BANDS. */
 function countBands(findings) {
     const counts = emptyCounts();
@@ -100,4 +113,4 @@ function severityTable(rows) {
     ];
 }
 
-module.exports = { BANDS, BAND_LABEL, ROW, cvssBand, normalizeSeverity, emptyCounts, countBands, severityTable };
+module.exports = { BANDS, BAND_LABEL, ROW, cvssBand, normalizeSeverity, sortBySeverity, emptyCounts, countBands, severityTable };

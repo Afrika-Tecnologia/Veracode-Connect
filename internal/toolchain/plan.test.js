@@ -41,14 +41,35 @@ test('refreshPeriod gera janelas diária, semanal e mensal em UTC', () => {
 test('requiredTools espelha as condições do action.yml raiz', () => {
     assert.deepEqual(requiredTools({}), { pipeline: false, cli: false, sca: false });
     assert.deepEqual(requiredTools({ ENABLE_PIPELINESCAN: 'true' }), { pipeline: true, cli: false, sca: false });
-    assert.deepEqual(requiredTools({ BASELINE_MODE: 'repo' }), { pipeline: true, cli: false, sca: false });
-    assert.deepEqual(requiredTools({ BASELINE_MODE: 'portal_afrika' }), { pipeline: true, cli: false, sca: false });
     assert.deepEqual(requiredTools({ ENABLE_IAC: 'true' }), { pipeline: false, cli: true, sca: false });
     assert.deepEqual(requiredTools({ ENABLE_SCA: 'true' }), { pipeline: false, cli: false, sca: true });
-    // Auto Packager só roda quando pipeline/upload/baseline precisam de artefato.
+    // Auto Packager só roda quando o Pipeline Scan ou o Upload & Scan precisam de artefato.
     assert.deepEqual(requiredTools({ ENABLE_AUTO_PACKAGER: 'true' }), { pipeline: false, cli: false, sca: false });
     assert.deepEqual(requiredTools({ ENABLE_AUTO_PACKAGER: 'true', ENABLE_UPLOAD_SCAN: 'true' }), { pipeline: false, cli: true, sca: false });
     assert.deepEqual(requiredTools({ ENABLE_AUTO_PACKAGER: 'true', ENABLE_PIPELINESCAN: 'true' }), { pipeline: true, cli: true, sca: false });
+});
+
+test('requiredTools: enable_pipelinescan decide o Pipeline Scan em todos os modos de baseline', () => {
+    for (const mode of ['none', 'repo', 'portal_afrika']) {
+        for (const flag of ['true', 'false']) {
+            for (const packager of ['true', 'false']) {
+                const tools = requiredTools({ BASELINE_MODE: mode, ENABLE_PIPELINESCAN: flag, ENABLE_AUTO_PACKAGER: packager });
+                const label = `mode=${mode} pipeline=${flag} packager=${packager}`;
+                assert.equal(tools.pipeline, flag === 'true', label);
+                assert.equal(tools.cli, flag === 'true' && packager === 'true', label);
+                assert.equal(tools.sca, false, label);
+            }
+        }
+    }
+    // SCA, IaC e Upload & Scan seguem independentes do Pipeline Scan desligado.
+    assert.deepEqual(
+        requiredTools({ BASELINE_MODE: 'repo', ENABLE_PIPELINESCAN: 'false', ENABLE_SCA: 'true', ENABLE_IAC: 'true' }),
+        { pipeline: false, cli: true, sca: true }
+    );
+    assert.deepEqual(
+        requiredTools({ BASELINE_MODE: 'portal_afrika', ENABLE_PIPELINESCAN: 'false', ENABLE_AUTO_PACKAGER: 'true', ENABLE_UPLOAD_SCAN: 'true' }),
+        { pipeline: false, cli: true, sca: false }
+    );
 });
 
 test('plano completo no Linux X64 usa URLs oficiais, diretórios em RUNNER_TEMP e chaves estáveis', () => {

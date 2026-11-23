@@ -28,7 +28,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const iac = require('../iac-baseline/iac-baseline');
-const { cvssBand } = require('../summary-table/severity-table');
+const { cvssBand, sortBySeverity } = require('../summary-table/severity-table');
 const { message, fail } = require('./messages');
 
 const SCHEMA_VERSION = 1;
@@ -190,7 +190,7 @@ const HEADING = '### 🔍 Veracode SCA (Repo Baseline)';
 
 function detailsBlock(heading, findings, limit) {
     if (!findings.length) return [];
-    const shown = findings.slice(0, limit);
+    const shown = sortBySeverity(findings).slice(0, limit);
     const lines = [
         `<details><summary>${heading} (${findings.length})</summary>`,
         '',

@@ -36,7 +36,7 @@ const errors = {
     BASELINE_ORG_REQUIRED: "baseline_mode=repo requer baseline_org. A organização informada deve conter o repositório de baseline (default 'Afrika-Veracode-Connect-Baseline', ou o valor de baseline_repo_name).",
     BASELINE_AUTH_REQUIRED: 'baseline_mode=repo requer GitHub App (baseline_github_app_id + baseline_github_app_private_key + baseline_github_app_installation_id) ou baseline_github_token (PAT).',
     BASELINE_APP_INCOMPLETE: 'GitHub App incompleto: informe baseline_github_app_id, baseline_github_app_private_key e baseline_github_app_installation_id (ou use baseline_github_token).',
-    SCAN_FILE_REQUIRED: "scan_file é obrigatório quando auto_packager está desativado e pipeline/upload/baseline estão ativos.",
+    SCAN_FILE_REQUIRED: "scan_file é obrigatório quando auto_packager está desativado e o Pipeline Scan ou o Upload & Scan estão ativos.",
     UPLOAD_SCAN_ARTIFACTS_INVALID: "upload_scan_artifacts deve ser 'all' ou 'primary'.",
     PIPELINE_SCAN_MAX_ARTIFACTS_INVALID: "pipeline_scan_max_artifacts deve ser um inteiro entre 1 e 6.",
     PIPELINE_SCAN_RETRY_INVALID: "pipeline_scan_retry deve ser 'true' ou 'false'.",
@@ -78,7 +78,9 @@ const errors = {
 
 const warnings = {
     IAC_BASELINE_WITHOUT_POLICY: "enable_iac_baseline=true com iac_policy='none': os findings novos são mostrados, mas nenhum bloqueia. Informe iac_policy para bloquear pelos findings novos.",
-    APP_INCOMPLETE_PAT_FALLBACK: 'Credenciais de GitHub App incompletas; usando baseline_github_token (PAT) como fallback.'
+    APP_INCOMPLETE_PAT_FALLBACK: 'Credenciais de GitHub App incompletas; usando baseline_github_token (PAT) como fallback.',
+    PORTAL_AFRIKA_WITHOUT_PIPELINE: "enable_pipelinescan=false: o Pipeline Scan não roda e baseline_mode=portal_afrika fica sem efeito (o Portal Afrika só guarda o baseline do Pipeline Scan).",
+    REPO_BASELINE_WITHOUT_PIPELINE: 'enable_pipelinescan=false: o Pipeline Scan não roda; baseline_mode=repo segue valendo só para os baselines SCA e IaC/Secrets.'
 };
 
 const success = {

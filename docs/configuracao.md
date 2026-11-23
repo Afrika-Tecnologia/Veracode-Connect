@@ -11,7 +11,7 @@
 
 ## Como a análise funciona
 
-O Pipeline Scan vem habilitado por padrão. SCA, IaC/Secrets e Upload & Scan são opcionais. Com `baseline_mode: 'none'`, o Pipeline Scan roda sem provedor de baseline; nos outros modos, consulta o baseline antes de analisar. O Upload & Scan envia o artefato para análise estática, mas não espera a análise terminar nem avalia sua policy nesta execução.
+O Pipeline Scan vem habilitado por padrão. SCA, IaC/Secrets e Upload & Scan são opcionais. `enable_pipelinescan` decide sozinho se o Pipeline Scan roda: com `'false'`, ele não roda em nenhum `baseline_mode`. Com o Pipeline Scan ligado e `baseline_mode: 'none'`, ele roda sem provedor de baseline; nos outros modos, consulta o baseline antes de analisar. Com o Pipeline Scan desligado, `baseline_mode: 'repo'` continua servindo os baselines SCA e IaC/Secrets, e `baseline_mode: 'portal_afrika'` fica sem efeito. O Upload & Scan envia o artefato para análise estática, mas não espera a análise terminar nem avalia sua policy nesta execução.
 
 O Auto Packager empacota o conteúdo do commit em análise. Arquivos criados durante o job, incluindo binários de build, não entram nesse pacote; para analisá-los, use `scan_file`. Quando houver vários pacotes elegíveis, o Pipeline Scan analisa até seis em sequência. O Upload & Scan pode receber todos os pacotes gerados ou apenas o principal.
 

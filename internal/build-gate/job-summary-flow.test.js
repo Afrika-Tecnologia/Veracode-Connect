@@ -199,10 +199,10 @@ test('a previous nonblocking policy rejection stays visible without claiming the
     });
 
 for (const [mode, statusKey] of [['repo', 'REPO_BASELINE_OUTCOME'], ['portal_afrika', 'BASELINE_OUTCOME']]) {
-    test(`${mode} rerun clears stale Pipeline details with enable_pipelinescan=false`, { skip: !bashAvailable }, () => {
+    test(`${mode} rerun clears stale Pipeline details with enable_pipelinescan=true`, { skip: !bashAvailable }, () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-baseline-rerun-'));
         try {
-            const env = { ...envFor(dir), BASELINE_MODE: mode };
+            const env = { ...envFor(dir), BASELINE_MODE: mode, ENABLE_PIPELINESCAN: 'true' };
             run(initialize, env);
             writeFragment(env, 'pipeline', 'STALE BASELINE FINDINGS\n');
             finalSummary({ ...env, [statusKey]: 'success' }, 'first.md');
@@ -210,6 +210,23 @@ for (const [mode, statusKey] of [['repo', 'REPO_BASELINE_OUTCOME'], ['portal_afr
             const md = finalSummary({ ...env, [statusKey]: 'warning' }, 'last.md');
             assert.doesNotMatch(md, /STALE BASELINE FINDINGS/);
             assert.match(md, /Warning/);
+        } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    test(`${mode} with enable_pipelinescan=false treats the Pipeline Scan as disabled`, { skip: !bashAvailable }, () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-baseline-disabled-'));
+        try {
+            const env = { ...envFor(dir), BASELINE_MODE: mode };
+            run(initialize, { ...env, ENABLE_PIPELINESCAN: 'true' });
+            writeFragment(env, 'pipeline', 'EARLIER PIPELINE FINDINGS\n');
+            finalSummary({ ...env, [statusKey]: 'success' }, 'first.md');
+            // Segunda execução no mesmo job: baseline_mode ativo, Pipeline Scan desligado.
+            run(initialize, { ...env, ENABLE_PIPELINESCAN: 'false', ENABLE_SCA: 'true' });
+            writeFragment(env, 'sca', 'CURRENT SCA\n');
+            const md = finalSummary({ ...env, SCA_STATUS: 'success' }, 'last.md');
+            // Como qualquer módulo desligado, o Pipeline mantém o resultado anterior e não é limpo.
+            assert.match(md, /EARLIER PIPELINE FINDINGS/);
+            assert.match(md, /Veracode SCA \| ✅ Success/);
         } finally { fs.rmSync(dir, { recursive: true, force: true }); }
     });
 }

@@ -32,7 +32,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { message, fail } = require('./messages');
-const { ROW, severityTable, normalizeSeverity, countBands: countSeverityBands } = require('../summary-table/severity-table');
+const { ROW, severityTable, normalizeSeverity, sortBySeverity, countBands: countSeverityBands } = require('../summary-table/severity-table');
 
 const SCHEMA_VERSION = 1;
 const FINGERPRINT_VERSION = 1;
@@ -270,7 +270,7 @@ function groupsTable(diff) {
 
 function detailsBlock(heading, findings, limit) {
     if (!findings.length) return [];
-    const shown = findings.slice(0, limit);
+    const shown = sortBySeverity(findings).slice(0, limit);
     const lines = [
         `<details><summary>${heading} (${findings.length})</summary>`,
         '',

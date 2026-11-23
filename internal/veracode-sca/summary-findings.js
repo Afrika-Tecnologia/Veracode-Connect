@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { message } = require('./messages');
-const { cvssBand } = require('../summary-table/severity-table');
+const { cvssBand, sortBySeverity } = require('../summary-table/severity-table');
 
 function readJson(filePath) {
     try {
@@ -191,7 +191,7 @@ function renderBlockedCveSection(blocked) {
     } else {
         lines.push('| # | Severidade | CVE | Descrição | Biblioteca |');
         lines.push('|---|---|---|---|---|');
-        lines.push(...findingsTableRows(findings));
+        lines.push(...findingsTableRows(sortBySeverity(findings.map((finding) => ({ ...finding, severity: finding.band })))));
         lines.push('');
     }
     if (missing.length > 0) {
@@ -224,7 +224,6 @@ function loadBlockedArtifact(blockedPath) {
 
 /** Lê o resultado SCA como findings normalizados ({severity, id, title, library}) ou só contagens. */
 function loadScaFindings(paths) {
-    // Carregado sob demanda: sca-baseline depende deste módulo.
     const { extractFindings, isScaResults } = require('../sca-baseline/sca-baseline');
     for (const candidate of [paths.json, paths.txt, paths.log]) {
         const data = readJson(candidate);

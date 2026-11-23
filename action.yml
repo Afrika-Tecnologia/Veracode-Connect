@@ -53,7 +53,7 @@ inputs:
     required: false
     default: 'true'
   enable_pipelinescan:
-    description: 'Ativa/desativa o Veracode Pipeline Scan quando baseline_mode=none (true/false).'
+    description: 'Ativa/desativa o Veracode Pipeline Scan em qualquer baseline_mode. Com false, o Pipeline Scan não roda nem com baseline_mode=repo ou portal_afrika (true/false).'
     required: false
     default: 'true'
   enable_upload_scan:
@@ -422,11 +422,11 @@ runs:
         baseline_github_token: ${{ inputs.baseline_github_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
 
-    # ── 4. Preparar scan file (somente se pipeline/upload/baseline precisar) ─
+    # ── 4. Preparar scan file (somente se Pipeline Scan ou Upload & Scan precisar) ─
     - name: Preparar scan file
       id: prepare_scan_file
       continue-on-error: true
-      if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true' || steps.validate.outputs.baseline_mode == 'portal_afrika' || steps.validate.outputs.baseline_mode == 'repo')
+      if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true')
       uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
@@ -444,7 +444,7 @@ runs:
     - name: Portal Afrika Baseline Flow
       id: baseline_flow
       continue-on-error: true
-      if: steps.validate.outputs.baseline_mode == 'portal_afrika'
+      if: steps.validate.outputs.baseline_mode == 'portal_afrika' && inputs.enable_pipelinescan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/portal-afrika-baseline-flow@v1
       with:
         portal_afrika_api_key: ${{ inputs.portal_afrika_api_key }}
@@ -468,7 +468,7 @@ runs:
     - name: Repo baseline flow
       id: repo_baseline_flow
       continue-on-error: true
-      if: steps.validate.outputs.baseline_mode == 'repo'
+      if: steps.validate.outputs.baseline_mode == 'repo' && inputs.enable_pipelinescan == 'true'
       uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1
       with:
         baseline_org: ${{ inputs.baseline_org }}
@@ -517,13 +517,13 @@ runs:
     - name: Pipeline Scan desativado (definir status)
       id: pipeline_disabled_status
       continue-on-error: true
-      if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan != 'true'
+      if: inputs.enable_pipelinescan != 'true'
       shell: bash
       run: |
         set -euo pipefail
         echo "::group::Pipeline Scan desativado"
         echo "pipeline_status=pipeline_scan_disabled" >> "$GITHUB_OUTPUT"
-        echo "Pipeline Scan desativado (enable_pipelinescan != true e baseline_mode=none)."
+        echo "Pipeline Scan desativado (enable_pipelinescan != true), independentemente do baseline_mode."
         echo "Status definido: \"pipeline_scan_disabled\""
         echo "::endgroup::"
 

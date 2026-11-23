@@ -72,9 +72,16 @@ if (modeResult.error) {
     erros.push(modeResult.error);
 }
 const resolvedBaselineMode = modeResult.mode || 'none';
+// enable_pipelinescan é a condição definitiva do Pipeline Scan: o baseline_mode não o liga.
+const pipelineEnabled = ENABLE_PIPELINE === 'true';
 const needsBaselineRepo = resolvedBaselineMode === 'repo' || (ENABLE_IAC === 'true' && ENABLE_IAC_CONFIGS === 'true');
 setOutput('baseline_mode', resolvedBaselineMode);
 console.log(message('success', 'BASELINE_MODE_RESOLVED', { mode: resolvedBaselineMode }));
+if (!pipelineEnabled && resolvedBaselineMode === 'portal_afrika') {
+    console.log("::warning::" + message('warning', 'PORTAL_AFRIKA_WITHOUT_PIPELINE'));
+} else if (!pipelineEnabled && resolvedBaselineMode === 'repo') {
+    console.log("::notice::" + message('warning', 'REPO_BASELINE_WITHOUT_PIPELINE'));
+}
 
 if (!VID) erros.push(message('error', 'VID_REQUIRED'));
 if (!VKEY) erros.push(message('error', 'VKEY_REQUIRED'));
@@ -119,7 +126,8 @@ for (const token of String(SCA_FAIL_ON_SEVERITY || '').split(',')) {
     }
 }
 
-if (resolvedBaselineMode === 'portal_afrika') {
+// O Portal Afrika só guarda o baseline do Pipeline Scan.
+if (resolvedBaselineMode === 'portal_afrika' && pipelineEnabled) {
     if (!PORTAL_AFRIKA_KEY) erros.push(message('error', 'PORTAL_AFRIKA_KEY_REQUIRED'));
     if (PORTAL_AFRIKA_URL) {
         if (PORTAL_AFRIKA_URL.endsWith('/')) erros.push(message('error', 'PORTAL_URL_TRAILING_SLASH', { url: PORTAL_AFRIKA_URL }));
@@ -153,11 +161,7 @@ if (needsBaselineRepo) {
     setOutput('baseline_repo_name', baselineRepoName);
 }
 
-const needsScanFile =
-    ['true'].includes(ENABLE_PIPELINE) ||
-    ['true'].includes(ENABLE_UPLOAD) ||
-    resolvedBaselineMode === 'portal_afrika' ||
-    resolvedBaselineMode === 'repo';
+const needsScanFile = pipelineEnabled || ENABLE_UPLOAD === 'true';
 
 if (needsScanFile && ENABLE_AUTO_PACKAGER !== 'true' && !SCAN_FILE) {
     erros.push(message('error', 'SCAN_FILE_REQUIRED'));

@@ -93,6 +93,7 @@ test('validate-inputs falha quando baseline_mode=portal_afrika sem portal_afrika
             VID: '123',
             VKEY: 'abc123bb',
             BASELINE_MODE: 'portal_afrika',
+            ENABLE_PIPELINE: 'true',
             ENABLE_AUTO_PACKAGER: 'true'
         }
     });

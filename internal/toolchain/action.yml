@@ -19,7 +19,7 @@ inputs:
     required: false
     default: 'false'
   baseline_mode:
-    description: 'none | portal_afrika | repo (os fluxos de baseline também rodam Pipeline Scan).'
+    description: 'none | portal_afrika | repo. Mantido por compatibilidade; o Pipeline Scan depende só de enable_pipelinescan.'
     required: false
     default: 'none'
   enable_upload_scan:

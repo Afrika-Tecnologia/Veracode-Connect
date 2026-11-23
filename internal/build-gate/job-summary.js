@@ -46,8 +46,7 @@ function prepare(context) {
     const prior = readState(context);
     const state = prior || { scope: scope(context), inputs: {}, fragments: {} };
     const enabled = {
-        pipeline: context.ENABLE_PIPELINESCAN === 'true' || ['repo', 'portal_afrika'].includes(context.BASELINE_MODE)
-            ? 'true' : 'false',
+        pipeline: context.ENABLE_PIPELINESCAN === 'true' ? 'true' : 'false',
         sca: context.ENABLE_SCA, iac: context.ENABLE_IAC,
         upload: context.ENABLE_UPLOAD_SCAN, packager: context.ENABLE_AUTO_PACKAGER
     };

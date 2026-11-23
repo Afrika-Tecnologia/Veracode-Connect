@@ -74,7 +74,12 @@ const scenarios = [
     { name: 'Pipeline findings with blocking disabled', iac: 'not_used', pipeline: true, violations: '1', policyFail: 'false', blocked: 'false', pipelineStatus: 'failure' },
     { name: 'IaC policy evaluation unavailable', iac: 'error', pipeline: false, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' },
     { name: 'all policies passed', iac: 'passed', pipeline: true, violations: '0', policyFail: 'true', blocked: 'false', pipelineStatus: 'success' },
-    { name: 'bypass preserves the job despite policy rejection', bypass: 'true', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'failure' }
+    { name: 'bypass preserves the job despite policy rejection', bypass: 'true', iac: 'failed', pipeline: true, violations: '1', policyFail: 'true', blocked: 'false', pipelineStatus: 'failure' },
+    // enable_pipelinescan=false: o flow de baseline é pulado e não deixa outputs.
+    { name: 'Repo mode with Pipeline Scan disabled still blocks by IaC', mode: 'repo', flowSkipped: true, iac: 'failed', pipeline: false, violations: '', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'Repo mode with Pipeline Scan disabled passes without a Pipeline row', mode: 'repo', flowSkipped: true, iac: 'passed', pipeline: false, violations: '', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' },
+    { name: 'Portal mode with Pipeline Scan disabled still blocks by SCA', mode: 'portal_afrika', flowSkipped: true, sca: 'failure', iac: 'not_used', pipeline: false, violations: '', policyFail: 'true', blocked: 'true', pipelineStatus: 'skipped' },
+    { name: 'Portal mode with Pipeline Scan disabled passes without a Pipeline row', mode: 'portal_afrika', flowSkipped: true, iac: 'passed', pipeline: false, violations: '', policyFail: 'true', blocked: 'false', pipelineStatus: 'skipped' }
 ];
 
 for (const scenario of scenarios) {
@@ -113,15 +118,17 @@ for (const scenario of scenarios) {
                 'steps.veracode_sca.outputs.sca_status': scaStatus,
                 'steps.veracode_iac.outputs.iac_policy_status': scenario.iac,
                 'steps.validate.outputs.baseline_mode': scenario.mode || 'none',
-                [`steps.${provider}.outputs.has_baseline`]: scenario.hasBaseline || 'true',
                 'steps.error_log_init.outputs.start_marker': marker, 'github.workspace': dir,
                 'steps.baseline_flow.outcome': 'skipped', 'steps.repo_baseline_flow.outcome': 'skipped',
                 'steps.pipeline_only.outcome': 'skipped',
-                [`steps.${provider}.outcome`]: scenario.errors ? 'failure' : scenario.pipeline ? 'success' : 'skipped',
-                [`steps.${provider}.outputs.planned_count`]: scenario.planned || (scenario.pipeline ? '1' : '0'),
-                [`steps.${provider}.outputs.scanned_count`]: scenario.pipeline ? '1' : '0',
-                [`steps.${provider}.outputs.scan_error_count`]: scenario.errors || '0',
-                [`steps.${provider}.outputs.policy_violations`]: scenario.violations
+                ...(scenario.flowSkipped ? {} : {
+                    [`steps.${provider}.outputs.has_baseline`]: scenario.hasBaseline || 'true',
+                    [`steps.${provider}.outcome`]: scenario.errors ? 'failure' : scenario.pipeline ? 'success' : 'skipped',
+                    [`steps.${provider}.outputs.planned_count`]: scenario.planned || (scenario.pipeline ? '1' : '0'),
+                    [`steps.${provider}.outputs.scanned_count`]: scenario.pipeline ? '1' : '0',
+                    [`steps.${provider}.outputs.scan_error_count`]: scenario.errors || '0',
+                    [`steps.${provider}.outputs.policy_violations`]: scenario.violations
+                })
             };
             const env = { ...process.env, ...decisionEnv(context), GITHUB_OUTPUT: output };
             const decision = cp.spawnSync(process.execPath, [path.join(__dirname, 'policy-decision.js')], { env, encoding: 'utf8' });
@@ -162,7 +169,9 @@ for (const scenario of scenarios) {
             if (scenario.pipelineStatus === 'failure' && !scenario.mode) assert.match(text, /\| Pipeline Scan \| ❌ Failed \|/);
             if (scenario.validation === 'failure') assert.match(text, /\| Validação de Inputs \| ❌ Failed \|/);
             if (scenario.pipelineStatus === 'skipped') assert.doesNotMatch(text, /\| Pipeline Scan \|/);
-            if (scenario.mode) {
+            if (scenario.mode && scenario.pipelineStatus === 'skipped') {
+                assert.doesNotMatch(text, /\| Pipeline Scan/);
+            } else if (scenario.mode) {
                 const label = scenario.mode === 'repo' ? 'Repo Baseline' : 'Portal Afrika Baseline';
                 const icon = { failure: '❌ Failed', success: '✅ Success', warning: '⚠️ Warning' }[scenario.pipelineStatus];
                 assert.ok(text.includes(`| Pipeline Scan (${label}) | ${icon} |`));

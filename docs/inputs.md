@@ -16,7 +16,7 @@ Os defaults abaixo correspondem ao [manifesto da action](../action.yml). Campos 
 
 | Input | Default | Finalidade |
 | --- | --- | --- |
-| `enable_pipelinescan` | `'true'` | Ativa o Pipeline Scan quando `baseline_mode` é `none`. |
+| `enable_pipelinescan` | `'true'` | Ativa o Pipeline Scan. É a condição definitiva: com `'false'`, o Pipeline Scan não roda em nenhum `baseline_mode`, inclusive `repo` e `portal_afrika`; os baselines SCA e IaC/Secrets do modo `repo` continuam valendo. |
 | `pipeline_scan_max_artifacts` | `'6'` | Limite de artefatos do Pipeline Scan, de 1 a 6. |
 | `pipeline_scan_pace_seconds` | `'12'` | Intervalo entre inícios de scans. |
 | `pipeline_scan_retry` | `'true'` | Repete uma vez scans sem resultado válido. |

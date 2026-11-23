@@ -51,8 +51,8 @@ function isTrue(value) {
 
 /** Ferramentas exigidas pela combinação de inputs, espelhando as condições do action.yml raiz. */
 function requiredTools(env) {
-    const baselineMode = String(env.BASELINE_MODE || 'none').trim();
-    const pipeline = isTrue(env.ENABLE_PIPELINESCAN) || baselineMode === 'repo' || baselineMode === 'portal_afrika';
+    // enable_pipelinescan é a condição definitiva: o baseline_mode não liga o Pipeline Scan.
+    const pipeline = isTrue(env.ENABLE_PIPELINESCAN);
     const packager = isTrue(env.ENABLE_AUTO_PACKAGER) && (pipeline || isTrue(env.ENABLE_UPLOAD_SCAN));
     return {
         pipeline,

@@ -6,6 +6,14 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-11-26
+
+### Changed
+
+- Cada tag passa a congelar a versão inteira, sub-actions incluídas. A partir desta versão, a tag `vX.Y.Z` fica num commit de release, filho do merge na `main`, que só troca as chamadas `Afrika-Tecnologia/Veracode-Connect/internal/<modulo>@v1` por `@vX.Y.Z`. Quem fixa `@vX.Y.Z` roda a raiz e as sub-actions dessa versão; `@vX.Y` acompanha a última `X.Y.Z` e `@v1` continua sendo a última release. Antes, fixar uma versão congelava só a raiz: as sub-actions resolviam pela `v1` e mudavam a cada release.
+- Quem fixa a action pelo SHA do commit passa a usar o SHA da tag (o commit de release), que não está na `main`.
+- As tags até a `v1.9.2` não mudam: continuam no commit da `main`, e as sub-actions delas seguem resolvendo pela `v1`.
+
 ## [1.9.2] - 2026-11-23
 
 ### Fixed

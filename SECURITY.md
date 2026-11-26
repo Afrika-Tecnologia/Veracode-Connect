@@ -6,7 +6,9 @@ Esta Action segue versionamento semântico. Em geral, apenas a última versão `
 
 Versões suportadas:
 
-- `v1.9.2`, com os aliases `v1.9` e `v1` apontando para o mesmo commit publicado na `main`.
+- `v1.9.3`, com os aliases `v1.9` e `v1` apontando para o mesmo commit de release, filho do merge na `main`.
+
+A partir da versão `v1.9.3`, fixar uma versão (`@v1.9.3`) ou o SHA da tag congela todo o código executado: o commit de release troca as chamadas `Afrika-Tecnologia/Veracode-Connect/internal/<modulo>@v1` por `@v1.9.3`, e a única diferença dele para a `main` são essas refs. Até a `v1.9.2`, as sub-actions resolviam pela tag móvel `v1` e mudavam a cada release, mesmo para quem fixava uma versão ou um SHA. A versão não muda credenciais, permissões, dados gravados nem acessos de rede.
 
 A versão `v1.9.2` faz `enable_pipelinescan: 'false'` desligar o Pipeline Scan também nos modos `repo` e `portal_afrika`. Com a flag desligada, a action não baixa o Pipeline Scan, não consulta nem grava o `baseline.json` do Pipeline Scan, não chama o Portal Afrika e deixa de exigir `portal_afrika_api_key`. O acesso ao repositório de baseline continua sendo usado pelos baselines SCA e IaC/Secrets e pelas regras IaC centralizadas, com as mesmas credenciais e permissões.
 

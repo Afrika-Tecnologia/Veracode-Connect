@@ -36,7 +36,7 @@ O mirror precisa aceitar leitura anônima. O sha256 pinado da CLI continua sendo
 
 ```yaml
 - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.2
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.3
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}

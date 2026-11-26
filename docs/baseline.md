@@ -8,7 +8,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
 
 ```yaml
 - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.2
+- uses: Afrika-Tecnologia/Veracode-Connect@v1.9.3
   with:
     veracode_api_id: ${{ secrets.VERACODE_API_ID }}
     veracode_api_key: ${{ secrets.VERACODE_API_KEY }}
@@ -21,7 +21,7 @@ Coloque `veracode.yml` na raiz do repositório de baseline. Este exemplo executa
     baseline_github_token: ${{ secrets.BASELINE_GITHUB_TOKEN }}
 ```
 
-O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.9` também apontam para a versão `v1.9.2`.
+O arquivo é baixado da branch padrão do baseline; informe `baseline_repo_branch` para selecionar outra branch. O download substitui o `veracode.yml` da raiz do workspace e suas regras são aplicadas no `HOME` temporário usado pelo IaC. `@v1` e `@v1.9` também apontam para a versão `v1.9.3`.
 
 ## Baseline IaC/Secrets
 

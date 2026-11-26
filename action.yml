@@ -276,13 +276,13 @@ runs:
     - name: Verificar pré-requisitos de runtime
       id: ensure_runtime
       continue-on-error: true
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/ensure-runtime@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/ensure-runtime@v1.9.3
 
     # ── 0a. Resolver platform type (GitHub.com vs GHES) ───────────────
     - name: Resolver platform type
       id: resolve_platform
       continue-on-error: true
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-platform-type@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-platform-type@v1.9.3
 
     # ── 0b. Gerar ID único para artefatos desta execução ─────────────
     - name: Gerar ID único de scan
@@ -301,7 +301,7 @@ runs:
     - name: Validar inputs
       id: validate
       continue-on-error: true
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/validate-inputs@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/validate-inputs@v1.9.3
       with:
         enable_sca: ${{ inputs.enable_sca }}
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
@@ -352,7 +352,7 @@ runs:
       id: toolchain
       continue-on-error: true
       if: inputs.enable_tools_cache == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/toolchain@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/toolchain@v1.9.3
       with:
         enable_tools_cache: ${{ inputs.enable_tools_cache }}
         tools_cache_refresh: ${{ inputs.tools_cache_refresh }}
@@ -369,7 +369,7 @@ runs:
       id: deps_cache
       continue-on-error: true
       if: (inputs.cache_dependencies == 'true' || inputs.maven_mirror_url != '') && (inputs.enable_sca == 'true' || inputs.enable_auto_packager == 'true')
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1.9.3
       with:
         mode: restore
         cache_dependencies: ${{ inputs.cache_dependencies }}
@@ -383,7 +383,7 @@ runs:
       id: veracode_sca
       continue-on-error: true
       if: inputs.enable_sca == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-sca@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-sca@v1.9.3
       with:
         veracode_sca_token: ${{ inputs.veracode_sca_token }}
         artifact_suffix: ${{ steps.scan_id_gen.outputs.scan_id }}
@@ -406,7 +406,7 @@ runs:
       id: veracode_iac
       continue-on-error: true
       if: inputs.enable_iac == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-iac@v1.9.3
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -427,7 +427,7 @@ runs:
       id: prepare_scan_file
       continue-on-error: true
       if: (success() || failure()) && (inputs.enable_pipelinescan == 'true' || inputs.enable_upload_scan == 'true')
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/auto-packager@v1.9.3
       with:
         enable_auto_packager: ${{ inputs.enable_auto_packager }}
         scan_file: ${{ inputs.scan_file }}
@@ -438,14 +438,14 @@ runs:
       id: resolve_repo
       continue-on-error: true
       if: success() || failure()
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/resolve-repo@v1.9.3
 
     # ── 6a. Portal Afrika Baseline Flow ─────────────────────────────────────
     - name: Portal Afrika Baseline Flow
       id: baseline_flow
       continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'portal_afrika' && inputs.enable_pipelinescan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/portal-afrika-baseline-flow@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/portal-afrika-baseline-flow@v1.9.3
       with:
         portal_afrika_api_key: ${{ inputs.portal_afrika_api_key }}
         portal_afrika_base_url: ${{ inputs.portal_afrika_base_url }}
@@ -469,7 +469,7 @@ runs:
       id: repo_baseline_flow
       continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'repo' && inputs.enable_pipelinescan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/repo-baseline-flow@v1.9.3
       with:
         baseline_org: ${{ inputs.baseline_org }}
         baseline_repo_name: ${{ inputs.baseline_repo_name }}
@@ -498,7 +498,7 @@ runs:
       id: pipeline_only
       continue-on-error: true
       if: steps.validate.outputs.baseline_mode == 'none' && inputs.enable_pipelinescan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-only@v1.9.3
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -532,7 +532,7 @@ runs:
       id: upload_and_scan
       continue-on-error: true
       if: (success() || failure()) && inputs.enable_upload_scan == 'true'
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/veracode-upload-scan@v1.9.3
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
@@ -549,7 +549,7 @@ runs:
       id: deps_cache_save
       continue-on-error: true
       if: always() && (steps.deps_cache.outcome == 'success' || steps.deps_cache.outcome == 'failure')
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/dependency-cache@v1.9.3
       with:
         mode: save
         cache_dependencies: ${{ inputs.cache_dependencies }}
@@ -584,7 +584,7 @@ runs:
       id: build_gate
       if: always()
       continue-on-error: true
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/build-gate@v1.9.3
       with:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         veracode_url: ${{ inputs.veracode_url }}
@@ -606,7 +606,7 @@ runs:
       if: always() && inputs.comment_pr == 'true'
       id: pr_comment
       continue-on-error: true
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/pr-comment@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/pr-comment@v1.9.3
       with:
         fail_build: ${{ steps.policy_decision.outputs.blocked || 'false' }}
         veracode_url: ${{ inputs.veracode_url }}

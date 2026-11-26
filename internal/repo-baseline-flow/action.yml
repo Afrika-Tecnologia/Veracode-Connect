@@ -128,7 +128,7 @@ runs:
 
     - name: Rodar Veracode Pipeline Scan
       id: pipeline_set
-      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1
+      uses: Afrika-Tecnologia/Veracode-Connect/internal/pipeline-scan-set@v1.9.3
       with:
         veracode_api_id: ${{ inputs.veracode_api_id }}
         veracode_api_key: ${{ inputs.veracode_api_key }}
